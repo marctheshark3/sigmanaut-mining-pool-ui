@@ -1,0 +1,7 @@
+user_defined:
+    wallet: '9eZPTmn8zp5GJ7KZwTo8cEuxNdezWaY3hBbLeWid7EAZedzb9tD'
+    token_id: '9f087ebb5d7baf7eb8f13b742e9a9b5b1b8d78b7a7f84d1f9b9d393f4888d679'
+    
+default_values:
+    url: 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
+    token_ls: 'https://api.ergo.aap.cornell.edu/api/v1/tokens'
