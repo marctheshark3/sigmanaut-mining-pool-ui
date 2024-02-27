@@ -1,2 +1,4 @@
 hydra-core
-    
+dash
+pandas
+dash-bootstrap-components
