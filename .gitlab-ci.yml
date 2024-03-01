@@ -1,0 +1,9 @@
+build_image:
+  image: docker:latest
+  services:
+    - docker:dind
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE/myapp:latest .
+    - docker push $CI_REGISTRY_IMAGE/myapp:latest
