@@ -4,6 +4,7 @@
 Put your Mining Address and token of interest, as needed, in the conf.yaml, for example:
 ```yaml
 user_defined:
+    # For Example
     wallet: '9f2nrcC2NHsx96RmN52g3GVV3kXkZQPkNG8M6SVpSRqdmaxVtGv'
 ```
 
