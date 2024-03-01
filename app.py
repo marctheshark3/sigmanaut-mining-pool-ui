@@ -1,4 +1,5 @@
-from utils.reader import SigmaWalletReader
+from utils.reader import SigmaWalletReader, PriceReader
+from utils.dash_utils import create_pie_chart, create_bar_chart, create_table_component
 from dash import Dash, html, dash_table, dcc
 import dash_bootstrap_components as dbc
 
@@ -7,181 +8,174 @@ import plotly.express as px
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 
-sigma_reader = SigmaWalletReader(config_path="../conf")
-
-# Fetch data using SigmaWalletReader instance
-mining_df, performance_df = sigma_reader.get_mining_stats()
-block_df, miner_df, effort_df = sigma_reader.get_block_stats()
-pool_df, top_miner_df = sigma_reader.get_pool_stats()
-
-mining_data_df = pd.concat([mining_df, effort_df])
-top_miner_df_sorted = top_miner_df.sort_values(by='hashrate', ascending=True)
-
-block_df['created'] = pd.to_datetime(block_df['created'])
-
-# Create bar charts
-miner_chart = px.bar(miner_df, y='Miner', x='Number of Blocks Found', title='Number of Blocks Found by Miner',
-                    color='my_wallet',  # This will automatically assign different colors
-                    color_discrete_map={True: 'blue', False: 'red'})  # Custom colors for True/False)
-
-top_miner_chart = px.bar(top_miner_df_sorted, y='miner', x='hashrate', title='Top Miners by Shares',
-                         color='my_wallet',  # This will automatically assign different colors
-                         color_discrete_map={True: 'blue', False: 'red'}
-                        )  # Custom colors for True/False)
-
-effort_chart = px.bar(block_df, x='created', y='effort', color='networkDifficulty',
-                      title='Block Effort Over Time',
-                      labels={'created': 'Block Creation Date', 'effort': 'Effort', 'networkDifficulty': 'Network Difficulty'},
-                      color_continuous_scale=px.colors.sequential.Viridis)
-
-my_wallet_blocks = block_df[block_df['my_wallet']]
-
-effort_chart.add_trace(go.Scatter(
-    x=my_wallet_blocks['created'],
-    y=my_wallet_blocks['effort'],
-    mode='markers',
-    marker=dict(
-        color='Red',  # Sets the color of the markers
-        size=10,  # Sets the size of the markers
-        symbol='circle'  # Sets the shape of the markers
-    ),
-    name='My Wallet'
-))
-
-effort_chart.update_layout(
-    title='Effort and My Wallet Blocks',
-    xaxis_title='Creation Date',
-    yaxis_title='Effort',
-    legend_title='Legend',
-    coloraxis=dict(colorscale='Viridis'),  # Color scale for the bar colors
-    legend=dict(
-        yanchor="top",
-        y=0.99,  # Adjusts vertical position; 1.0 is top, 0 is bottom
-        xanchor="right",
-        x=0.99 ) # Adjusts horizontal position; 1.0 is right, 0 is left
-)
-charts = [miner_chart, top_miner_chart, effort_chart]
-for chart in charts:
-    chart.update_layout(
-        plot_bgcolor='rgba(0,0,0,0)',  # Transparent background
-        paper_bgcolor='rgba(0,0,0,0)',  # Transparent surrounding
-        font_color='white',  # Light text suitable for dark backgrounds
-        title_font_color='white',  # Ensure title is visible
-        legend_title_font_color='white',  # Ensure legend title is visible
-        xaxis=dict(
-            title_font_color='white',
-            tickfont_color='white',
-            gridcolor='grey'  # Lighter grid lines for visibility
-        ),
-        yaxis=dict(
-            title_font_color='white',
-            tickfont_color='white',
-            gridcolor='grey'
-        )
-    )
-
-style_table_container = {'flex': '1 1 auto', 'minWidth': '250px',
-                         'overflowX': 'auto', 'overflowY': 'auto',
-                         'backgroundColor': 'rgb(30, 30, 30)',
-                         'color': 'white'}
-
 # Initialize the Dash app
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
-# Define the layout of the app
+sigma_reader = SigmaWalletReader(config_path="../conf")
+price_reader = PriceReader()
+wallet = '{}...{}'.format(sigma_reader.wallet[:5], sigma_reader.wallet[-5:])
+
+def update_charts():
+    global mining_df, performance_df, block_df, miner_df, effort_df, pool_df, top_miner_df, btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty
+
+    mining_df, performance_df = sigma_reader.get_mining_stats()
+    block_df, miner_df, effort_df = sigma_reader.get_block_stats()
+    pool_df, top_miner_df = sigma_reader.get_pool_stats()
+    btc_price, erg_price = price_reader.get()
+    
+    pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 5)
+    your_total_hash = round(performance_df[performance_df['Worker'] == 'Totals']['Hashrate [Mh/s]'].iloc[0], 5)
+    avg_block_effort = round(effort_df[effort_df['Mining Stats'] == 'Average Block Effort']['Values'].iloc[0], 5)
+    network_hashrate = round(pool_df[pool_df['Pool Stats'] == 'networkHashrate [Th/s]']['Values'].iloc[0], 5)
+    network_difficulty = round(pool_df[pool_df['Pool Stats'] == 'networkDifficulty [Peta]']['Values'].iloc[0], 5)
+    
+    # Masking Values we dont need in the tables
+    mask = performance_df['Worker'] == 'Totals'
+    mask_performance_df = performance_df[~mask]
+    
+    values_to_drop = ['networkHashrate [Th/s]', 'networkDifficulty [Peta]',
+                      'poolHashrate [Gh/s]', 'networkType', 'connectedPeers', 'rewardType']
+    mask = pool_df['Pool Stats'].isin(values_to_drop)
+    pool_df = pool_df[~mask]
+    
+    # Creating Charts
+    miner_chart = create_pie_chart(miner_df, 'miner', 'Number of Blocks Found')
+    top_miner_chart = create_pie_chart(top_miner_df, 'miner', 'hashrate')
+    estimated_reward = create_pie_chart(top_miner_df, 'miner', 'ProjectedReward', est_reward=True)
+    
+    
+    effort_chart = create_bar_chart(block_df, x='Time Found', y='effort',
+                                    color='networkDifficulty', 
+                                    labels={'Time Found': 'Block Creation Date',
+                                            'effort': 'Effort', 'networkDifficulty': 'Network Difficulty'})
+    
+    # adding a circle to the effort chart if you found the block
+    my_wallet_blocks = block_df[block_df['my_wallet']]
+    # block_df = block_df.drop(['my_wallet'], axis=1) # might need to change the name of this df
+    effort_chart.add_trace(go.Scatter(x=my_wallet_blocks['Time Found'], y=my_wallet_blocks['effort'], mode='markers',
+                                      marker=dict(color='Red', size=10, symbol='circle'), name='My Wallet'))
+    
+
+    # Define the style for the crypto prices
+    metric_style = {
+        'padding': '20px',
+        'fontSize': '20px',
+        'margin': '10px',
+        'border': '1px solid #555',  # Adjusted for dark mode
+        'borderRadius': '5px',
+        'background': '#333',  # Dark background
+        'color': '#fff',  # Light text color
+        'boxShadow': '0 2px 4px rgba(255,255,255,.1)',  # Subtle white shadow for depth
+        'minWidth': '150px',  # Ensure blocks don't become too narrow
+        'textAlign': 'center'  # Center text horizontally
+    }
+
+    # Create the crypto prices HTML div elements as a row
+    
+    crypto_prices_row = html.Div([
+                                html.Div(f"BTC: ${btc_price}", style=metric_style),
+                                html.Div(f"ERG: ${erg_price}", style=metric_style),
+                                html.Div(f"Total Hashrate: {your_total_hash} Mh/s", style=metric_style),
+                                html.Div(f"Pool Hashrate: {pool_hash} Gh/s", style=metric_style),
+                                html.Div(f"Network Hashrate: {network_hashrate} Th/s", style=metric_style),
+                                html.Div(f"Average Block Effort: {avg_block_effort}", style=metric_style),
+                                html.Div(f"Network Difficulty: {network_difficulty} P", style=metric_style),
+                            ], style={'display': 'flex', 'flexDirection': 'row', 'justifyContent': 'center'})
+    return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row
+
+miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row= update_charts()
+
 app.layout = html.Div(children=[
-    html.H1(children='Sigma Mining Pool Dashboard'),
+    html.H1(children='Sigma Mining Pool Dashboard - {}'.format(wallet)),
+    html.Div(id='crypto-prices', children=[]),
+    dcc.Interval(
+        id='interval-component',
+        interval=60*1000,  # in milliseconds
+        n_intervals=0
+    ),
+  
+    html.Div([html.Div(create_table_component('Payment Stats', 'mining-stats',
+                                           mining_df.columns, mining_df, max_table_width='520px'), style={'flex': '1'}),
+              html.Div(create_table_component('Your Performance Stats', 'performance-stats',
+                                               mask_performance_df.columns, mask_performance_df, max_table_width='600px'), style={'flex': '1'}),
+              html.Div(create_table_component('Pool and Network Stats', 'pool-stats',
+                                           pool_df.columns, pool_df, max_table_width='600px'), style={'flex': '1'}),],
+             style={'display': 'flex'}),
 
-    # Container for tables in the same row
-    html.Div(children=[
-        # Mining Statistics Table with flex styling
-        html.Div(children=[
-            html.H2('Payment Stats'),
-            dash_table.DataTable(
-                id='mining-stats',
-                columns=[{"name": i, "id": i} for i in mining_data_df.columns],
-                data=mining_data_df.to_dict('records'),
-                style_table=style_table_container,
-                style_header={'backgroundColor': 'rgb(30, 30, 30)', 'color': 'white'},
-                style_cell={'backgroundColor': 'rgb(50, 50, 50)', 'color': 'white', 'minWidth': '150px', 'width': '150px', 'maxWidth': '150px'},  # Ensure cells have enough space
-                style_as_list_view=True,  # Optional, for aesthetics
-            ),
-        ], style={'flex': 1}),  # Adjust flex value as needed for sizing
-
-        # Performance Statistics Table with flex styling
-        html.Div(children=[
-            html.H2('Your Performance Stats'),
-            dash_table.DataTable(
-                id='performance-stats',
-                columns=[{"name": i, "id": i} for i in performance_df.columns],
-                data=performance_df.to_dict('records'),
-                style_table=style_table_container,
-                style_header={'backgroundColor': 'rgb(30, 30, 30)', 'color': 'white'},
-                style_cell={'backgroundColor': 'rgb(50, 50, 50)', 'color': 'white',},
+    
+    dcc.Graph(
+        id='network-difficulty-plot',
+        figure={'data': [go.Scatter(x=block_df['Time Found'], y=block_df['networkDifficulty'],
+                                    mode='lines+markers', name='Network Difficulty', line={'color': '#00CC96'})],
                 
-            ),
-        ], style={'flex': 1}),  # Adjust flex value as needed for sizing
+                'layout': go.Layout(title='Ergo Network Difficulty Over Time', titlefont={'color': '#FFFFFF'},
+                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                    margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
+                                    legend={'font': {'color': '#FFFFFF'}}, font=dict(color='#FFFFFF'))},
+                                    style={'backgroundColor': 'rgba(17,17,17,1)'}),
+    
+    html.Div(children=[html.Div(children=[html.H2('Blocks Found by Miners'),
+                                          dcc.Graph(id='miner-blocks', figure=miner_chart),],
+                                          style={'flex': 1}),
+                       
+    html.Div(children=[html.H2('Top Miners by Hashrate'),
+                       dcc.Graph(id='top-miner-chart', figure=top_miner_chart)],
+             style={'flex': 1}), 
+    html.Div(children=[html.H2('Estimated Rewards'),
+                       dcc.Graph(id='estimated-reward', figure=estimated_reward)],
+             style={'flex': 1}),],
+             style={'display': 'flex', 'flexDirection': 'row', 'gap': '20px'}),
 
-        # Pool and Network Statistics Table with flex styling
-        html.Div(children=[
-            html.H2('Pool and Network Stats'),
-            dash_table.DataTable(
-                id='pool-stats',
-                columns=[{"name": i, "id": i} for i in pool_df.columns],
-                data=pool_df.to_dict('records'),
-                style_table=style_table_container,
-                style_cell={'backgroundColor': 'rgb(50, 50, 50)', 'color': 'white',},
-                style_header={'backgroundColor': 'rgb(30, 30, 30)', 'color': 'white'},
-            ),
-        ], style={'flex': 1}),  # Adjust flex value as needed for sizing
-        
-    ], style={'display': 'flex', 'flexDirection': 'row', 'gap': '20px', 'flexWrap': 'nowrap', 'overflowX': 'auto'}),
+    html.Div(children=[html.H2('Block Effort Over Time'),
+                       dcc.Graph(id='effort-chart', figure=effort_chart)],
+             style={'margin-top': '20px'}),
 
-    # Container for charts in the same row
-    html.Div(children=[
-        # Blocks Found by Miner Chart
-        html.Div(children=[
-            html.H2('Blocks Found by Miner'),
-            dcc.Graph(
-                id='miner-chart',
-                figure=miner_chart
-            ),
-        ], style={'flex': 1}),  # Adjust flex value as needed for sizing
+    html.Div(children=[html.H2('Block Statistics'), 
+                       dash_table.DataTable(id='block-stats', columns=[{"name": i, "id": i} for i in block_df.columns],
+                                            data=block_df.to_dict('records'), style_table={'overflowX': 'auto'},
+                                            style_cell={'height': 'auto', 'minWidth': '180px',
+                                                        'width': '180px', 'maxWidth': '180px',
+                                                        'whiteSpace': 'normal', 'textAlign': 'left',
+                                                        'padding': '10px',},
+                                            style_header={'backgroundColor': 'rgb(30, 30, 30)', 'color': 'white',
+                                                          'fontWeight': 'bold', 'textAlign': 'center',},
+                                            style_data={'backgroundColor': 'rgb(50, 50, 50)', 'color': 'white',
+                                                        'border': '1px solid black',},
+                                            style_data_conditional=[{'if': {'column_id': 'status', 'filter_query': '{status} eq confirmed'},
+                                                                     'backgroundColor': 'lightgreen', 'color': 'black', 'after': {'content': '" ✔"'}}],
+                                            style_as_list_view=True,  style_cell_conditional=[{'if': {'column_id': c},
+                                                                                               'textAlign': 'left'} for c in ['Name', 'status']],
+                                            style_header_conditional=[{'if': {'column_id': 'status'}, 'textAlign': 'center'}])],
+             style={'padding': '20px'})],
+                      style={'backgroundColor': 'rgba(17,17,17,1)', 'color': '#FFFFFF', 'padding': '10px'})
 
-        # Top Miners by Shares Chart
-        html.Div(children=[
-            html.H2('Top Miners by Shares'),
-            dcc.Graph(
-                id='top-miner-chart',
-                figure=top_miner_chart
-            ),
-        ], style={'flex': 1}),  # Adjust flex value as needed for sizing
-    ], style={'display': 'flex', 'flexDirection': 'row', 'gap': '20px'}),
+@app.callback([
+    Output('miner-blocks', 'figure'),
+    Output('top-miner-chart', 'figure'),
+    Output('estimated-reward', 'figure'),
+    Output('effort-chart', 'figure'),
+    Output('crypto-prices', 'children'),
+    Output('mining-stats', 'data'),  # Adding Output for the mining-stats DataTable
+    Output('performance-stats', 'data'),  # Adding Output for the performance-stats DataTable
+    Output('pool-stats', 'data'),  # Adding Output for the pool-stats DataTable
+], [Input('interval-component', 'n_intervals')])
 
-    html.Div(children=[
-        html.H2('Block Effort Over Time'),
-        dcc.Graph(
-            id='effort-chart',
-            figure=effort_chart
-        )
-    ], style={'margin-top': '20px'}),
+def update_charts_callback(n):
+    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row = update_charts()
+    
+    # Convert DataFrames to lists of dictionaries for DataTables
+    mining_stats_data = mining_df.to_dict('records')
+    performance_stats_data = mask_performance_df.to_dict('records')
+    pool_stats_data = pool_df.to_dict('records')
 
-    # Block Statistics and Average Effort Tables
-    html.Div(children=[
-        html.H2('Block Statistics'),
-        dash_table.DataTable(
-            id='block-stats',
-            columns=[{"name": i, "id": i} for i in block_df.columns],
-            data=block_df.to_dict('records'),
-            style_table={'height': '300px', 'overflowY': 'auto'},
-            style_cell={'backgroundColor': 'rgb(50, 50, 50)', 'color': 'white',},
-            style_header={'backgroundColor': 'rgb(30, 30, 30)', 'color': 'white'},
-            
-        ),
-        
-    ]),
-])
+    # Return the new figures and data
+    return (
+        miner_chart, top_miner_chart, estimated_reward, effort_chart, 
+        crypto_prices_row, 
+        mining_stats_data, performance_stats_data, pool_stats_data
+    )
+
 
 # Run the app
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=8050)

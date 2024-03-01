@@ -1,0 +1,6 @@
+version: '3'
+services:
+  pool-ui:
+    build: .
+    ports:
+     - "8050:8050"

@@ -1,7 +1,20 @@
 import requests
 from hydra import compose, initialize
 from omegaconf import DictConfig, OmegaConf
-from pandas import DataFrame, concat
+from pandas import DataFrame, concat, to_datetime
+from pycoingecko import CoinGeckoAPI
+
+class PriceReader:
+    def __init__(self):
+        self.cg = CoinGeckoAPI()
+        
+    def get(self):
+        # Fetch current price of Bitcoin (BTC) and Ergo (ERG) in USD
+        prices = self.cg.get_price(ids=['bitcoin', 'ergo'], vs_currencies='usd')
+        
+        btc_price = prices['bitcoin']['usd']
+        erg_price = prices['ergo']['usd']
+        return btc_price, erg_price
 
 class SigmaWalletReader:
     # def __init__(self, api, token_id, token_ls_url='https://api.ergo.aap.cornell.edu/api/v1/tokens/'):
@@ -10,6 +23,7 @@ class SigmaWalletReader:
     #     self.token_ls = token_ls_url
 
     def __init__(self, config_path: str):
+        self.block_reward = 30
         self.config_path = config_path
         
         initialize(config_path, self.config_path, version_base=None)
@@ -56,6 +70,13 @@ class SigmaWalletReader:
         performance_df.reset_index(inplace=True)  # Reset index to get workers as a column
         performance_df.columns = ['Worker', 'Hashrate [Mh/s]', 'SharesPerSecond']  # Rename columns
         performance_df['Hashrate [Mh/s]'] = performance_df['Hashrate [Mh/s]'] / 1e6 # MH/s
+        total_hash = sum(performance_df['Hashrate [Mh/s]'])
+        total_shares = sum(performance_df['SharesPerSecond'])
+
+        temp = DataFrame({'Worker': 'Totals', 'Hashrate [Mh/s]': total_hash, 'SharesPerSecond': total_shares}, index=[0])
+
+        performance_df = concat([performance_df, temp])
+
         
         mining_df = DataFrame.from_dict(mining_dict, orient='index', columns=['Value'])
         mining_df.reset_index(inplace=True)
@@ -83,16 +104,26 @@ class SigmaWalletReader:
 
         block_df = DataFrame(block_data)
         block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == self.wallet)
-        # block_df['networkDifficulty'] = block_df['networkDifficulty'] / 1e15 
 
         miner_df = DataFrame.from_dict(miners, orient='index', columns=['Value'])
         miner_df.reset_index(inplace=True)
-        miner_df.columns = ['Miner', 'Number of Blocks Found']
-        miner_df['my_wallet'] = miner_df['Miner'].apply(lambda address: address == self.wallet)
+        miner_df.columns = ['miner', 'Number of Blocks Found']
+        miner_df['my_wallet'] = miner_df['miner'].apply(lambda address: address == self.wallet)
+        miner_df['miner'] = miner_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
+
 
         effort_df = DataFrame.from_dict(average_effort, orient='index', columns=['Values'])
         effort_df.reset_index(inplace=True)
         effort_df.columns = ['Mining Stats', 'Values']
+        
+        
+        block_df['Time Found'] = to_datetime(block_df['created'])
+        block_df['Time Found'] = block_df['Time Found'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
+        block_df['effort'] = round(block_df['effort'], 5)
+        
+        block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'reward', 
+                                    'miner', 'networkDifficulty', 'my_wallet'])
         
         return block_df, miner_df, effort_df
 
@@ -114,13 +145,18 @@ class SigmaWalletReader:
         pool_df = DataFrame(list(pool_data.items()), columns=['Key', 'Value'])
         net_df = DataFrame(list(net_data.items()), columns=['Key', 'Value'])
         
-        # Concatenate the two DataFrames
         df = concat([pool_df, net_df], ignore_index=True)
         df.columns = ['Pool Stats', 'Values']
         
-
         top_miner_df = DataFrame(top_miner_data)
         top_miner_df['my_wallet'] = top_miner_df['miner'].apply(lambda address: address == self.wallet)
+        top_miner_df['miner'] = top_miner_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
+        total_shares = top_miner_df['sharesPerSecond'].sum()
+        top_miner_df['Percentage'] = (top_miner_df['sharesPerSecond'] / total_shares) * 100
+
+        top_miner_df['hashrate'] = top_miner_df['hashrate'] / 1e9 # Gh/s
+        top_miner_df['ProjectedReward'] = (top_miner_df['Percentage'] / 100) * self.block_reward
+
 
         return df, top_miner_df
         
@@ -143,16 +179,3 @@ class SigmaWalletReader:
 
         token_description = data['description']
         return token_description
-
-    def run_app(self):
-        '''
-        block data contains a all of the blocks found by the pool, a count of the miners that found a block, and average effort calculation
-
-        mining_data contains various mining metrics for a given miner
-
-        pool_data contain pool data, network stats, and the list of miners sorted by shares
-        '''
-        block_data = self.get_block_stats()
-        mining_data = self.get_mining_stats()
-        pool_data = self.get_pool_stats()
-        return block_data, mining_data, pool_data
