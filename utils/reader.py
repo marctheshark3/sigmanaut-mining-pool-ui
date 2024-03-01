@@ -63,7 +63,7 @@ class SigmaWalletReader:
                        'totalPaid': mining_data['totalPaid'],
                        'todayPaid': mining_data['todayPaid'],
                        'lastPayment': mining_data['lastPayment'],
-                       'lastPaymentLink': mining_data['lastPaymentLink'],}
+                       'lastPaymentLink': mining_data['lastPaymentLink'],}    
 
         performance = mining_data['performance']
         performance_df = DataFrame(performance['workers']).T  # Transpose to get workers as rows
@@ -121,8 +121,8 @@ class SigmaWalletReader:
         block_df['Time Found'] = block_df['Time Found'].dt.strftime('%Y-%m-%d %H:%M:%S')
         block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
         block_df['effort'] = round(block_df['effort'], 5)
-        
-        block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'reward', 
+        print(block_df.columns)
+        block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
                                     'miner', 'networkDifficulty', 'my_wallet'])
         
         return block_df, miner_df, effort_df

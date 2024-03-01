@@ -51,7 +51,7 @@ def update_charts():
     
     # adding a circle to the effort chart if you found the block
     my_wallet_blocks = block_df[block_df['my_wallet']]
-    # block_df = block_df.drop(['my_wallet'], axis=1) # might need to change the name of this df
+    block_df = block_df.drop(['my_wallet'], axis=1) # might need to change the name of this df
     effort_chart.add_trace(go.Scatter(x=my_wallet_blocks['Time Found'], y=my_wallet_blocks['effort'], mode='markers',
                                       marker=dict(color='Red', size=10, symbol='circle'), name='My Wallet'))
     
