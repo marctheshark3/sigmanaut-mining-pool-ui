@@ -61,9 +61,15 @@ class SigmaWalletReader:
         mining_dict = {'pendingShares': mining_data['pendingShares'],
                        'pendingBalance': mining_data['pendingBalance'],
                        'totalPaid': mining_data['totalPaid'],
-                       'todayPaid': mining_data['todayPaid'],
-                       'lastPayment': mining_data['lastPayment'],
-                       'lastPaymentLink': mining_data['lastPaymentLink'],}    
+                       'todayPaid': mining_data['todayPaid'],}
+        
+        try:
+           mining_dict['lastPayment'] = mining_data['lastPayment']
+           mining_dict['lastPaymentLink'] = mining_data['lastPaymentLink']
+        
+        except KeyError:
+           mining_dict['lastPayment'] = 'No Payments Yet'
+           mining_dict['lastPaymentLink'] = 'Keep Mining!'
 
         performance = mining_data['performance']
         performance_df = DataFrame(performance['workers']).T  # Transpose to get workers as rows
