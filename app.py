@@ -12,7 +12,7 @@ import plotly.graph_objs as go
 '''
 TODO 
 1. user input for the address - DONE
-2. address the plots that arent updating when we found a block
+2. address the plots that arent updating when we found a block, difficulty and block effort
 3. git actions for docker compose pull
 
 '''
@@ -67,7 +67,15 @@ def update_charts(wallet):
     block_df = block_df.drop(['my_wallet'], axis=1) # might need to change the name of this df
     effort_chart.add_trace(go.Scatter(x=my_wallet_blocks['Time Found'], y=my_wallet_blocks['effort'], mode='markers',
                                       marker=dict(color='Red', size=10, symbol='circle'), name='My Wallet'))
-    
+
+    # Network Difficulty Plot
+    net_diff_plot={'data': [go.Scatter(x=block_df['Time Found'], y=block_df['networkDifficulty'],
+                                    mode='lines+markers', name='Network Difficulty', line={'color': '#00CC96'})],
+                   
+                   'layout': go.Layout(title='Ergo Network Difficulty Over Time', titlefont={'color': '#FFFFFF'},
+                                       paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                       margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
+                                       legend={'font': {'color': '#FFFFFF'}}, font=dict(color='#FFFFFF'))}
 
     # Define the style for the crypto prices
     metric_style = {
@@ -84,7 +92,6 @@ def update_charts(wallet):
     }
 
     # Create the crypto prices HTML div elements as a row
-    
     crypto_prices_row = html.Div([
                                 html.Div(f"BTC: ${btc_price}", style=metric_style),
                                 html.Div(f"ERG: ${erg_price}", style=metric_style),
@@ -100,9 +107,9 @@ def update_charts(wallet):
     else:
         
         dashboard_title = 'Sigma Mining Pool Dashboard - {}'.format(wallet)
-    return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title
-print(wallet, 'walley')
-miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title= update_charts(wallet)
+    return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot
+    
+miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot= update_charts(wallet)
 
 app.layout = html.Div(children=[
     html.H1(id='dashboard-title', children=[]),
@@ -115,7 +122,7 @@ app.layout = html.Div(children=[
     html.Div(id='crypto-prices', children=[]),
     dcc.Interval(
         id='interval-component',
-        interval=60*1000,  # in milliseconds
+        interval=60*1000,  # in milliseconds, every 1 minutes
         n_intervals=0
     ),
   
@@ -127,16 +134,7 @@ app.layout = html.Div(children=[
                                            pool_df.columns, pool_df, max_table_width='600px'), style={'flex': '1'}),],
              style={'display': 'flex'}),
     
-    dcc.Graph(
-        id='network-difficulty-plot',
-        figure={'data': [go.Scatter(x=block_df['Time Found'], y=block_df['networkDifficulty'],
-                                    mode='lines+markers', name='Network Difficulty', line={'color': '#00CC96'})],
-                
-                'layout': go.Layout(title='Ergo Network Difficulty Over Time', titlefont={'color': '#FFFFFF'},
-                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                                    margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
-                                    legend={'font': {'color': '#FFFFFF'}}, font=dict(color='#FFFFFF'))},
-                                    style={'backgroundColor': 'rgba(17,17,17,1)'}),
+    dcc.Graph(id='network-difficulty-plot', figure=net_diff_plot, style={'backgroundColor': 'rgba(17,17,17,1)'}),
     
     html.Div(children=[html.Div(children=[html.H2('Blocks Found by Miners'),
                                           dcc.Graph(id='miner-blocks', figure=miner_chart),],
@@ -184,6 +182,8 @@ app.layout = html.Div(children=[
     Output('mining-stats', 'data'),  # Adding Output for the mining-stats DataTable
     Output('performance-stats', 'data'),  # Adding Output for the performance-stats DataTable
     Output('pool-stats', 'data'),  # Adding Output for the pool-stats DataTable
+    Output('block-stats', 'data'),  
+    Output('network-difficulty-plot', 'figure'), 
     Input('submit-btn', 'n_clicks'),
     State('wallet-input', 'value')
 ], [Input('interval-component', 'n_intervals')])
@@ -194,18 +194,19 @@ def update_output(n_clicks, wallet_address, n_intervals):
     else:
         wallet_address = 'ADDRESS'
 
-    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title = update_charts(wallet_address)
+    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot = update_charts(wallet_address)
 
     # Convert DataFrames to lists of dictionaries for DataTables
     mining_stats_data = mining_df.to_dict('records')
     performance_stats_data = mask_performance_df.to_dict('records')
     pool_stats_data = pool_df.to_dict('records')
+    block_data = block_df.to_dict('records')
 
     # Return the new figures and data
     return (
         dashboard_title, miner_chart, top_miner_chart, estimated_reward, effort_chart, 
         crypto_prices_row, 
-        mining_stats_data, performance_stats_data, pool_stats_data
+        mining_stats_data, performance_stats_data, pool_stats_data, block_data, net_diff_plot
     )
 
 # Run the app

@@ -127,12 +127,19 @@ class SigmaWalletReader:
         average_effort = {'Average Block Effort': sum(blocks.values()) / len(blocks)}
 
         block_df = DataFrame(block_data)
-        block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == self.wallet)
-
+        
         miner_df = DataFrame.from_dict(miners, orient='index', columns=['Value'])
         miner_df.reset_index(inplace=True)
         miner_df.columns = ['miner', 'Number of Blocks Found']
-        miner_df['my_wallet'] = miner_df['miner'].apply(lambda address: address == self.wallet)
+        
+        try:
+            block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == self.wallet)
+            miner_df['my_wallet'] = miner_df['miner'].apply(lambda address: address == self.wallet)
+            
+        except ValueError:
+            block_df['my_wallet'] = 'NOT ENTERED'
+            miner_df['my_wallet'] = 'NOT ENTERED'
+        
         miner_df['miner'] = miner_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
 
 
@@ -174,13 +181,12 @@ class SigmaWalletReader:
         top_miner_df = DataFrame(top_miner_data)
         top_miner_df['my_wallet'] = top_miner_df['miner'].apply(lambda address: address == self.wallet)
         top_miner_df['miner'] = top_miner_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
-        total_shares = top_miner_df['sharesPerSecond'].sum()
-        top_miner_df['Percentage'] = (top_miner_df['sharesPerSecond'] / total_shares) * 100
-
         top_miner_df['hashrate'] = top_miner_df['hashrate'] / 1e9 # Gh/s
+        
+        total_hash = top_miner_df['hashrate'].sum()
+        top_miner_df['Percentage'] = (top_miner_df['hashrate'] / total_hash) * 100
         top_miner_df['ProjectedReward'] = (top_miner_df['Percentage'] / 100) * self.block_reward
         return df, top_miner_df
-        
             
     def find_token_in_wallet(self):
         url = '{}/{}'.format(self.api, self.wallet)
