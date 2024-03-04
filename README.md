@@ -3,13 +3,13 @@
 Enter you Wallet Address in the input tab when you start up the dashboard
 
 ## UI Operation
-`docker compose up -d`
+```
+docker compose pull # pulls the latest docker image
+docker compose up -d # Runs the UI
+docker compose down # Stops the UI
+```
 
 In a web browser you can navigate to: http://localhost:8050/
-
-### UI Notes
-To tear down the container you can run:
-`docker compose down`
 
 ## How to Connect to the Sigmanaut Mining Pool
 
