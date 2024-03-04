@@ -25,7 +25,7 @@ def update_charts(wallet):
     mining_df, performance_df = sigma_reader.get_mining_stats()
     block_df, miner_df, effort_df = sigma_reader.get_block_stats()
     pool_df, top_miner_df = sigma_reader.get_pool_stats()
-    btc_price, erg_price =  10, 10 #price_reader.get()
+    btc_price, erg_price =  price_reader.get()
     
     pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 5)
     your_total_hash = round(performance_df[performance_df['Worker'] == 'Totals']['Hashrate [Mh/s]'].iloc[0], 5)
