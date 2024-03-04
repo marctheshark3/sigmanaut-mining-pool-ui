@@ -1,4 +1,4 @@
-name: Docker
+name: Docker Build and Publish Release
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
@@ -96,3 +96,22 @@ jobs:
         # This step uses the identity token to provision an ephemeral certificate
         # against the sigstore community Fulcio instance.
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+        # Create a GitHub Release with the Docker image tag
+      - name: Create GitHub Release
+        if: github.event_name != 'pull_request'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }} # This assumes your Docker tags align with your git tags
+          release_name: Release ${{ github.ref_name }}
+          body: |
+            Release of version ${{ github.ref_name }}.
+            
+            ## Docker Image
+            ```
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ```
+          draft: false
+          prerelease: false
