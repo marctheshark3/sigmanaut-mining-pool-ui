@@ -11,7 +11,7 @@ import plotly.graph_objs as go
 
 '''
 TODO 
-1. user input for the address
+1. user input for the address - DONE
 2. address the plots that arent updating when we found a block
 3. git actions for docker compose pull
 
@@ -23,6 +23,7 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
 wallet = 'ADDRESS'
+
 def update_charts(wallet):
     global mining_df, performance_df, block_df, miner_df, effort_df, pool_df, top_miner_df, btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty
     
@@ -33,7 +34,7 @@ def update_charts(wallet):
     mining_df, performance_df = sigma_reader.get_mining_stats()
     block_df, miner_df, effort_df = sigma_reader.get_block_stats()
     pool_df, top_miner_df = sigma_reader.get_pool_stats()
-    btc_price, erg_price = price_reader.get()
+    btc_price, erg_price =  10, 10 #price_reader.get()
     
     pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 5)
     your_total_hash = round(performance_df[performance_df['Worker'] == 'Totals']['Hashrate [Mh/s]'].iloc[0], 5)
@@ -93,12 +94,18 @@ def update_charts(wallet):
                                 html.Div(f"Average Block Effort: {avg_block_effort}", style=metric_style),
                                 html.Div(f"Network Difficulty: {network_difficulty} P", style=metric_style),
                             ], style={'display': 'flex', 'flexDirection': 'row', 'justifyContent': 'center'})
-    return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row
+
+    if wallet == 'ADDRESS':
+        dashboard_title = 'Sigma Mining Pool Dashboard - ENTER YOUR ADDRESS'
+    else:
+        
+        dashboard_title = 'Sigma Mining Pool Dashboard - {}'.format(wallet)
+    return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title
 print(wallet, 'walley')
-miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row= update_charts(wallet)
+miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title= update_charts(wallet)
 
 app.layout = html.Div(children=[
-    html.H1(children='Sigma Mining Pool Dashboard - {}'.format(wallet)),
+    html.H1(id='dashboard-title', children=[]),
 
     html.Label('Enter your wallet ID:'),
     dcc.Input(id='wallet-input', type='text', value=''),
@@ -166,22 +173,9 @@ app.layout = html.Div(children=[
              style={'padding': '20px'})],
                       style={'backgroundColor': 'rgba(17,17,17,1)', 'color': '#FFFFFF', 'padding': '10px'})
 
-# def update_charts():
-#     miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row = update_charts()
-    
-#     # Convert DataFrames to lists of dictionaries for DataTables
-#     mining_stats_data = mining_df.to_dict('records')
-#     performance_stats_data = mask_performance_df.to_dict('records')
-#     pool_stats_data = pool_df.to_dict('records')
-
-#     # Return the new figures and data
-#     return (
-#         miner_chart, top_miner_chart, estimated_reward, effort_chart, 
-#         crypto_prices_row, 
-#         mining_stats_data, performance_stats_data, pool_stats_data
-#     )
 
 @app.callback([
+    Output('dashboard-title', 'children'),
     Output('miner-blocks', 'figure'),
     Output('top-miner-chart', 'figure'),
     Output('estimated-reward', 'figure'),
@@ -200,7 +194,7 @@ def update_output(n_clicks, wallet_address, n_intervals):
     else:
         wallet_address = 'ADDRESS'
 
-    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row = update_charts(wallet_address)
+    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title = update_charts(wallet_address)
 
     # Convert DataFrames to lists of dictionaries for DataTables
     mining_stats_data = mining_df.to_dict('records')
@@ -209,7 +203,7 @@ def update_output(n_clicks, wallet_address, n_intervals):
 
     # Return the new figures and data
     return (
-        miner_chart, top_miner_chart, estimated_reward, effort_chart, 
+        dashboard_title, miner_chart, top_miner_chart, estimated_reward, effort_chart, 
         crypto_prices_row, 
         mining_stats_data, performance_stats_data, pool_stats_data
     )
