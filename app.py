@@ -8,15 +8,6 @@ import plotly.express as px
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 
-
-'''
-TODO 
-1. user input for the address - DONE
-2. address the plots that arent updating when we found a block, difficulty and block effort
-3. git actions for docker compose pull
-
-'''
-
 # Initialize the Dash app
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
