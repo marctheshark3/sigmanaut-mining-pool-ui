@@ -1,5 +1,4 @@
 user_defined:
-    wallet: '<enter_your_wallet_address_here>'
     # DONT WORRY ABOUT TOKEN ID FOR NOW
     token_id: '9f087ebb5d7baf7eb8f13b742e9a9b5b1b8d78b7a7f84d1f9b9d393f4888d679'
 
