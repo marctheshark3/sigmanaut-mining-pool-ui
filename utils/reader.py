@@ -22,7 +22,7 @@ class SigmaWalletReader:
     #     self.token_id = token_id
     #     self.token_ls = token_ls_url
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, wallet: str = 'ADDRESS'):
         self.block_reward = 30
         self.config_path = config_path
         
@@ -32,8 +32,11 @@ class SigmaWalletReader:
         self.api = cfg.default_values.url
         self.token_id = cfg.user_defined.token_id
         self.token_ls = cfg.default_values.token_ls
-        self.wallet = cfg.user_defined.wallet
+        self.wallet = wallet # cfg.user_defined.wallet
         self.base_api = cfg.default_values.base_api
+
+    def set_wallet(self, wallet_address):
+        self.wallet = wallet_address
     
     def get_api_data(self, api_url):
         try:
@@ -57,25 +60,40 @@ class SigmaWalletReader:
     def get_mining_stats(self):
         url = '{}/{}/{}'.format(self.base_api, 'miners', self.wallet)
         mining_data = self.get_api_data(url)
-
-        mining_dict = {'pendingShares': mining_data['pendingShares'],
-                       'pendingBalance': mining_data['pendingBalance'],
-                       'totalPaid': mining_data['totalPaid'],
-                       'todayPaid': mining_data['todayPaid'],}
-        
+        # WALLET NOT ADDED EXCEPTIONS
         try:
-           mining_dict['lastPayment'] = mining_data['lastPayment']
-           mining_dict['lastPaymentLink'] = mining_data['lastPaymentLink']
+            mining_dict = {'pendingShares': mining_data['pendingShares'],
+                           'pendingBalance': mining_data['pendingBalance'],
+                           'totalPaid': mining_data['totalPaid'],
+                           'todayPaid': mining_data['todayPaid']}
+        except:
+            mining_dict = {'pendingShares': 0,
+                           'pendingBalance': 0,
+                           'totalPaid': 0,
+                           'todayPaid': 0}
+            
+        # MINERS NOT PAID YET EXCEPTIONS
+        try:
+            mining_dict['lastPayment'] = mining_data['lastPayment']
+            mining_dict['lastPaymentLink'] = mining_data['lastPaymentLink']
         
-        except KeyError:
-           mining_dict['lastPayment'] = 'No Payments Yet'
+        except KeyError: 
+           mining_dict['lastPayment'] = 0
            mining_dict['lastPaymentLink'] = 'Keep Mining!'
 
-        performance = mining_data['performance']
-        performance_df = DataFrame(performance['workers']).T  # Transpose to get workers as rows
-        performance_df.reset_index(inplace=True)  # Reset index to get workers as a column
-        performance_df.columns = ['Worker', 'Hashrate [Mh/s]', 'SharesPerSecond']  # Rename columns
-        performance_df['Hashrate [Mh/s]'] = performance_df['Hashrate [Mh/s]'] / 1e6 # MH/s
+        # EXCEPTION LOGIC FOR USERS TO INPUT THEIR ADDRESS
+        try:
+            performance = mining_data['performance']
+            performance_df = DataFrame(performance['workers']).T  # Transpose to get workers as rows
+            performance_df.reset_index(inplace=True)  # Reset index to get workers as a column
+            performance_df.columns = ['Worker', 'Hashrate [Mh/s]', 'SharesPerSecond']  # Rename columns
+            performance_df['Hashrate [Mh/s]'] = performance_df['Hashrate [Mh/s]'] / 1e6 # MH/s
+        except:
+            performance = 'PLEASE ENTER YOUR MINING WALLET ADDRESS'
+            performance_df = DataFrame()
+            performance_df['Hashrate [Mh/s]'] = 0
+            performance_df['SharesPerSecond'] = 1e-6
+        
         total_hash = sum(performance_df['Hashrate [Mh/s]'])
         total_shares = sum(performance_df['SharesPerSecond'])
 
@@ -127,7 +145,6 @@ class SigmaWalletReader:
         block_df['Time Found'] = block_df['Time Found'].dt.strftime('%Y-%m-%d %H:%M:%S')
         block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
         block_df['effort'] = round(block_df['effort'], 5)
-        print(block_df.columns)
         block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
                                     'miner', 'networkDifficulty', 'my_wallet'])
         
@@ -162,8 +179,6 @@ class SigmaWalletReader:
 
         top_miner_df['hashrate'] = top_miner_df['hashrate'] / 1e9 # Gh/s
         top_miner_df['ProjectedReward'] = (top_miner_df['Percentage'] / 100) * self.block_reward
-
-
         return df, top_miner_df
         
             

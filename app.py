@@ -5,18 +5,30 @@ import dash_bootstrap_components as dbc
 
 import pandas as pd
 import plotly.express as px
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
+
+
+'''
+TODO 
+1. user input for the address
+2. address the plots that arent updating when we found a block
+3. git actions for docker compose pull
+
+'''
 
 # Initialize the Dash app
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
-sigma_reader = SigmaWalletReader(config_path="../conf")
 price_reader = PriceReader()
-wallet = '{}...{}'.format(sigma_reader.wallet[:5], sigma_reader.wallet[-5:])
-
-def update_charts():
+sigma_reader = SigmaWalletReader(config_path="../conf")
+wallet = 'ADDRESS'
+def update_charts(wallet):
     global mining_df, performance_df, block_df, miner_df, effort_df, pool_df, top_miner_df, btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty
+    
+    print(wallet, 'WALT')
+    sigma_reader.set_wallet(wallet)
+    wallet = '{}...{}'.format(sigma_reader.wallet[:5], sigma_reader.wallet[-5:])
 
     mining_df, performance_df = sigma_reader.get_mining_stats()
     block_df, miner_df, effort_df = sigma_reader.get_block_stats()
@@ -82,11 +94,17 @@ def update_charts():
                                 html.Div(f"Network Difficulty: {network_difficulty} P", style=metric_style),
                             ], style={'display': 'flex', 'flexDirection': 'row', 'justifyContent': 'center'})
     return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row
-
-miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row= update_charts()
+print(wallet, 'walley')
+miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row= update_charts(wallet)
 
 app.layout = html.Div(children=[
     html.H1(children='Sigma Mining Pool Dashboard - {}'.format(wallet)),
+
+    html.Label('Enter your wallet ID:'),
+    dcc.Input(id='wallet-input', type='text', value=''),
+    html.Button('Submit', id='submit-btn', n_clicks=0),
+    html.Div(id='output-container'),
+    
     html.Div(id='crypto-prices', children=[]),
     dcc.Interval(
         id='interval-component',
@@ -101,7 +119,6 @@ app.layout = html.Div(children=[
               html.Div(create_table_component('Pool and Network Stats', 'pool-stats',
                                            pool_df.columns, pool_df, max_table_width='600px'), style={'flex': '1'}),],
              style={'display': 'flex'}),
-
     
     dcc.Graph(
         id='network-difficulty-plot',
@@ -149,6 +166,21 @@ app.layout = html.Div(children=[
              style={'padding': '20px'})],
                       style={'backgroundColor': 'rgba(17,17,17,1)', 'color': '#FFFFFF', 'padding': '10px'})
 
+# def update_charts():
+#     miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row = update_charts()
+    
+#     # Convert DataFrames to lists of dictionaries for DataTables
+#     mining_stats_data = mining_df.to_dict('records')
+#     performance_stats_data = mask_performance_df.to_dict('records')
+#     pool_stats_data = pool_df.to_dict('records')
+
+#     # Return the new figures and data
+#     return (
+#         miner_chart, top_miner_chart, estimated_reward, effort_chart, 
+#         crypto_prices_row, 
+#         mining_stats_data, performance_stats_data, pool_stats_data
+#     )
+
 @app.callback([
     Output('miner-blocks', 'figure'),
     Output('top-miner-chart', 'figure'),
@@ -158,11 +190,18 @@ app.layout = html.Div(children=[
     Output('mining-stats', 'data'),  # Adding Output for the mining-stats DataTable
     Output('performance-stats', 'data'),  # Adding Output for the performance-stats DataTable
     Output('pool-stats', 'data'),  # Adding Output for the pool-stats DataTable
+    Input('submit-btn', 'n_clicks'),
+    State('wallet-input', 'value')
 ], [Input('interval-component', 'n_intervals')])
 
-def update_charts_callback(n):
-    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row = update_charts()
-    
+def update_output(n_clicks, wallet_address, n_intervals):
+    if n_clicks > 0:  # Only update after the first click to avoid initial unwanted API call
+        print(f'Wallet ID entered: "{wallet_address}"')
+    else:
+        wallet_address = 'ADDRESS'
+
+    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row = update_charts(wallet_address)
+
     # Convert DataFrames to lists of dictionaries for DataTables
     mining_stats_data = mining_df.to_dict('records')
     performance_stats_data = mask_performance_df.to_dict('records')
@@ -174,7 +213,6 @@ def update_charts_callback(n):
         crypto_prices_row, 
         mining_stats_data, performance_stats_data, pool_stats_data
     )
-
 
 # Run the app
 if __name__ == '__main__':
