@@ -64,8 +64,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: main
-          release_name: Release main
+          tag_name: ui-release
+          release_name: V1
           body: |
             Release of version main.
 
