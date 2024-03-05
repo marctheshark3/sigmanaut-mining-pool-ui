@@ -13,7 +13,7 @@ dark_theme_style_header = {'backgroundColor': '#222', 'color': '#FFFFFF', 'fontW
 
 dark_theme_style_cell = {'backgroundColor': '#333', 'color': '#FFFFFF', 'textAlign': 'left', 'padding': '10px',}
 
-container_style = {'flex': 1, 'margin': '10px', 'padding': '10px', 'border': 'none', 'borderRadius': '8px', 'background': '#1e1e1e'}
+container_style = {'flex': 1, 'margin': '10px', 'padding': '10px', 'border': 'none', 'borderRadius': '5px', 'background': '#1e1e1e'}
 
 def create_pie_chart(df, col, value, est_reward=False):
     if est_reward:

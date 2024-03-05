@@ -8,13 +8,15 @@ class PriceReader:
     def __init__(self):
         self.cg = CoinGeckoAPI()
         
-    def get(self):
+    def get(self, debug=False):
         # Fetch current price of Bitcoin (BTC) and Ergo (ERG) in USD
-        prices = self.cg.get_price(ids=['bitcoin', 'ergo'], vs_currencies='usd')
-        
-        btc_price = prices['bitcoin']['usd']
-        erg_price = prices['ergo']['usd']
-        return btc_price, erg_price
+        if debug:
+            return 10, 10
+        else:
+            prices = self.cg.get_price(ids=['bitcoin', 'ergo'], vs_currencies='usd')
+            btc_price = prices['bitcoin']['usd']
+            erg_price = prices['ergo']['usd']
+            return btc_price, erg_price
 
 class SigmaWalletReader:
     # def __init__(self, api, token_id, token_ls_url='https://api.ergo.aap.cornell.edu/api/v1/tokens/'):
@@ -22,7 +24,7 @@ class SigmaWalletReader:
     #     self.token_id = token_id
     #     self.token_ls = token_ls_url
 
-    def __init__(self, config_path: str, wallet: str = 'ADDRESS'):
+    def __init__(self, config_path: str):
         self.block_reward = 30
         self.config_path = config_path
         
@@ -32,11 +34,7 @@ class SigmaWalletReader:
         self.api = cfg.default_values.url
         self.token_id = cfg.user_defined.token_id
         self.token_ls = cfg.default_values.token_ls
-        self.wallet = wallet # cfg.user_defined.wallet
         self.base_api = cfg.default_values.base_api
-
-    def set_wallet(self, wallet_address):
-        self.wallet = wallet_address
     
     def get_api_data(self, api_url):
         try:
@@ -57,8 +55,8 @@ class SigmaWalletReader:
             print(f"An error occurred: {e}")
             return None
             
-    def get_mining_stats(self):
-        url = '{}/{}/{}'.format(self.base_api, 'miners', self.wallet)
+    def get_mining_stats(self, wallet):
+        url = '{}/{}/{}'.format(self.base_api, 'miners', wallet)
         mining_data = self.get_api_data(url)
         # WALLET NOT ADDED EXCEPTIONS
         try:
@@ -78,8 +76,12 @@ class SigmaWalletReader:
             mining_dict['lastPaymentLink'] = mining_data['lastPaymentLink']
         
         except KeyError: 
-           mining_dict['lastPayment'] = 0
-           mining_dict['lastPaymentLink'] = 'Keep Mining!'
+            mining_dict['lastPayment'] = 0
+            mining_dict['lastPaymentLink'] = 'Keep Mining!'
+
+        except TypeError:
+            mining_dict['lastPayment'] = 0
+            mining_dict['lastPaymentLink'] = 'Keep Mining!'
 
         # EXCEPTION LOGIC FOR USERS TO INPUT THEIR ADDRESS
         try:
@@ -89,6 +91,8 @@ class SigmaWalletReader:
             performance_df.columns = ['Worker', 'Hashrate [Mh/s]', 'SharesPerSecond']  # Rename columns
             performance_df['Hashrate [Mh/s]'] = performance_df['Hashrate [Mh/s]'] / 1e6 # MH/s
         except:
+            print('PERFORMANCE DATA EXCEPTION TRIGGERED: {} WALLET'.format(wallet))
+          
             performance = 'PLEASE ENTER YOUR MINING WALLET ADDRESS'
             performance_df = DataFrame()
             performance_df['Hashrate [Mh/s]'] = 0
@@ -100,7 +104,6 @@ class SigmaWalletReader:
         temp = DataFrame({'Worker': 'Totals', 'Hashrate [Mh/s]': total_hash, 'SharesPerSecond': total_shares}, index=[0])
 
         performance_df = concat([performance_df, temp])
-
         
         mining_df = DataFrame.from_dict(mining_dict, orient='index', columns=['Value'])
         mining_df.reset_index(inplace=True)
@@ -108,7 +111,7 @@ class SigmaWalletReader:
 
         return mining_df, performance_df
 
-    def get_block_stats(self):
+    def get_block_stats(self, wallet):
         url = '{}/{}'.format(self.base_api, 'Blocks')
         block_data = self.get_api_data(url)
 
@@ -133,10 +136,11 @@ class SigmaWalletReader:
         miner_df.columns = ['miner', 'Number of Blocks Found']
         
         try:
-            block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == self.wallet)
-            miner_df['my_wallet'] = miner_df['miner'].apply(lambda address: address == self.wallet)
+            block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == wallet)
+            miner_df['my_wallet'] = miner_df['miner'].apply(lambda address: address == wallet)
             
         except ValueError:
+            print('my wallet_value errr')
             block_df['my_wallet'] = 'NOT ENTERED'
             miner_df['my_wallet'] = 'NOT ENTERED'
         
@@ -157,7 +161,7 @@ class SigmaWalletReader:
         
         return block_df, miner_df, effort_df
 
-    def get_pool_stats(self):
+    def get_pool_stats(self, wallet):
         data = self.get_api_data(self.base_api)
         pool_data = data['pool']['poolStats']
         net_data = data['pool']['networkStats']
@@ -179,17 +183,17 @@ class SigmaWalletReader:
         df.columns = ['Pool Stats', 'Values']
         
         top_miner_df = DataFrame(top_miner_data)
-        top_miner_df['my_wallet'] = top_miner_df['miner'].apply(lambda address: address == self.wallet)
+        top_miner_df['my_wallet'] = top_miner_df['miner'].apply(lambda address: address == wallet)
         top_miner_df['miner'] = top_miner_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
-        top_miner_df['hashrate'] = top_miner_df['hashrate'] / 1e9 # Gh/s
+        top_miner_df['hashrate'] = top_miner_df['hashrate'] / 1e6 # Mh/s
         
         total_hash = top_miner_df['hashrate'].sum()
         top_miner_df['Percentage'] = (top_miner_df['hashrate'] / total_hash) * 100
         top_miner_df['ProjectedReward'] = (top_miner_df['Percentage'] / 100) * self.block_reward
         return df, top_miner_df
             
-    def find_token_in_wallet(self):
-        url = '{}/{}'.format(self.api, self.wallet)
+    def find_token_in_wallet(self, wallet):
+        url = '{}/{}'.format(self.api, wallet)
         wallet_data = self.get_api_data(url)
 
         wallet_contents = wallet_data['items']
