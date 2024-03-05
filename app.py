@@ -26,7 +26,7 @@ def update_charts(wallet_address):
     mining_df, performance_df = sigma_reader.get_mining_stats(wallet)
     block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet)
     pool_df, top_miner_df = sigma_reader.get_pool_stats(wallet)
-    btc_price, erg_price = price_reader.get(False)
+    btc_price, erg_price = price_reader.get(debug=False)
 
     try:
         pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 5)
@@ -63,7 +63,11 @@ def update_charts(wallet_address):
                                             'effort': 'Effort', 'networkDifficulty': 'Network Difficulty'})
     
     # adding a circle to the effort chart if you found the block
-    my_wallet_blocks = block_df[block_df['my_wallet']]
+    try:
+        my_wallet_blocks = block_df[block_df['my_wallet']]
+    except KeyError:
+        block_df['my_wallet'] = 'NO WALLET SUBMITTED'
+        my_wallet_blocks = block_df[block_df['my_wallet']]
 
     block_df = block_df.drop(['my_wallet'], axis=1) # might need to change the name of this df
     effort_chart.add_trace(go.Scatter(x=my_wallet_blocks['Time Found'], y=my_wallet_blocks['effort'], mode='markers',
