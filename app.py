@@ -62,16 +62,16 @@ def update_charts(wallet_address):
                                     labels={'Time Found': 'Block Creation Date',
                                             'effort': 'Effort', 'networkDifficulty': 'Network Difficulty'})
     
-    # adding a circle to the effort chart if you found the block
-    try:
-        my_wallet_blocks = block_df[block_df['my_wallet']]
-    except KeyError:
-        block_df['my_wallet'] = 'NO WALLET SUBMITTED'
-        my_wallet_blocks = block_df[block_df['my_wallet']]
+    # # adding a circle to the effort chart if you found the block
+    # try:
+    #     my_wallet_blocks = block_df[block_df['my_wallet']]
+    # except KeyError:
+    #     block_df['my_wallet'] = 'NO WALLET SUBMITTED'
+    #     my_wallet_blocks = block_df[block_df['my_wallet']]
 
-    block_df = block_df.drop(['my_wallet'], axis=1) # might need to change the name of this df
-    effort_chart.add_trace(go.Scatter(x=my_wallet_blocks['Time Found'], y=my_wallet_blocks['effort'], mode='markers',
-                                      marker=dict(color='Red', size=10, symbol='circle'), name='My Wallet'))
+    # block_df = block_df.drop(['my_wallet'], axis=1) # might need to change the name of this df
+    # effort_chart.add_trace(go.Scatter(x=my_wallet_blocks['Time Found'], y=my_wallet_blocks['effort'], mode='markers',
+    #                                   marker=dict(color='Red', size=10, symbol='circle'), name='My Wallet'))
 
     # Network Difficulty Plot
     net_diff_plot={'data': [go.Scatter(x=block_df['Time Found'], y=block_df['networkDifficulty'],
