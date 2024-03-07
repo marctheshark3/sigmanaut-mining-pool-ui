@@ -5,3 +5,4 @@ dash-bootstrap-components
 pycoingecko
 gunicorn
 streamlit
+Flask
