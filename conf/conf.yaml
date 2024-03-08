@@ -6,4 +6,4 @@ user_defined:
 default_values:
     url: 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
     token_ls: 'https://api.ergo.aap.cornell.edu/api/v1/tokens'
-    base_api: 'http://74.69.128.24:4000/api/pools/ErgoSigmanauts'
+    base_api: 'http://15.204.211.130:4000/api/pools/ErgoSigmanauts'

@@ -126,8 +126,10 @@ class SigmaWalletReader:
             except KeyError:
                 miners[miner] = 1
             blocks[block_height] = block['effort']
-
-        average_effort = {'Average Block Effort': sum(blocks.values()) / len(blocks)}
+        try:
+            average_effort = {'Average Block Effort': sum(blocks.values()) / len(blocks)}
+        except ZeroDivisionError:
+            average_effort = {'Average Block Effort': 0}
 
         block_df = DataFrame(block_data)
         
@@ -143,6 +145,10 @@ class SigmaWalletReader:
             print('my wallet_value errr')
             block_df['my_wallet'] = 'NOT ENTERED'
             miner_df['my_wallet'] = 'NOT ENTERED'
+
+        except KeyError:
+            block_df['my_wallet'] = 'NONE'
+            miner_df['my_wallet'] = 'NONE'
         
         miner_df['miner'] = miner_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
 
@@ -151,13 +157,24 @@ class SigmaWalletReader:
         effort_df.reset_index(inplace=True)
         effort_df.columns = ['Mining Stats', 'Values']
         
+        try:
+            block_df['Time Found'] = to_datetime(block_df['created'])
+            block_df['Time Found'] = block_df['Time Found'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        except KeyError:
+            block_df['Time Found'] = 'Not Found Yet'
         
-        block_df['Time Found'] = to_datetime(block_df['created'])
-        block_df['Time Found'] = block_df['Time Found'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
-        block_df['effort'] = round(block_df['effort'], 5)
+        try:
+            block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
+            block_df['effort'] = round(block_df['effort'], 5)
+        except KeyError:
+            block_df['miner'] = 'NONE'
+            block_df['effort'] = 'NONE'
+            block_df['networkDifficulty'] = 0
+        
+    
         block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
                                     'miner', 'networkDifficulty', 'my_wallet'])
+
         
         return block_df, miner_df, effort_df
 
