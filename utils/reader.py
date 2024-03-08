@@ -145,6 +145,10 @@ class SigmaWalletReader:
             print('my wallet_value errr')
             block_df['my_wallet'] = 'NOT ENTERED'
             miner_df['my_wallet'] = 'NOT ENTERED'
+
+        except KeyError:
+            block_df['my_wallet'] = 'NONE'
+            miner_df['my_wallet'] = 'NONE'
         
         miner_df['miner'] = miner_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
 
