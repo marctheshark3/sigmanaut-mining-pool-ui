@@ -61,6 +61,7 @@ def update_charts(wallet_address):
                                     color='networkDifficulty', 
                                     labels={'Time Found': 'Block Creation Date',
                                             'effort': 'Effort', 'networkDifficulty': 'Network Difficulty'})
+
     
     # # adding a circle to the effort chart if you found the block
     # try:
