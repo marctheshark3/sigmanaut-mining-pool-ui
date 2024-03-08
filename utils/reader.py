@@ -129,7 +129,7 @@ class SigmaWalletReader:
         try:
             average_effort = {'Average Block Effort': sum(blocks.values()) / len(blocks)}
         except ZeroDivisionError:
-            average_effort = 0
+            average_effort = {'Average Block Effort': 0}
 
         block_df = DataFrame(block_data)
         
