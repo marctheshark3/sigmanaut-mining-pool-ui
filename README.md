@@ -16,7 +16,7 @@ In a web browser you can navigate to: http://localhost:8050/
 Currently, there are two ports one for high hashrate (>10Gh/s) and another for low hashrate (<10Gh/s). 
 
 POOL URL:
-74.69.128.24
+15.204.211.130
 
 High Hash Port: 3053
 Low Hash Port: 3052
