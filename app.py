@@ -40,7 +40,7 @@ def update_charts(wallet_address):
     pool_df, top_miner_df = sigma_reader.get_pool_stats(wallet)
     miner_reward_df = sigma_reader.get_estimated_payments(wallet)
     miner_performance = sigma_reader.get_miner_samples(wallet)
-    btc_price, erg_price = price_reader.get(debug=True)
+    btc_price, erg_price = price_reader.get(debug=False)
 
     try:
         pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 5)
