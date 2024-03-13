@@ -38,6 +38,7 @@ def update_charts(wallet_address):
     mining_df, performance_df = sigma_reader.get_mining_stats(wallet)
     block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet)
     pool_df, top_miner_df = sigma_reader.get_pool_stats(wallet)
+    miner_reward_df = sigma_reader.get_estimated_payments(wallet)
     btc_price, erg_price = price_reader.get(debug=True)
 
     try:
@@ -66,7 +67,7 @@ def update_charts(wallet_address):
     # Creating Charts
     miner_chart = create_pie_chart(miner_df, 'miner', 'Number of Blocks Found')
     top_miner_chart = create_pie_chart(top_miner_df, 'miner', 'hashrate')
-    estimated_reward = create_pie_chart(top_miner_df, 'miner', 'ProjectedReward', est_reward=True)
+    estimated_reward = create_pie_chart(miner_reward_df, 'miner', 'reward', est_reward=True)
     
     
     effort_chart = create_bar_chart(block_df, x='Time Found', y='effort',
