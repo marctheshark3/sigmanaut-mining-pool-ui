@@ -7,7 +7,7 @@ import plotly.express as px
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 
-dark_theme_table_style = {'overflowX': 'auto', 'padding': '10px'}
+dark_theme_table_style = {} #{'overflowX': 'auto', 'padding': '10px'}
 
 dark_theme_style_header = {'backgroundColor': '#222', 'color': '#FFFFFF', 'fontWeight': 'bold', 'textAlign': 'left'}
 
