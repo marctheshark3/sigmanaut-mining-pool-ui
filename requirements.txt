@@ -3,3 +3,11 @@ dash
 pandas
 dash-bootstrap-components
 pycoingecko
+gunicorn
+streamlit
+Flask
+flask-login
+requests
+flask-session
+dash-auth
+redis

@@ -7,18 +7,30 @@ import plotly.express as px
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 
+from flask_login import LoginManager, UserMixin, login_user
+from flask import Flask, request, session, redirect, url_for
+from flask_session import Session 
+
+server = Flask(__name__)
+server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
+server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
+Session(server)
+
+    
 # Initialize the Dash app
-app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
+app = Dash(__name__, server=server, url_base_pathname='/', external_stylesheets=[dbc.themes.SUPERHERO])
+server = app.server  # Expose the underlying Flask server
+
 
 price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
-wallet = 'ADDRESS'
+# wallet = 'ADDRESS'
 
 def update_charts(wallet_address):
-    global wallet
+    # global wallet
     wallet = wallet_address
     
-    global mining_df, performance_df, block_df, miner_df, effort_df, pool_df, top_miner_df, btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty
+    # global mining_df, performance_df, block_df, miner_df, effort_df, pool_df, top_miner_df, btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty
         
     # sigma_reader.set_wallet(wallet)
     short_wallet = '{}...{}'.format(wallet[:5], wallet[-5:])
@@ -26,6 +38,8 @@ def update_charts(wallet_address):
     mining_df, performance_df = sigma_reader.get_mining_stats(wallet)
     block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet)
     pool_df, top_miner_df = sigma_reader.get_pool_stats(wallet)
+    miner_reward_df = sigma_reader.get_estimated_payments(wallet)
+    miner_performance = sigma_reader.get_miner_samples(wallet)
     btc_price, erg_price = price_reader.get(debug=False)
 
     try:
@@ -54,14 +68,42 @@ def update_charts(wallet_address):
     # Creating Charts
     miner_chart = create_pie_chart(miner_df, 'miner', 'Number of Blocks Found')
     top_miner_chart = create_pie_chart(top_miner_df, 'miner', 'hashrate')
-    estimated_reward = create_pie_chart(top_miner_df, 'miner', 'ProjectedReward', est_reward=True)
+    estimated_reward = create_pie_chart(miner_reward_df, 'miner', 'reward', est_reward=True)
     
     
     effort_chart = create_bar_chart(block_df, x='Time Found', y='effort',
                                     color='networkDifficulty', 
                                     labels={'Time Found': 'Block Creation Date',
                                             'effort': 'Effort', 'networkDifficulty': 'Network Difficulty'})
+    print(miner_performance.columns)
 
+    
+    # miner_performance_chart ={'data': [go.Scatter(x=miner_performance['created'], y=miner_performance['hashrate'],
+    #                                     mode='lines+markers', name='Hashrate Over Time', line={'color': '#00CC96'})],
+                       
+    #                                'layout': go.Layout(title='Hashrate Over Time', titlefont={'color': '#FFFFFF'},
+    #                                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+    #                                                    margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
+    #                                                    legend={'font': {'color': '#FFFFFF'}}, font=dict(color='#FFFFFF'))}
+
+    miner_performance_chart = px.line(miner_performance, 
+              x='created', 
+              y='hashrate', 
+              color='worker', 
+              title='Hashrate Over Time',
+              labels={'hashrate': 'Hashrate', 'created': 'Time'},
+              markers=True)
+
+    # Update layout for customization
+    miner_performance_chart.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        legend_title_text='Miner',
+        legend=dict(font=dict(color='#FFFFFF')),
+        titlefont=dict(color='#FFFFFF'),
+        xaxis=dict(title='Time', color='#FFFFFF'),
+        yaxis=dict(title='Hashrate', color='#FFFFFF')
+    )
     
     # # adding a circle to the effort chart if you found the block
     # try:
@@ -112,9 +154,9 @@ def update_charts(wallet_address):
         dashboard_title = 'Sigma Mining Pool Dashboard - ENTER YOUR ADDRESS'
     else:
         dashboard_title = 'Sigma Mining Pool Dashboard - {}'.format(short_wallet)
-    return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot
+    return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot, miner_performance_chart
     
-miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot= update_charts(wallet)
+miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot, miner_performance_chart= update_charts('ADDRESS')
 
 app.layout = html.Div(children=[
     html.H1(id='dashboard-title', children=[]),
@@ -139,6 +181,7 @@ app.layout = html.Div(children=[
                                            pool_df.columns, pool_df, max_table_width='520px'), style={'flex': '1'}),],
              style={'display': 'flex'}),
     
+    dcc.Graph(id='miner-performance-plot', figure=miner_performance_chart, style={'backgroundColor': 'rgba(17,17,17,1)'}),
     dcc.Graph(id='network-difficulty-plot', figure=net_diff_plot, style={'backgroundColor': 'rgba(17,17,17,1)'}),
     
     html.Div(children=[html.Div(children=[html.H2('Blocks Found by Miners'),
@@ -189,22 +232,25 @@ app.layout = html.Div(children=[
     Output('pool-stats', 'data'),  # Adding Output for the pool-stats DataTable
     Output('block-stats', 'data'),  
     Output('network-difficulty-plot', 'figure'), 
+    Output('miner-performance-plot', 'figure'), 
     Input('submit-btn', 'n_clicks'),
     State('wallet-input', 'value')
 ], [Input('interval-component', 'n_intervals')])
 
+
+@server.route('/set/')
 def update_output(n_clicks, wallet_address, n_intervals):
     trigger_id = callback_context.triggered[0]['prop_id'].split('.')[0]
     print(f"Callback triggered by: {trigger_id}")
 
-    if trigger_id == 'interval-component':
-        wallet_address = wallet
-    
-    if n_clicks > 0:  # Only update after the first click to avoid initial unwanted API call
+    if trigger_id == 'interval-component' or n_clicks > 0:
+        wallet = wallet_address
         print(f'Wallet ID entered: "{wallet_address}"')
     else:
-        pass
-    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot = update_charts(wallet_address)
+        wallet = 'Enter Your Address'
+
+    session['wallet_id'] = wallet
+    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot, miner_performance_chart = update_charts(wallet)
 
     # Convert DataFrames to lists of dictionaries for DataTables
     mining_stats_data = mining_df.to_dict('records')
@@ -216,9 +262,9 @@ def update_output(n_clicks, wallet_address, n_intervals):
     return (
         dashboard_title, miner_chart, top_miner_chart, estimated_reward, effort_chart, 
         crypto_prices_row, 
-        mining_stats_data, performance_stats_data, pool_stats_data, block_data, net_diff_plot
+        mining_stats_data, performance_stats_data, pool_stats_data, block_data, net_diff_plot, miner_performance_chart
     )
 
 # Run the app
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8050)
+    app.run_server(debug=True, host='0.0.0.0', port=8050)
