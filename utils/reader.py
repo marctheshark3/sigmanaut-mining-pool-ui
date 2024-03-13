@@ -78,7 +78,10 @@ class SigmaWalletReader:
     def get_miner_samples(self, wallet):
         url = '{}/{}/{}'.format(self.base_api, 'miners', wallet)
         sample_data = self.get_api_data(url)
-        samples = sample_data['performanceSamples']
+        try:
+            samples = sample_data['performanceSamples']
+        except TypeError:
+            return DataFrame({'created': [0], 'hashrate': [0], 'worker': ['not loaded']})
 
         flattened_data = []
     

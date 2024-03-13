@@ -104,9 +104,6 @@ def update_charts(wallet_address):
         xaxis=dict(title='Time', color='#FFFFFF'),
         yaxis=dict(title='Hashrate', color='#FFFFFF')
     )
-
-    
-
     
     # # adding a circle to the effort chart if you found the block
     # try:
