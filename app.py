@@ -7,18 +7,30 @@ import plotly.express as px
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 
+from flask_login import LoginManager, UserMixin, login_user
+from flask import Flask, request, session, redirect, url_for
+from flask_session import Session 
+
+server = Flask(__name__)
+server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
+server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
+Session(server)
+
+    
 # Initialize the Dash app
-app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
+app = Dash(__name__, server=server, url_base_pathname='/', external_stylesheets=[dbc.themes.DARKLY])
+server = app.server  # Expose the underlying Flask server
+
 
 price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
-wallet = 'ADDRESS'
+# wallet = 'ADDRESS'
 
 def update_charts(wallet_address):
-    global wallet
+    # global wallet
     wallet = wallet_address
     
-    global mining_df, performance_df, block_df, miner_df, effort_df, pool_df, top_miner_df, btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty
+    # global mining_df, performance_df, block_df, miner_df, effort_df, pool_df, top_miner_df, btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty
         
     # sigma_reader.set_wallet(wallet)
     short_wallet = '{}...{}'.format(wallet[:5], wallet[-5:])
@@ -26,7 +38,8 @@ def update_charts(wallet_address):
     mining_df, performance_df = sigma_reader.get_mining_stats(wallet)
     block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet)
     pool_df, top_miner_df = sigma_reader.get_pool_stats(wallet)
-    btc_price, erg_price = price_reader.get(debug=False)
+    miner_reward_df = sigma_reader.get_estimated_payments(wallet)
+    btc_price, erg_price = price_reader.get(debug=True)
 
     try:
         pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 5)
@@ -54,7 +67,7 @@ def update_charts(wallet_address):
     # Creating Charts
     miner_chart = create_pie_chart(miner_df, 'miner', 'Number of Blocks Found')
     top_miner_chart = create_pie_chart(top_miner_df, 'miner', 'hashrate')
-    estimated_reward = create_pie_chart(top_miner_df, 'miner', 'ProjectedReward', est_reward=True)
+    estimated_reward = create_pie_chart(miner_reward_df, 'miner', 'reward', est_reward=True)
     
     
     effort_chart = create_bar_chart(block_df, x='Time Found', y='effort',
@@ -114,7 +127,7 @@ def update_charts(wallet_address):
         dashboard_title = 'Sigma Mining Pool Dashboard - {}'.format(short_wallet)
     return miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot
     
-miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot= update_charts(wallet)
+miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot= update_charts('ADDRESS')
 
 app.layout = html.Div(children=[
     html.H1(id='dashboard-title', children=[]),
@@ -193,18 +206,20 @@ app.layout = html.Div(children=[
     State('wallet-input', 'value')
 ], [Input('interval-component', 'n_intervals')])
 
+
+@server.route('/set/')
 def update_output(n_clicks, wallet_address, n_intervals):
     trigger_id = callback_context.triggered[0]['prop_id'].split('.')[0]
     print(f"Callback triggered by: {trigger_id}")
 
-    if trigger_id == 'interval-component':
-        wallet_address = wallet
-    
-    if n_clicks > 0:  # Only update after the first click to avoid initial unwanted API call
+    if trigger_id == 'interval-component' or n_clicks > 0:
+        wallet = wallet_address
         print(f'Wallet ID entered: "{wallet_address}"')
     else:
-        pass
-    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot = update_charts(wallet_address)
+        wallet = 'Enter Your Address'
+
+    session['wallet_id'] = wallet
+    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot = update_charts(wallet)
 
     # Convert DataFrames to lists of dictionaries for DataTables
     mining_stats_data = mining_df.to_dict('records')
@@ -221,4 +236,4 @@ def update_output(n_clicks, wallet_address, n_intervals):
 
 # Run the app
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8050)
+    app.run_server(debug=True, host='0.0.0.0', port=8050)
