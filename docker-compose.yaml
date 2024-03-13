@@ -1,6 +1,8 @@
 version: '3'
 services:
   pool-ui:
-    image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
+    build:
+      context: .
+    # image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
     ports:
-     - "8050:8050"
+      - "8050:8050"
