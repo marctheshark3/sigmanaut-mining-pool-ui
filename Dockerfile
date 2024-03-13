@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8050
 
 # Define environment variable
-ENV NAME World
+ENV FLASK_APP app.py
 
-# Run app.py when the container launches
-CMD ["python", "./app.py"]
+# Run the application
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8050", "app:server"]
