@@ -74,6 +74,37 @@ class SigmaWalletReader:
         reward_df['my_wallet'] = reward_df['miner'].apply(lambda address: address == wallet)
         
         return reward_df
+
+    def get_miner_samples(self, wallet):
+        url = '{}/{}/{}'.format(self.base_api, 'miners', wallet)
+        sample_data = self.get_api_data(url)
+        try:
+            samples = sample_data['performanceSamples']
+        except TypeError:
+            return DataFrame({'created': [0], 'hashrate': [0], 'worker': ['not loaded']})
+
+        flattened_data = []
+    
+        for entry in samples:
+            created_time = entry['created']
+            
+            for worker_name, metrics in entry['workers'].items():
+                
+                flat_entry = {
+                    'created': created_time,
+                    'worker': worker_name,
+                    'hashrate': metrics['hashrate'],
+                    'sharesPerSecond': metrics['sharesPerSecond']
+                }
+
+                flattened_data.append(flat_entry)
+        df = DataFrame(flattened_data)
+
+        if df.empty:
+            df = DataFrame({'created': [0], 'hashrate': [0], 'worker': ['not loaded']})
+    
+        return df
+
                     
     def get_mining_stats(self, wallet):
         url = '{}/{}/{}'.format(self.base_api, 'miners', wallet)
