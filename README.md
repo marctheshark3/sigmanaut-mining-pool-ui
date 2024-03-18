@@ -13,22 +13,30 @@ In a web browser you can navigate to: http://localhost:8050/
 
 ## How to Connect to the Sigmanaut Mining Pool
 
+### Choose a PORT
+
+Based on your hashrate and TLS specificity choose the port that is right for you. 
+
+- Port 3052 - Lower than 10GH/s - No TLS
+- Port 3053 - Higher than 10GH/s - No TLS
+- Port 3054 - Lower than 10GH/s - TLS
+- Port 3055 - Higher than 10GH/s - TLS
+
 POOL URL:
 15.204.211.130
-Port: 3052
 
-### HIVEOS
+### HIVEOS - Assuming Port 3052
 1. Create a New Flight Sheet
 2. Pool set to configure in miner
 3. Set "POOL URL" to 15.204.211.130:3052
 
 
-### MMPOS
+### MMPOS - Assuming Port 3052
 1. Create a new pool in Management
 2. In Hostname enter the URL: 15.204.211.130
 3. Port: 3052
 
-### Linux OR Windows
+### Linux OR Windows - Assuming Port 3052
 1. edit the .sh file for the specific miner, in this case lolminer
 2. in the pool argument enter the full url with port of choice
 ```
