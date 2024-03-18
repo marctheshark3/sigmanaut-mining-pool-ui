@@ -15,7 +15,29 @@ server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
 server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
 Session(server)
+'''
+TODO
+- Config for background to allow for customizability down the road
+- inital user page for dashboard, then once address entered show the whole dashboard
+-tx link to be url - cliockable
+- mobile friendly with tables
+- confetti when block found
+- block found indicator
+- inital user page visuals
+- BLock reward is vairable based on date - reads in df
 
+INITIAL USER PAGE METRICS:
+- TOTAL HASHRATE
+- TOTAL MINERS
+- ALGO
+- Reward
+- Pool Fee
+- Min Payout
+- Difficulty
+- Amount Paid
+- Place to enter address
+
+'''
     
 # Initialize the Dash app
 app = Dash(__name__, server=server, url_base_pathname='/', external_stylesheets=[dbc.themes.SUPERHERO])
@@ -24,16 +46,13 @@ server = app.server  # Expose the underlying Flask server
 
 price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
-# wallet = 'ADDRESS'
 
 def update_charts(wallet_address):
-    # global wallet
     wallet = wallet_address
-    
-    # global mining_df, performance_df, block_df, miner_df, effort_df, pool_df, top_miner_df, btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty
-        
-    # sigma_reader.set_wallet(wallet)
-    short_wallet = '{}...{}'.format(wallet[:5], wallet[-5:])
+    if wallet != 'Enter Your Address':
+        short_wallet = '{}...{}'.format(wallet[:5], wallet[-5:])
+    else:
+        short_wallet = wallet
 
     mining_df, performance_df = sigma_reader.get_mining_stats(wallet)
     block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet)
@@ -76,15 +95,6 @@ def update_charts(wallet_address):
                                     labels={'Time Found': 'Block Creation Date',
                                             'effort': 'Effort', 'networkDifficulty': 'Network Difficulty'})
     print(miner_performance.columns)
-
-    
-    # miner_performance_chart ={'data': [go.Scatter(x=miner_performance['created'], y=miner_performance['hashrate'],
-    #                                     mode='lines+markers', name='Hashrate Over Time', line={'color': '#00CC96'})],
-                       
-    #                                'layout': go.Layout(title='Hashrate Over Time', titlefont={'color': '#FFFFFF'},
-    #                                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-    #                                                    margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
-    #                                                    legend={'font': {'color': '#FFFFFF'}}, font=dict(color='#FFFFFF'))}
 
     miner_performance_chart = px.line(miner_performance, 
               x='created', 

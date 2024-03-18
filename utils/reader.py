@@ -35,6 +35,56 @@ class SigmaWalletReader:
         self.token_id = cfg.user_defined.token_id
         self.token_ls = cfg.default_values.token_ls
         self.base_api = cfg.default_values.base_api
+
+    def get_front_page_data(self):
+        pool = self.get_api_data(self.base_api)['pool']
+        
+        payment_data = pool['paymentProcessing'] # dict
+
+        port_data = pool['ports']
+
+        ls = []
+        for port in port_data:
+            temp = port_data[port]
+            if 'pikes_peak' in temp['name']:
+                high_or_low = 'Greater Than 10GH/s'
+            else:
+                high_or_low = 'Lower Than 10GH/s'
+            ls.append([temp['name'], port, high_or_low, temp['tls']])
+        port_df = DataFrame(ls, columns=['Name', 'Port', 'Hashrate Threshold', 'TLS'])
+
+        pool_fee = pool['poolFeePercent']
+        pool_stats = pool['poolStats'] # dict
+        net_stats = pool['networkStats'] # dict
+     
+        total_paid = pool['totalPaid']
+        total_blocks = pool['totalBlocks']
+        last_block_found = pool['lastPoolBlockTime']
+        pool_effort = pool['poolEffort']
+
+        data = {'port_df': port_df,
+                'fee': pool_fee,
+                'paid': total_paid,
+                'blocks': total_blocks,
+                'last_block_found': last_block_found,
+                'pool_effort': pool_effort}
+
+        
+
+        for key in payment_data.keys():
+            data[key] = payment_data[key]
+
+        for key in pool_stats.keys():
+            data[key] = pool_stats[key]
+
+        for key in net_stats.keys():
+                data[key] = net_stats[key]
+
+        data['poolHashrate'] = data['poolHashrate'] / 1e9 # GigaHash/Second
+        data['networkHashrate'] = data['networkHashrate'] / 1e12 # Terra Hash/Second
+        data['networkDifficulty'] = data['networkDifficulty'] / 1e15 # Peta
+
+        return data
     
     def get_api_data(self, api_url):
         try:
