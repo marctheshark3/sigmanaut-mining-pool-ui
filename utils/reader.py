@@ -94,8 +94,27 @@ class SigmaWalletReader:
         # date_time_obj = datetime.strptime(data['lastNetworkBlockTime'], format_string)
         # data['lastNetworkBlockTime'] = date_time_obj.strftime('%A, %B %d, %Y at %I:%M:%S %p')
 
-
+        # self.pool_hash = data['poolHashrate']
+        # self.net_hash = data['networkHashrate']
+        # self.net_diff = data['network_difficulty']
         return data
+
+    def get_main_page_metrics(self, wallet, debug=False):
+        ''' btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty '''
+        price_reader = PriceReader()
+        btc, erg = price_reader.get(debug)
+        _, performance_df = self.get_mining_stats(wallet)
+        _, _, effort_df = self.get_block_stats(wallet)
+        data = self.get_front_page_data()
+        pool_hash = data['poolHashrate']
+        net_hash = data['networkHashrate']
+        net_diff = data['network_difficulty']
+        your_total_hash = round(performance_df[performance_df['Worker'] == 'Totals']['Hashrate [Mh/s]'].iloc[0], 5)
+        avg_block_effort = round(effort_df[effort_df['Mining Stats'] == 'Average Block Effort']['Values'].iloc[0], 5)
+        return btc_price, erg_price, your_total_hash, pool_hash, net_hash, avg_block_effort, net_diff
+
+        
+        
     
     def get_api_data(self, api_url):
         try:
