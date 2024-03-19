@@ -3,6 +3,7 @@ from hydra import compose, initialize
 from omegaconf import DictConfig, OmegaConf
 from pandas import DataFrame, concat, to_datetime
 from pycoingecko import CoinGeckoAPI
+from datetime import datetime
 
 class PriceReader:
     def __init__(self):
@@ -60,6 +61,12 @@ class SigmaWalletReader:
         total_paid = pool['totalPaid']
         total_blocks = pool['totalBlocks']
         last_block_found = pool['lastPoolBlockTime']
+
+        format_string = '%Y-%m-%dT%H:%M:%S.%fZ'
+
+        date_time_obj = datetime.strptime(last_block_found, format_string)
+        last_block_found = date_time_obj.strftime('%A, %B %d, %Y at %I:%M:%S %p')
+        
         pool_effort = pool['poolEffort']
 
         data = {'port_df': port_df,
@@ -68,7 +75,7 @@ class SigmaWalletReader:
                 'blocks': total_blocks,
                 'last_block_found': last_block_found,
                 'pool_effort': pool_effort}
-
+        
         
 
         for key in payment_data.keys():
@@ -83,6 +90,10 @@ class SigmaWalletReader:
         data['poolHashrate'] = data['poolHashrate'] / 1e9 # GigaHash/Second
         data['networkHashrate'] = data['networkHashrate'] / 1e12 # Terra Hash/Second
         data['networkDifficulty'] = data['networkDifficulty'] / 1e15 # Peta
+
+        # date_time_obj = datetime.strptime(data['lastNetworkBlockTime'], format_string)
+        # data['lastNetworkBlockTime'] = date_time_obj.strftime('%A, %B %d, %Y at %I:%M:%S %p')
+
 
         return data
     

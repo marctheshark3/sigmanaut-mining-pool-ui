@@ -24,6 +24,7 @@ Paid:$58.50K (59,489.7 )
 
 import dash
 from dash import html, dcc, dash_table
+import dash_bootstrap_components as dbc
 
 from utils.reader import SigmaWalletReader, PriceReader
 price_reader = PriceReader()
@@ -53,7 +54,7 @@ image_style = {'height': '48px', 'marginRight': '10px',}
 icon_text_style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'flex-start', 'color': 'white', 'padding': '10px', 'marginBottom': '10px'}
 
 # Initialize the Dash app
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = html.Div(style={'backgroundColor': '#1e1e1e', 'color': '#ffffff', 'padding': '50px', 'fontFamily': 'sans-serif'}, children=[
     # Header
@@ -95,7 +96,7 @@ app.layout = html.Div(style={'backgroundColor': '#1e1e1e', 'color': '#ffffff', '
                 ]),
                 html.Div(className="metric", style=icon_text_style, children=[
                     html.Img(src='assets/mining_temp.png', style=image_style),
-                    html.Span(fee)
+                    html.Span("Price: $1.9")
                 ]),
                 html.Div(className="metric", style=icon_text_style, children=[
                     html.Img(src='assets/mining_temp.png', style=image_style),
