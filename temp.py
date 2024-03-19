@@ -5,6 +5,7 @@ from layouts import front_page, main_page
 from urllib.parse import quote, unquote
 import dash_bootstrap_components as dbc
 from utils.reader import SigmaWalletReader, PriceReader
+from layouts.front_page import setup_front_page_callbacks
 
 reader = SigmaWalletReader('../conf')
 
@@ -76,6 +77,7 @@ def update_crypto_prices(n, pathname):
                 ], style={'display': 'flex', 'flexDirection': 'row', 'justifyContent': 'center'})
         return layout
 
+setup_front_page_callbacks(app)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
