@@ -1,18 +1,29 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
+
+top_card_style = {
+    'backgroundColor': '#333333',
+    'color': 'white',
+    'marginBottom': '25px',
+    'padding': '25px',
+    'justifyContent': 'center',
+    'textAlign': 'center'
+}
+
+
 def get_layout():
     return dbc.Container([
         html.H1('Dashboard', id='dashboard-title'),
         
         dcc.Interval(
             id='interval-component',
-            interval=1000,  # in milliseconds, every 1 minute
+            interval=1000*10,  # in milliseconds, every 1 minute
             n_intervals=0
         ),
 
         dbc.Row([
-            dbc.Col(html.Div(id='metrics-stats')),
+            dbc.Col(html.Div(id='metrics-stats'), style=top_card_style),
         ]),
         
         dbc.Row(id='stats-row', style={'display': 'flex', 'marginTop': '20px'}),

@@ -4,6 +4,7 @@ from omegaconf import DictConfig, OmegaConf
 from pandas import DataFrame, concat, to_datetime
 from pycoingecko import CoinGeckoAPI
 from datetime import datetime
+from hydra.core.global_hydra import GlobalHydra
 
 class PriceReader:
     def __init__(self):
@@ -28,8 +29,11 @@ class SigmaWalletReader:
     def __init__(self, config_path: str):
         self.block_reward = 30
         self.config_path = config_path
-        
-        initialize(config_path, self.config_path, version_base=None)
+        try:
+            initialize(config_path, self.config_path, version_base=None)
+        except ValueError:
+            GlobalHydra.instance().clear()
+            initialize(config_path, self.config_path, version_base=None)
         cfg = compose(config_name='conf')
 
         self.api = cfg.default_values.url
@@ -108,10 +112,10 @@ class SigmaWalletReader:
         data = self.get_front_page_data()
         pool_hash = data['poolHashrate']
         net_hash = data['networkHashrate']
-        net_diff = data['network_difficulty']
+        net_diff = data['networkDifficulty']
         your_total_hash = round(performance_df[performance_df['Worker'] == 'Totals']['Hashrate [Mh/s]'].iloc[0], 5)
         avg_block_effort = round(effort_df[effort_df['Mining Stats'] == 'Average Block Effort']['Values'].iloc[0], 5)
-        return btc_price, erg_price, your_total_hash, pool_hash, net_hash, avg_block_effort, net_diff
+        return btc, erg, your_total_hash, pool_hash, net_hash, avg_block_effort, net_diff
 
         
         
