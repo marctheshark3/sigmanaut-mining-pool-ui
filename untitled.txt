@@ -1,0 +1,5 @@
+9i3P4Ah9jp7nnSNMg6gxjXXHEWjkkBbPJR5RLRkMwEt3DZZGLDL
+9hT1c9NNUeNF8nxcE4zyzb6Ui2ypFcSjNKxrSj3hJkQKvqfgbTV
+9hUWH7MTuDSPxSQiQuUecLf6SnCCN8ydt8XigBD3TN42zddSGtj
+
+gunicorn -w 4 --timeout 2000 -b 0.0.0.0:8050 app:server

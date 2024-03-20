@@ -25,8 +25,7 @@ difficulty = 'Network Difficulty: {}P'.format(round(data['networkDifficulty'], 3
 net_block_found = 'Last Block Found on Network: {}'.format(data['lastNetworkBlockTime'])
 height = 'Height: {}'.format(data['blockHeight'])
 
-image_style = {'height': '48px', 'marginRight': '10px',}
-icon_text_style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'flex-start', 'color': 'white', 'padding': '10px', 'marginBottom': '10px'}
+# icon_text_style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'flex-start', 'color': 'white', 'padding': '10px', 'marginBottom': '10px'}
 
 # refactor this into dash_utils
 def create_image_text_block(image, text):
@@ -67,7 +66,7 @@ def create_row_card(image, h2_text, p_text):
     return dbc.Col(dbc.Card(style=top_card_style, children=[
         html.Img(src=image, style=top_image_style),
         html.H2(h2_text, style={'color': '#FFA500'}),
-        html.P(p_text)]), width=3, lg=3, style={'marginRight': '5px', 'marginLeft': '5px'})
+        html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'})
 
 def setup_front_page_callbacks(app):
     
@@ -75,7 +74,7 @@ def setup_front_page_callbacks(app):
                    Output('a-2', 'children'),],
                   [Input('front-page-interval', 'n_intervals')])
     def update_content(n):
-        if n > 0:
+        if not n or n > 1:
             print('UPDATING FRONT PAGE')
             price_reader = PriceReader()
             sigma_reader = SigmaWalletReader(config_path="../conf")
@@ -100,12 +99,12 @@ def setup_front_page_callbacks(app):
             net_block_found = 'Last Block Found on Network: {}'.format(data['lastNetworkBlockTime'])
             height = 'Height: {}'.format(data['blockHeight'])
 
-            row_1 = dbc.Row(id='a-1', justify='center', style={'padding': '20px'},
+            row_1 = dbc.Row(justify='center',
                             children=[create_row_card('assets/mining_temp.png', hashrate, 'Hashrate'),
-                     create_row_card('assets/mining_temp.png', n_miners, 'Miners'),
-                     create_row_card('assets/mining_temp.png', ergo, 'Price')])
+                                     create_row_card('assets/mining_temp.png', n_miners, 'Miners'),
+                                     create_row_card('assets/mining_temp.png', ergo, 'Price')])
 
-            row_2_col_1 = dbc.Row(id='a-2', justify='center', style={'padding': '20px'}, children=[
+            row_2_col_1 = dbc.Row(justify='center', children=[
                                     dbc.Col(md=6, children=[
                                         dbc.Card(style=card_style, children=[
                                             html.H3('Pool Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}),
@@ -128,20 +127,22 @@ def setup_front_page_callbacks(app):
                                     ])])
 
             return row_1, row_2_col_1
+        else:
+            return ([], [])
                  
 
 
 def get_layout():
     return dbc.Container(fluid=True, style={'backgroundColor': '#1e1e1e', 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif'},
                            children=[
-                               dcc.Interval(id='front-page-interval', interval=5*1000, n_intervals=0),
+                               dcc.Interval(id='front-page-interval', interval=60*1000, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': '#FFA500', 'textAlign': 'center',}),
                                  # Metrics overview row
-                                 dbc.Row(id='a-1'),
+                                 dbc.Row(id='a-1', justify='center', style={'padding': '20px'}),
 
                                 # Detailed stats
-                                dbc.Row(id='a-2'),
+                                dbc.Row(id='a-2', justify='center', style={'padding': '20px'}),
 
                                 # Start Mining Button
                                 dbc.Row(justify='center', children=[

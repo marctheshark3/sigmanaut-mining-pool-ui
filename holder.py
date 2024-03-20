@@ -1,8 +1,6 @@
 from utils.reader import SigmaWalletReader, PriceReader
 from utils.dash_utils import create_pie_chart, create_bar_chart, create_table_component
 from dash import Dash, html, dash_table, dcc, callback_context
-from dash.exceptions import PreventUpdate
-from urllib.parse import unquote
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
@@ -41,9 +39,9 @@ INITIAL USER PAGE METRICS:
 
 '''
     
-# # Initialize the Dash app
-# app = Dash(__name__, server=server, url_base_pathname='/', external_stylesheets=[dbc.themes.SUPERHERO])
-# server = app.server  # Expose the underlying Flask server
+# Initialize the Dash app
+app = Dash(__name__, server=server, url_base_pathname='/', external_stylesheets=[dbc.themes.SUPERHERO])
+server = app.server  # Expose the underlying Flask server
 
 
 price_reader = PriceReader()
@@ -170,8 +168,13 @@ def update_charts(wallet_address):
     
 miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot, miner_performance_chart= update_charts('ADDRESS')
 
-def get_layout():
-    return html.Div(children=[html.H1(id='dashboard-title', children=[]),
+app.layout = html.Div(children=[
+    html.H1(id='dashboard-title', children=[]),
+
+    html.Label('Enter your wallet ID:'),
+    dcc.Input(id='wallet-input', type='text', value=''),
+    html.Button('Submit', id='submit-btn', n_clicks=0),
+    html.Div(id='output-container'),
     
     html.Div(id='crypto-prices', children=[]),
     dcc.Interval(
@@ -226,55 +229,51 @@ def get_layout():
              style={'padding': '20px'})],
                       style={'backgroundColor': 'rgba(17,17,17,1)', 'color': '#FFFFFF', 'padding': '10px'})
 
-def setup_main_page_callbacks(app):
-    @app.callback([
-        Output('dashboard-title', 'children'),
-        Output('miner-blocks', 'figure'),
-        Output('top-miner-chart', 'figure'),
-        Output('estimated-reward', 'figure'),
-        Output('effort-chart', 'figure'),
-        Output('crypto-prices', 'children'),
-        Output('mining-stats', 'data'),  # Adding Output for the mining-stats DataTable
-        Output('performance-stats', 'data'),  # Adding Output for the performance-stats DataTable
-        Output('pool-stats', 'data'),  # Adding Output for the pool-stats DataTable
-        Output('block-stats', 'data'),  
-        Output('network-difficulty-plot', 'figure'), 
-        Output('miner-performance-plot', 'figure')],
-                  [Input('interval-component', 'n_intervals')],
-                 [State('url', 'pathname')])
-    
-    def update_output(n_intervals, pathname):
-        wallet = unquote(pathname.lstrip('/'))
-        print(wallet)
-        # ctx = callback_context
-        # if not ctx.triggered or not pathname:
-        #     # Prevent update if there's no trigger or no pathname
-        #     raise PreventUpdate
-        
-        # trigger_id = callback_context.triggered[0]['prop_id'].split('.')[0]
-        # print(f"Callback triggered by: {trigger_id}")
-        # if trigger_id == 'url' or n_intervals:
-        #     wallet = unquote(pathname.lstrip('/'))
-        #     print(f'Wallet ID entered: "{wallet}"')
 
-        # if not wallet or wallet == "Enter Your Address":
-        #     raise PreventUpdate
-    
-        # session['wallet_id'] = wallet
-        miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot, miner_performance_chart = update_charts(wallet)
-    
-        # Convert DataFrames to lists of dictionaries for DataTables
-        mining_stats_data = mining_df.to_dict('records')
-        performance_stats_data = mask_performance_df.to_dict('records')
-        pool_stats_data = pool_df.to_dict('records')
-        block_data = block_df.to_dict('records')
-    
-        # Return the new figures and data
-        return (
-            dashboard_title, miner_chart, top_miner_chart, estimated_reward, effort_chart, 
-            crypto_prices_row, 
-            mining_stats_data, performance_stats_data, pool_stats_data, block_data, net_diff_plot, miner_performance_chart
-        )
+@app.callback([
+    Output('dashboard-title', 'children'),
+    Output('miner-blocks', 'figure'),
+    Output('top-miner-chart', 'figure'),
+    Output('estimated-reward', 'figure'),
+    Output('effort-chart', 'figure'),
+    Output('crypto-prices', 'children'),
+    Output('mining-stats', 'data'),  # Adding Output for the mining-stats DataTable
+    Output('performance-stats', 'data'),  # Adding Output for the performance-stats DataTable
+    Output('pool-stats', 'data'),  # Adding Output for the pool-stats DataTable
+    Output('block-stats', 'data'),  
+    Output('network-difficulty-plot', 'figure'), 
+    Output('miner-performance-plot', 'figure'), 
+    Input('submit-btn', 'n_clicks'),
+    State('wallet-input', 'value')
+], [Input('interval-component', 'n_intervals')])
+
+
+@server.route('/set/')
+def update_output(n_clicks, wallet_address, n_intervals):
+    trigger_id = callback_context.triggered[0]['prop_id'].split('.')[0]
+    print(f"Callback triggered by: {trigger_id}")
+
+    if trigger_id == 'interval-component' or n_clicks > 0:
+        wallet = wallet_address
+        print(f'Wallet ID entered: "{wallet_address}"')
+    else:
+        wallet = 'Enter Your Address'
+
+    session['wallet_id'] = wallet
+    miner_chart, top_miner_chart, estimated_reward, effort_chart, mining_df, mask_performance_df, pool_df, crypto_prices_row, dashboard_title, block_df, net_diff_plot, miner_performance_chart = update_charts(wallet)
+
+    # Convert DataFrames to lists of dictionaries for DataTables
+    mining_stats_data = mining_df.to_dict('records')
+    performance_stats_data = mask_performance_df.to_dict('records')
+    pool_stats_data = pool_df.to_dict('records')
+    block_data = block_df.to_dict('records')
+
+    # Return the new figures and data
+    return (
+        dashboard_title, miner_chart, top_miner_chart, estimated_reward, effort_chart, 
+        crypto_prices_row, 
+        mining_stats_data, performance_stats_data, pool_stats_data, block_data, net_diff_plot, miner_performance_chart
+    )
 
 # Run the app
 if __name__ == '__main__':

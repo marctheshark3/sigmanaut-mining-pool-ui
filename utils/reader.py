@@ -226,7 +226,7 @@ class SigmaWalletReader:
             performance_df.columns = ['Worker', 'Hashrate [Mh/s]', 'SharesPerSecond']  # Rename columns
             performance_df['Hashrate [Mh/s]'] = performance_df['Hashrate [Mh/s]'] / 1e6 # MH/s
         except:
-            print('PERFORMANCE DATA EXCEPTION TRIGGERED: {} WALLET'.format(wallet))
+            print('NO VALID WALLET ENTERED'.format(wallet))
           
             performance = 'PLEASE ENTER YOUR MINING WALLET ADDRESS'
             performance_df = DataFrame()
