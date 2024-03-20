@@ -41,6 +41,14 @@ class SigmaWalletReader:
         self.token_ls = cfg.default_values.token_ls
         self.base_api = cfg.default_values.base_api
 
+    def get_miner_ls(self):
+        data = self.get_api_data('{}/{}'.format(self.base_api, 'miners'))
+        miner_ls = []
+        for sample in data:
+            miner_ls.append(sample['miner'])
+    
+        return miner_ls
+
     def get_front_page_data(self):
         pool = self.get_api_data(self.base_api)['pool']
         
