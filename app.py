@@ -1,12 +1,13 @@
 # app.py
 from dash import Dash, html, dcc, Input, Output, State
 
-from layouts import front_page, main_page
+from layouts import front_page, main_page, mining_page
 from urllib.parse import quote, unquote
 import dash_bootstrap_components as dbc
 from utils.reader import SigmaWalletReader, PriceReader
 from layouts.front_page import setup_front_page_callbacks
 from layouts.main_page import setup_main_page_callbacks
+from layouts.mining_page import setup_mining_page_callbacks
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
@@ -17,7 +18,7 @@ server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based sessio
 Session(server)
 reader = SigmaWalletReader('../conf')
 
-app = Dash(__name__, url_base_pathname='/', server=server, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = Dash(__name__, url_base_pathname='/', server=server, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 server = app.server 
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
@@ -32,7 +33,7 @@ def display_page(pathname):
         mining_address = unquote(pathname.lstrip('/'))
         # Use the mining address to generate the page content
         # This is where you might call a function to get the layout based on the mining address
-        return main_page.get_layout()
+        return mining_page.get_layout()
     else:
         return front_page.get_layout()
 
@@ -87,7 +88,7 @@ def navigate_to_main(n_clicks, value):
 #         return layout
 
 setup_front_page_callbacks(app)
-setup_main_page_callbacks(app)
+setup_mining_page_callbacks(app)
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0', port=8050)

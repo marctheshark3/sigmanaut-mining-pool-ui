@@ -30,7 +30,8 @@ height = 'Height: {}'.format(data['blockHeight'])
 # refactor this into dash_utils
 def create_image_text_block(image, text):
     return html.Div(style=metric_row_style, children=[
-                    html.Img(src='assets/{}'.format(image), style=image_style),
+                    html.Img(src='assets/{}'.format(image),
+                             style=image_style),
                     html.Span(text, style={'padding': '10px'})])
 
 # Style for the card containers
@@ -66,7 +67,8 @@ def create_row_card(image, h2_text, p_text):
     return dbc.Col(dbc.Card(style=top_card_style, children=[
         html.Img(src=image, style=top_image_style),
         html.H2(h2_text, style={'color': '#FFA500'}),
-        html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'})
+        html.P(p_text)]),
+                   style={'marginRight': 'auto', 'marginLeft': 'auto'})
 
 def setup_front_page_callbacks(app):
     
@@ -74,61 +76,61 @@ def setup_front_page_callbacks(app):
                    Output('a-2', 'children'),],
                   [Input('front-page-interval', 'n_intervals')])
     def update_content(n):
-        if not n or n > 1:
-            print('UPDATING FRONT PAGE')
-            price_reader = PriceReader()
-            sigma_reader = SigmaWalletReader(config_path="../conf")
+        # if not n or n > 1:
+        print('UPDATING FRONT PAGE')
+        price_reader = PriceReader()
+        sigma_reader = SigmaWalletReader(config_path="../conf")
 
-            data = sigma_reader.get_front_page_data()
-            _, ergo = price_reader.get(debug=True)
-            # Pool Metrics
-            fee = 'Pool Fee: {}%'.format(data['fee'])
-            paid = 'Cumulative Payments: {}'.format(data['paid'])
-            blocks_found = 'Blocks Found: {}'.format(data['blocks'])
-            last_block = 'Last Block Found: {}'.format(data['last_block_found'])
-            effort= 'Current Pool Effort: {}'.format(data['pool_effort'])
-            min_payout = 'Minimum Payout: {}'.format(data['minimumPayment'])
+        data = sigma_reader.get_front_page_data()
+        _, ergo = price_reader.get(debug=True)
+        # Pool Metrics
+        fee = 'Pool Fee: {}%'.format(data['fee'])
+        paid = 'Cumulative Payments: {}'.format(data['paid'])
+        blocks_found = 'Blocks Found: {}'.format(data['blocks'])
+        last_block = 'Last Block Found: {}'.format(data['last_block_found'])
+        effort= 'Current Pool Effort: {}'.format(data['pool_effort'])
+        min_payout = 'Minimum Payout: {}'.format(data['minimumPayment'])
 
-            payout_schema = 'Pool Payout Schema: {}'.format(data['payoutScheme'])
-            n_miners = '{}'.format(data['connectedMiners'])
-            hashrate = '{} GH/s'.format(round(data['poolHashrate'], 3))
+        payout_schema = 'Pool Payout Schema: {}'.format(data['payoutScheme'])
+        n_miners = '{}'.format(data['connectedMiners'])
+        hashrate = '{} GH/s'.format(round(data['poolHashrate'], 3))
 
-            # Network Metrics
-            net_hashrate = 'Network Hashrate: {} TH/s'.format(data['networkHashrate'])
-            difficulty = 'Network Difficulty: {}P'.format(round(data['networkDifficulty'], 3))
-            net_block_found = 'Last Block Found on Network: {}'.format(data['lastNetworkBlockTime'])
-            height = 'Height: {}'.format(data['blockHeight'])
+        # Network Metrics
+        net_hashrate = 'Network Hashrate: {} TH/s'.format(data['networkHashrate'])
+        difficulty = 'Network Difficulty: {}P'.format(round(data['networkDifficulty'], 3))
+        net_block_found = 'Last Block Found on Network: {}'.format(data['lastNetworkBlockTime'])
+        height = 'Height: {}'.format(data['blockHeight'])
 
-            row_1 = dbc.Row(justify='center',
-                            children=[create_row_card('assets/mining_temp.png', hashrate, 'Hashrate'),
-                                     create_row_card('assets/mining_temp.png', n_miners, 'Miners'),
-                                     create_row_card('assets/mining_temp.png', ergo, 'Price')])
+        row_1 = dbc.Row(justify='center',
+                        children=[create_row_card('assets/mining_temp.png', hashrate, 'Hashrate'),
+                                 create_row_card('assets/mining_temp.png', n_miners, 'Miners'),
+                                 create_row_card('assets/mining_temp.png', ergo, 'Price')])
 
-            row_2_col_1 = dbc.Row(justify='center', children=[
-                                    dbc.Col(md=6, children=[
-                                        dbc.Card(style=card_style, children=[
-                                            html.H3('Pool Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}),
-                                            create_image_text_block('mining_temp.png', 'Algo: Autolykos V2'),
-                                            create_image_text_block('mining_temp.png', 'Current Reward: 30'),
-                                            create_image_text_block('mining_temp.png', paid),
-                                            create_image_text_block('mining_temp.png', payout_schema),
-                                            create_image_text_block('mining_temp.png', min_payout),
-                                        ])
-                                    ]),
+        row_2_col_1 = dbc.Row(justify='center', children=[
+                                dbc.Col(md=6, children=[
+                                    dbc.Card(style=card_style, children=[
+                                        html.H3('Pool Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}),
+                                        create_image_text_block('mining_temp.png', 'Algo: Autolykos V2'),
+                                        create_image_text_block('mining_temp.png', 'Current Reward: 30'),
+                                        create_image_text_block('mining_temp.png', paid),
+                                        create_image_text_block('mining_temp.png', payout_schema),
+                                        create_image_text_block('mining_temp.png', min_payout),
+                                    ])
+                                ]),
 
-                                    dbc.Col(md=6, children=[
-                                        dbc.Card(style=card_style, children=[
-                                            html.H3('Network Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}),
-                                            create_image_text_block('mining_temp.png', difficulty),
-                                            create_image_text_block('mining_temp.png', net_block_found),
-                                            create_image_text_block('mining_temp.png', height),
+                                dbc.Col(md=6, children=[
+                                    dbc.Card(style=card_style, children=[
+                                        html.H3('Network Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}),
+                                        create_image_text_block('mining_temp.png', difficulty),
+                                        create_image_text_block('mining_temp.png', net_block_found),
+                                        create_image_text_block('mining_temp.png', height),
 
-                                        ])
-                                    ])])
+                                    ])
+                                ])])
 
-            return row_1, row_2_col_1
-        else:
-            return ([], [])
+        return row_1, row_2_col_1
+        # else:
+        #     return ([], [])
                  
 
 

@@ -136,7 +136,7 @@ def update_charts(wallet_address):
                                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                        margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
                                        legend={'font': {'color': '#FFFFFF'}}, font=dict(color='#FFFFFF'))}
-
+    print(mask_performance_df)
     # Define the style for the crypto prices
     metric_style = {
         'padding': '20px',
@@ -179,7 +179,7 @@ def get_layout():
         interval=60*1000,  # in milliseconds, every 1 minutes
         n_intervals=0
     ),
-  
+    
     html.Div([html.Div(create_table_component('Payment Stats', 'mining-stats',
                                            mining_df.columns, mining_df, max_table_width='400px'), style={'flex': '1'}),
               html.Div(create_table_component('Your Performance Stats', 'performance-stats',
