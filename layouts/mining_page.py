@@ -186,22 +186,7 @@ def setup_mining_page_callbacks(app):
             yaxis=dict(title='Effort', color='#FFFFFF'),
         )
 
-        block_stats = dash_table.DataTable(columns=[{"name": i, "id": i} for i in block_df.columns],
-                                            data=block_df.to_dict('records'), style_table={'overflowX': 'auto'},
-                                            style_cell={'height': 'auto', 'minWidth': '180px',
-                                                        'width': '180px', 'maxWidth': '180px',
-                                                        'whiteSpace': 'normal', 'textAlign': 'left',
-                                                        'padding': '10px',},
-                                            style_header={'backgroundColor': 'rgb(30, 30, 30)', 'color': 'white',
-                                                          'fontWeight': 'bold', 'textAlign': 'center',},
-                                            style_data={'backgroundColor': 'rgb(50, 50, 50)', 'color': 'white',
-                                                        'border': '1px solid black',},
-                                            style_data_conditional=[{'if': {'column_id': 'status', 'filter_query': '{status} eq confirmed'},
-                                                                     'backgroundColor': 'lightgreen', 'color': 'black', 'after': {'content': '" ✔"'}}],
-                                            style_as_list_view=True,  style_cell_conditional=[{'if': {'column_id': c},
-                                                                                               'textAlign': 'left'} for c in ['Name', 'status']],
-                                            style_header_conditional=[{'if': {'column_id': 'status'}, 'textAlign': 'center'}])
-
+        
         block_data = block_df.to_dict('records')
 
         # print(first, second)

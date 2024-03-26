@@ -181,6 +181,21 @@ class SigmaWalletReader:
         df['miner'] = df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
         return df
 
+    def get_total_hash(self):
+        miners = self.get_miner_ls()
+        data = []
+        for miner in miners:
+            temp = self.get_miner_samples(miner)
+            data.append(temp)
+        
+        df = concat(data)
+        ls = []
+        for date in df.created.unique():
+            temp = df[df.created == date]
+            ls.append([date, temp.hashrate.sum()])
+        
+        return DataFrame(ls, columns=['Date', 'Hashrate'])
+
     def get_miner_samples(self, wallet):
         url = '{}/{}/{}'.format(self.base_api, 'miners', wallet)
         sample_data = self.get_api_data(url)
@@ -330,7 +345,6 @@ class SigmaWalletReader:
     
         block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
                                     'miner', 'networkDifficulty', 'my_wallet'])
-
         
         return block_df, miner_df, effort_df
 
