@@ -192,7 +192,7 @@ class SigmaWalletReader:
         ls = []
         for date in df.created.unique():
             temp = df[df.created == date]
-            ls.append([date, temp.hashrate.sum()])
+            ls.append([date, temp.hashrate.sum() / 1e9])
         
         return DataFrame(ls, columns=['Date', 'Hashrate'])
 

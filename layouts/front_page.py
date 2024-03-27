@@ -8,7 +8,7 @@ price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
 
 data = sigma_reader.get_front_page_data()
-_, ergo = price_reader.get(debug=True)
+_, ergo = price_reader.get(debug=False)
 # Pool Metrics
 fee = 'Pool Fee: {}%'.format(data['fee'])
 paid = 'Cumulative Payments: {}'.format(data['paid'])
@@ -63,6 +63,9 @@ metric_row_style = {
     'justifyContent': 'flex-start',
 }
 
+table_style = {'backgroundColor': 'rgb(50, 50, 50)', 'color': 'white',
+               'fontWeight': 'bold', 'textAlign': 'center', 'border': '1px solid black',}
+
 image_style = {'height': '24px'}
 
 def create_row_card(image, h2_text, p_text):
@@ -84,9 +87,9 @@ def setup_front_page_callbacks(app):
         print('UPDATING FRONT PAGE')
         price_reader = PriceReader()
         sigma_reader = SigmaWalletReader(config_path="../conf")
-
+ 
         data = sigma_reader.get_front_page_data()
-        _, ergo = price_reader.get(debug=True)
+        _, ergo = price_reader.get(debug=False)
         # Pool Metrics
         fee = 'Pool Fee: {}%'.format(data['fee'])
         paid = 'Cumulative Payments: {} ERG'.format(round(data['paid'], 3))
@@ -104,11 +107,11 @@ def setup_front_page_callbacks(app):
         net_hashrate = 'Network Hashrate: {} TH/s'.format(round(data['networkHashrate'], 3))
         difficulty = 'Network Difficulty: {}P'.format(round(data['networkDifficulty'], 3))
         net_block_found = 'Last Block Found on Network: {}'.format(data['lastNetworkBlockTime'])
-        height = 'Current Height: {}'.format(data['blockHeight'])
+        height = 'Block Height: {}'.format(data['blockHeight'])
 
         total_hashrate_df = sigma_reader.get_total_hash()
         block_df, miner_df, effort_df = sigma_reader.get_block_stats('')
-        block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort', 'reward'])
+        block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort', 'reward', 'status'])
         block_data = block_df.to_dict('records')
 
         total_hashrate_plot={'data': [go.Scatter(x=total_hashrate_df['Date'], y=total_hashrate_df['Hashrate'],
@@ -127,8 +130,6 @@ def setup_front_page_callbacks(app):
         row_2_col_1 = dbc.Row(justify='center', children=[
                                 dbc.Col(md=md, children=[
                                     dbc.Card(style=card_style, children=[
-                                        # html.H3('Pool Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}),
-                                        # create_image_text_block('mining_temp.png', 'Algo: Autolykos V2'),
                                         create_image_text_block('mining_temp.png', min_payout),
                                         create_image_text_block('mining_temp.png', fee),
                                         create_image_text_block('mining_temp.png', paid),
@@ -136,7 +137,6 @@ def setup_front_page_callbacks(app):
                                 ]),
                                 dbc.Col(md=md, children=[
                                     dbc.Card(style=card_style, children=[
-                                        # html.H3('Pool Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}),
                                         create_image_text_block('mining_temp.png', net_hashrate),
                                         create_image_text_block('mining_temp.png', difficulty),
                                         create_image_text_block('mining_temp.png', height),
@@ -145,11 +145,9 @@ def setup_front_page_callbacks(app):
 
                                 dbc.Col(md=md, children=[
                                     dbc.Card(style=card_style, children=[
-                                        # html.H3('Network Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}),
                                         create_image_text_block('mining_temp.png', payout_schema),
                                         create_image_text_block('mining_temp.png', blocks_found),
                                         create_image_text_block('mining_temp.png', effort),
-
                                     ])
                                 ])])
 
@@ -171,6 +169,18 @@ def get_layout():
                                 # Detailed stats
                                 dbc.Row(id='a-2', justify='center', style={'padding': '20px'}),
 
+                               # Mining Address Input
+                                dbc.Row(justify='center', children=[
+                                    dbc.Col(md=8, children=[
+                                        dcc.Input(id='mining-address-input', type='text', placeholder='Mining Address', style={
+                                            'width': '100%',
+                                            'padding': '10px',
+                                            'marginTop': '20px',
+                                            'borderRadius': '5px'
+                                        }),
+                                    ])
+                                ]),
+
                                 # Start Mining Button
                                 dbc.Row(justify='center', children=[
                                     html.Button('Start Mining ⛏️', id='start-mining-button', style={
@@ -180,25 +190,14 @@ def get_layout():
                                         'padding': '10px 20px',
                                         'color': 'white',
                                         'fontSize': '20px',
-                                        'borderRadius': '5px'
+                                        'borderRadius': '5px',
+                                         'marginBottom': '50px',
                                     })
                                 ]),
-
-                                # Mining Address Input
-                                dbc.Row(justify='center', children=[
-                                    dbc.Col(md=8, children=[
-                                        dcc.Input(id='mining-address-input', type='text', placeholder='Mining Address', style={
-                                            'width': '100%',
-                                            'padding': '10px',
-                                            'marginTop': '20px',
-                                            'marginBottom': '50px',
-                                            'borderRadius': '5px'
-                                        }),
-                                    ])
-                                ]),
+                                
                                # dcc.Graph(id='total-hashrate-plot'),
                                dbc.Row(children=[
-                                   html.Div(children=[html.H2('Pool Hashrate over Time'),
+                                   html.Div(children=[html.H2('Pool Hashrate over Time [GH/s]'),
                                                       dcc.Graph(id='total-hashrate-plot'),],
                                             style={'flex': 1,}),]),
 
@@ -209,13 +208,12 @@ def get_layout():
                                                         'width': '180px', 'maxWidth': '180px',
                                                         'whiteSpace': 'normal', 'textAlign': 'left',
                                                         'padding': '10px',},
-                                            style_header={'backgroundColor': 'rgb(30, 30, 30)', 'color': 'white',
-                                                          'fontWeight': 'bold', 'textAlign': 'center',},
-                                            style_data={'backgroundColor': 'rgb(50, 50, 50)', 'color': 'white',
-                                                        'border': '1px solid black',},)]),
+                                            style_header=table_style,
+                                            style_data=table_style,)],style = {'padding': '30px'},),
 
                                
-                               html.H1('CONNECTING TO THE POOL', style={'color': '#FFA500', 'textAlign': 'center', 'padding': '10px',}),
+                               html.H1('CONNECTING TO THE POOL',
+                                       style={'color': '#FFA500', 'textAlign': 'center', 'padding': '10px',}),
 
                                 # Column for the markdown
                                 html.Div(children=[

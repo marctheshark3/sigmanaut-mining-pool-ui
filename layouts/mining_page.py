@@ -54,7 +54,7 @@ def setup_mining_page_callbacks(app):
         top_miner_df = sigma_reader.get_all_miner_data(wallet)
         miner_reward_df = sigma_reader.get_estimated_payments(wallet)
         miner_performance = sigma_reader.get_miner_samples(wallet)
-        btc_price, erg_price = price_reader.get(debug=True)
+        btc_price, erg_price = price_reader.get(debug=False)
 
         
     

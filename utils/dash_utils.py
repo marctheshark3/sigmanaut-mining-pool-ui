@@ -54,7 +54,6 @@ def create_image_text_block(text, image=None):
                         html.Span(text, style={'padding': '10px'})])
     else:
         return html.Div(style=metric_row_style, children=[
-                        # html.Img(src='assets/{}'.format(image), style=image_style),
                         html.Span(text, style={'padding': '10px'})])
     
 
