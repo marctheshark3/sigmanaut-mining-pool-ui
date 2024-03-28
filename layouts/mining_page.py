@@ -12,7 +12,7 @@ import plotly.graph_objs as go
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
-
+debug = True
 server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
 server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
@@ -54,7 +54,7 @@ def setup_mining_page_callbacks(app):
         top_miner_df = sigma_reader.get_all_miner_data(wallet)
         miner_reward_df = sigma_reader.get_estimated_payments(wallet)
         miner_performance = sigma_reader.get_miner_samples(wallet)
-        btc_price, erg_price = price_reader.get(debug=False)
+        btc_price, erg_price = price_reader.get(debug=debug)
 
         
     

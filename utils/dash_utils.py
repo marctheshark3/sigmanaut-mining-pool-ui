@@ -16,7 +16,7 @@ dark_theme_style_cell = {'backgroundColor': '#333', 'color': '#FFFFFF', 'textAli
 container_style = {'flex': 1, 'margin': '10px', 'padding': '10px', 'border': 'none', 'borderRadius': '5px', 'background': '#1e1e1e'}
 
 card_style = {
-    'backgroundColor': '#333333',
+    'backgroundColor': '#292929',
     'color': 'white',
     'marginBottom': '25px',
     'padding': '25px',
@@ -43,7 +43,7 @@ image_style = {'height': '75px', 'padding': '10px'}
 def create_row_card(h2_text, p_text, image=None):
     return dbc.Col(dbc.Card(style=card_style, children=[
         # html.Img(src=image, style=top_image_style),
-        html.H2(h2_text, style={'color': '#FFA500'}),
+        html.H2(h2_text, style={'color': '#ff5e18'}),
         html.P(p_text)]),
                    style={'marginRight': 'auto', 'marginLeft': 'auto'})
 
