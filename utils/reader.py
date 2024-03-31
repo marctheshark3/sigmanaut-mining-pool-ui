@@ -296,7 +296,11 @@ class SigmaWalletReader:
                 miners[miner] += 1
             except KeyError:
                 miners[miner] = 1
-            blocks[block_height] = block['effort']
+            try:
+                blocks[block_height] = block['effort']
+            except KeyError:
+                blocks[block_height] = 0
+            
         try:
             average_effort = {'Average Block Effort': sum(blocks.values()) / len(blocks)}
         except ZeroDivisionError:
