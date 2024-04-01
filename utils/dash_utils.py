@@ -18,9 +18,10 @@ container_style = {'flex': 1, 'margin': '10px', 'padding': '10px', 'border': 'no
 card_style = {
     'backgroundColor': '#292929',
     'color': 'white',
-    'marginBottom': '25px',
-    'padding': '25px',
-    'justifyContent': 'center',
+    # 'marginBottom': '25px',
+    'padding': '20px',
+    # 'justify': 'center',
+    # 'justifyContent': 'center'
 }
 
 metric_row_style = {
@@ -31,7 +32,7 @@ metric_row_style = {
 
 image_style = {'height': '75px', 'padding': '10px'}
 image_card_style={
-    'margin': '10px',
+    'margin': '10px','textAlign': 'center',
     'padding': '20px',}
 # def create_row_card(h2_text, p_text, image=None):
 #     if image:

@@ -352,7 +352,7 @@ class SigmaWalletReader:
         
         return block_df, miner_df, effort_df
 
-    def calculate_mining_effort(self, network_difficulty, network_hashrate, pool_hashrate, last_block_timestamp):
+    def calculate_mining_effort(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
         """
         Calculate the mining effort for the pool to find a block on Ergo blockchain based on the given timestamp.
         
@@ -362,6 +362,11 @@ class SigmaWalletReader:
         :param last_block_timestamp: Timestamp of the last block found in ISO 8601 format.
         :return: The estimated mining effort for the pool.
         """
+
+        network_difficulty = network_difficulty * 1e15
+        network_hashratev = network_hashrate * 1e12
+        hashrate = hashrate * 1e6
+        
         # Parse the last block timestamp
         time_format = '%Y-%m-%d %H:%M:%S' 
         last_block_time = datetime.strptime(last_block_timestamp, time_format)
@@ -374,18 +379,52 @@ class SigmaWalletReader:
         time_since_last_block = (now - last_block_time).total_seconds()
         
         # Hashes to find a block at current difficulty
-        hashes_to_find_block = network_difficulty  / 1e15 # This is a simplification
+        hashes_to_find_block = network_difficulty# This is a simplification
         
         # Total hashes by the network in the time since last block
-        total_network_hashes = network_hashrate / 1e12 * time_since_last_block
+        total_network_hashes = network_hashrate * time_since_last_block
         
         # Pool's share of the total network hashes
-        pool_share_of_hashes = (pool_hashrate / 1e9 / network_hashrate) * total_network_hashes
+        pool_share_of_hashes = (hashrate / network_hashrate ) * total_network_hashes
         
         # Effort is the pool's share of hashes divided by the number of hashes to find a block
         effort = pool_share_of_hashes / hashes_to_find_block * 100
         
         return round(effort, 3)
+
+    def calculate_time_to_find_block(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
+        """
+        Calculate the time to find a block on Ergo blockchain based on the given timestamp.
+        
+        :param network_difficulty: The current difficulty of the Ergo network.
+        :param network_hashrate: The total hash rate of the Ergo network (in hashes per second).
+        :param pool_hashrate: The hash rate of the mining pool (in hashes per second).
+        :param last_block_timestamp: Timestamp of the last block found in ISO 8601 format.
+        :return: The estimated time to find a block for the pool.
+        """
+    
+        network_difficulty = network_difficulty * 1e15
+        network_hashrate = network_hashrate * 1e12
+        hashrate = hashrate * 1e6
+    
+        # Parse the last block timestamp
+        time_format = '%Y-%m-%d %H:%M:%S' 
+        last_block_time = datetime.strptime(last_block_timestamp, time_format)
+        last_block_time = last_block_time.replace(tzinfo=pytz.utc)  # Assume the timestamp is in UTC
+        
+        # Get the current time in UTC
+        now = datetime.now(pytz.utc)
+        
+        # Calculate the time difference in seconds
+        time_since_last_block = (now - last_block_time).total_seconds()
+        
+        # Hashes to find a block at current difficulty
+        hashes_to_find_block = network_difficulty  # This is a simplification
+        
+        # Calculate the time to find a block
+        time_to_find_block = hashes_to_find_block / hashrate
+        
+        return round(time_to_find_block / 3600 / 24, 3)
 
     def get_pool_stats(self, wallet):
         data = self.get_api_data(self.base_api)
