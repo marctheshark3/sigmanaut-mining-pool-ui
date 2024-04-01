@@ -16,20 +16,30 @@ debug = True
 server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
 server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
-
+card_color = '#27374D'
+background_color = '#526D82'
+large_text_color = '#9DB2BF' 
+small_text_color = '#DDE6ED'
+button_color = large_text_color
 Session(server)
 
 price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
 
+color_discrete_map = {
+    'Rolling Effort': card_color, 
+    'effort': 'white',      
+    'networkDifficulty': large_text_color 
+}
 
 def setup_mining_page_callbacks(app):
     
-    @app.callback([Output('first-row', 'children'),
+    @app.callback([
+        # Output('first-row', 'children'),
                    Output('second-row', 'children'),
                   Output('mining-stats', 'children'),
                   Output('miner-performance-plot', 'figure'),
-                  Output('network-difficulty-plot', 'figure'),
+                  # Output('network-difficulty-plot', 'figure'),
                   Output('miner-blocks', 'figure'),
                   Output('top-miner-chart', 'figure'),
                   Output('estimated-reward', 'figure'),
@@ -38,6 +48,7 @@ def setup_mining_page_callbacks(app):
                   ],
                   [Input('mining-page-interval', 'n_intervals')],
                  [State('url', 'pathname')])
+    
     def update_output(n_intervals, pathname):
         print('updating mining page')
         wallet = unquote(pathname.lstrip('/'))
@@ -55,9 +66,7 @@ def setup_mining_page_callbacks(app):
         miner_reward_df = sigma_reader.get_estimated_payments(wallet)
         miner_performance = sigma_reader.get_miner_samples(wallet)
         btc_price, erg_price = price_reader.get(debug=debug)
-
         
-    
         try:
             pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 5)
             network_difficulty = round(pool_df[pool_df['Pool Stats'] == 'networkDifficulty [Peta]']['Values'].iloc[0], 5)
@@ -84,15 +93,36 @@ def setup_mining_page_callbacks(app):
         mask = pool_df['Pool Stats'].isin(values_to_drop)
         pool_df = pool_df[~mask]
 
-        first = dbc.Row(justify='center', children=[create_row_card(btc_price, 'BTC PRICE ($)'),
-                                                 create_row_card(erg_price, 'ERG PRICE ($)'),
-                                                 create_row_card(network_hashrate, 'Network Hashrate Th/s'),
-                                                 create_row_card(network_difficulty, 'Network Difficulty PH/s')])
+        # first = dbc.Row(justify='center', children=[create_row_card(btc_price, 'BTC PRICE ($)'),
+        #                                          create_row_card(erg_price, 'ERG PRICE ($)'),
+        #                                          create_row_card(network_hashrate, 'Network Hashrate Th/s'),
+        #                                          create_row_card(network_difficulty, 'Network Difficulty PH/s')])
 
-        second = dbc.Row(justify='center', children=[create_row_card(pool_hash, 'Pool Hashrate GH/s'),
-                                                 create_row_card(your_total_hash, 'Your Hashrate MH/s'),
-                                                 create_row_card(avg_block_effort, 'Pool Effort'),
-                                                 create_row_card(current_effort, 'Current Block Effort %')])
+        pool_stats = dbc.Col(dbc.Card(style=card_style, children=[
+                                                # html.Img(src=image, style=top_image_style),
+                                                html.H2('Pool Stats', style={'color': large_text_color, 'textAlign': 'center'}),
+                                                dbc.Row([ 
+                                                    dbc.Col([html.H4('Hashrate', style={'color': large_text_color}),  html.P('14 GH/s'),]),
+                                                    dbc.Col([html.H4('TTF', style={'color': large_text_color}),  html.P('24 Hours'),]),
+                                                    dbc.Col([html.H4('Effort', style={'color': large_text_color}), html.P('45%')])]),]),
+                                                                 style={'marginRight': 'auto', 'marginLeft': 'auto'})
+
+        your_stats = dbc.Col(dbc.Card(style=card_style, children=[
+                                                # html.Img(src=image, style=top_image_style),
+                                                html.H2('Miner Stats', style={'color': large_text_color, 'textAlign': 'center'}),
+                                                dbc.Row([ 
+                                                    dbc.Col([html.H4('Hashrate', style={'color': large_text_color}),  html.P('14 GH/s'),]),
+                                                    dbc.Col([html.H4('TTF', style={'color': large_text_color}),  html.P('24 Hours'),]),
+                                                    dbc.Col([html.H4('Effort', style={'color': large_text_color}), html.P('45%')])]),]),
+                                                                 style={'marginRight': 'auto', 'marginLeft': 'auto'})
+
+        estimated = dbc.Col(dbc.Card(style=card_style, children=[
+                                                # html.Img(src=image, style=top_image_style),
+                                                html.H2('Estimated Payments', style={'color': large_text_color, 'textAlign': 'center'}),
+                                                html.H3('123', style={'color': large_text_color, 'textAlign': 'center'}),
+        ]),style={'marginRight': 'auto', 'marginLeft': 'auto'})
+        
+        second = dbc.Row(justify='center', children=[pool_stats, your_stats])
 
         
         
@@ -126,10 +156,11 @@ def setup_mining_page_callbacks(app):
         pool_children = [create_image_text_block(text='{}: {}'.format(key, pool[key]), image=pool_images[key]) for key in pool.keys()]
         pool_children.insert(0, html.H3('Pool Stats', style={'color': '#FFA500', 'fontWeight': 'bold'}))
         
-        md = 4
+        md = 6
+        
         third = dbc.Row(justify='center', children=[
             dbc.Col(md=md, children=[dbc.Card(style=card_style, children=payment_children)]),
-            dbc.Col(md=md, children=[dbc.Card(style=card_style, children=pool_children)]),
+            # dbc.Col(md=md, children=[dbc.Card(style=card_style, children=pool_children)]),
             dbc.Col(md=md, children=[dbc.Card(style=card_style, children=performance_children)])
         ])
 
@@ -146,7 +177,7 @@ def setup_mining_page_callbacks(app):
             legend_title_text='Miner',
             legend=dict(font=dict(color='#FFFFFF')),
             titlefont=dict(color='#FFFFFF'),
-            xaxis=dict(title='Time', color='#FFFFFF'),
+            xaxis=dict(title='Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
             yaxis=dict(title='Hashrate', color='#FFFFFF')
         )
 
@@ -169,38 +200,50 @@ def setup_mining_page_callbacks(app):
 
         block_df = block_df.sort_values('Time Found')
         block_df['Rolling Effort'] = block_df['effort'].expanding().mean()
-        response_df = block_df.melt(id_vars = ['Time Found', 'networkDifficulty'], value_vars=['Rolling Effort', 'effort',])
-        effort_response_chart = px.line(response_df, 
-              x='Time Found', 
-              y='value', 
-              color='variable', 
-              markers=True)      
+        response_df = block_df.melt(id_vars = ['Time Found'], value_vars=['Rolling Effort', 'effort', 'networkDifficulty'])
+        
+        effort_response_chart = px.line(response_df[response_df['variable'] != 'networkDifficulty'], 
+                                x='Time Found', 
+                                y='value', 
+                                color='variable', 
+                                color_discrete_map=color_discrete_map, 
+                                markers=True)
 
+        # Add 'networkDifficulty' on a secondary y-axis
+        effort_response_chart.add_trace(go.Scatter(x=response_df['Time Found'][response_df['variable'] == 'networkDifficulty'], 
+                                                   y=response_df['value'][response_df['variable'] == 'networkDifficulty'],
+                                                   name='networkDifficulty',
+                                                   yaxis='y2',
+                                                   marker=dict(color='rgba(255,0,0,0.5)'), # Adjust color accordingly
+                                                   mode='lines+markers'))
+        
+        # Update layout with secondary y-axis
         effort_response_chart.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            legend_title_text='Miner',
+            legend_title_text='Metric',
             legend=dict(font=dict(color='#FFFFFF')),
             titlefont=dict(color='#FFFFFF'),
-            xaxis=dict(title='Block Found Time', color='#FFFFFF'),
+            xaxis=dict(title='Block Found Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
             yaxis=dict(title='Effort', color='#FFFFFF'),
+            yaxis2=dict(title='Network Difficulty', color='#FFFFFF', overlaying='y', side='right'),
         )
 
         
         block_data = block_df.to_dict('records')
 
         # print(first, second)
-        return first, second, third, miner_performance_chart, net_diff_plot, miner_chart, top_miner_chart, estimated_reward, block_data, effort_response_chart
+        return second, third, miner_performance_chart, miner_chart, top_miner_chart, estimated_reward, block_data, effort_response_chart
                                 
 
 def get_layout():
-    return dbc.Container(fluid=True, style={'backgroundColor': '#1e1e1e', 'color': '#FFFFFF', 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif'},
+    return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px'},
                            children=[
                                dcc.Interval(id='mining-page-interval', interval=60*1000, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': '#FFA500', 'textAlign': 'center',}),
                                  # Metrics overview row
-                                 dbc.Row(id='first-row', justify='center', style={'padding': '20px'}),
+                            dbc.Row(id='first-row', justify='center', style={'padding': '20px'}),
                                
                                dbc.Row(id='second-row', justify='center', style={'padding': '20px'}),
                                dbc.Row(id='mining-stats', justify='center', style={'padding': '20px'}),
@@ -211,11 +254,11 @@ def get_layout():
                                html.Div(children=[html.H2('Effort & Rolling Effort Over Time'),
                                dcc.Graph(id='effort'),],
                                         style={'flex': 1,}
-                                       ),
+                                       )]),
                
-                                html.Div(children=[html.H2('Ergo Network Difficulty Over Time'),
-                               dcc.Graph(id='network-difficulty-plot'),],
-                                         style={'flex': 1,},)]),
+                                # html.Div(children=[html.H2('Ergo Network Difficulty Over Time'),
+                               # dcc.Graph(id='network-difficulty-plot'),],
+                               #           style={'flex': 1,},)]),
                                              
                                
                                
@@ -253,7 +296,7 @@ def get_layout():
                                             style_as_list_view=True,  style_cell_conditional=[{'if': {'column_id': c},
                                                                                                'textAlign': 'left'} for c in ['Name', 'status']],
                                             style_header_conditional=[{'if': {'column_id': 'status'}, 'textAlign': 'center'}])]),
-            ],)
+            ],)], style={'backgroundColor': card_color})  # This sets the background color for the whole page
 
 if __name__ == '__main__':
     app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])

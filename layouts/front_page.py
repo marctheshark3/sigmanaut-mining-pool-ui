@@ -56,14 +56,24 @@ card_style = {
 top_card_style = {
     'backgroundColor': card_color,
     'color': small_text_color,
-    'marginBottom': '15px',
-    'padding': '25px',
-    'justifyContent': 'center',
+    'margin': '10px',
+    'padding': '20px',
+    # 'justifyContent': 'center',
     'textAlign': 'center',
     'border': '1px solid {}'.format(large_text_color),
+    
 }
 
-top_image_style = {'height': '150px', 'padding': '10px'}
+top_image_style = {
+    'width': '100px',
+    'display': 'block',  # Use block display style
+    'margin-left': 'auto',  # Auto margins for horizontal centering
+    'margin-right': 'auto', 
+    'margin-top': 'auto',  # Auto margins for vertical centering (if container allows)
+    'margin-bottom': 'auto',
+    'max-width': '100%',  # Ensures the image is responsive and does not overflow its container
+    'height': 'auto',  # Keeps image aspect ratio
+    'padding': '10px'}
 
 # Style for the metric rows inside the cards
 metric_row_style = {
@@ -80,9 +90,9 @@ image_style = {'height': '24px'}
 
 def create_row_card(image, h2_text, p_text):
     return dbc.Col(dbc.Card(style=top_card_style, children=[
-        html.Img(src=image, style=top_image_style),
+        dbc.CardImg(src=image, top=True, style={'width': '100%', 'height': '15%'}),
         html.H2(h2_text, style={'color': large_text_color}),
-        html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'})
+        html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
 def setup_front_page_callbacks(app):
     
@@ -117,7 +127,7 @@ def setup_front_page_callbacks(app):
         hashrate = '{} GH/s'.format(round(data['poolHashrate'], 3))
 
         # Network Metrics
-        net_hashrate = 'Net Hashrate: {} TH/s'.format(round(data['networkHashrate'], 3))
+        net_hashrate = 'Net Hashrate: {}TH/s'.format(round(data['networkHashrate'], 3))
         difficulty = 'Net Difficulty: {}P'.format(round(data['networkDifficulty'], 3))
         net_block_found = 'Last Block Found on Network: {}'.format(data['lastNetworkBlockTime'])
         height = 'Height: {}'.format(data['blockHeight'])
@@ -139,34 +149,32 @@ def setup_front_page_callbacks(app):
                                        margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
                                        legend={'font': {'color': '#FFFFFF'}}, font=dict(color=card_color))}
 
-        row_1 = dbc.Row(justify='center',
-                        children=[create_row_card('assets/mining_temp.png', hashrate, 'Pool Hashrate'),
-                                 create_row_card('assets/mining_temp.png', n_miners, 'Miners Online'),
-                                 create_row_card('assets/mining_temp.png', ergo, 'Price ($)')])
+        row_1 = dbc.Row(justify='center', align='stretch',
+                        children=[create_row_card('assets/boltz.png', hashrate, 'Pool Hashrate'),
+                                 create_row_card('assets/smileys.png', n_miners, 'Miners Online'),
+                                 create_row_card('assets/coins.png', ergo, 'Price ($)')])
         md = 4
-        row_2_col_1 = dbc.Row(justify='center', children=[
+        row_2_col_1 = dbc.Row(children=[
                                 dbc.Col(md=md, children=[
                                     dbc.Card(style=card_style, children=[
-                                        create_image_text_block('mining_temp.png', 'Minimum Payout:', data['minimumPayment']),
-                                        create_image_text_block('mining_temp.png', 'Pool Fee:', '{}%'.format(data['fee'])),
-                                        create_image_text_block('mining_temp.png', 'Total Paid:', '{} ERG'.format(round(data['paid'], 3))),
+                                        create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumPayment']),
+                                        create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'])),
+                                        create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'], 3))),
                                     ])
                                 ]),
                                 dbc.Col(md=md, children=[
                                     dbc.Card(style=card_style, children=[
-                                        create_image_text_block('mining_temp.png', 'Network Hashrate:',
-                                                                '{} TH/s'.format(round(data['networkHashrate'], 3))),
-                                        create_image_text_block('mining_temp.png', 'Network Difficulty:',
-                                                                '{}P'.format(round(data['networkDifficulty'], 3))),
-                                        create_image_text_block('mining_temp.png', 'Block Height:', data['blockHeight']),
+                                        create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkHashrate'], 3))),
+                                        create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkDifficulty'], 3))),
+                                        create_image_text_block('height.png', 'Block Height:', data['blockHeight']),
                                        ])
                                 ]),
 
                                 dbc.Col(md=md, children=[
                                     dbc.Card(style=card_style, children=[
-                                        create_image_text_block('mining_temp.png', 'Schema:', data['payoutScheme']),
-                                        create_image_text_block('mining_temp.png', 'Blocks Found:', data['blocks']),
-                                        create_image_text_block('mining_temp.png', 'Effort:', round(data['pool_effort'], 3)),
+                                        create_image_text_block('triangle.png', 'Schema:', data['payoutScheme']),
+                                        create_image_text_block('blocks.png', 'Blocks Found:', data['blocks']),
+                                        create_image_text_block('effort.png', 'Effort:', round(data['pool_effort'], 3)),
                                     ])
                                 ])])
 

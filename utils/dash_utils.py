@@ -30,6 +30,9 @@ metric_row_style = {
 }
 
 image_style = {'height': '75px', 'padding': '10px'}
+image_card_style={
+    'margin': '10px',
+    'padding': '20px',}
 # def create_row_card(h2_text, p_text, image=None):
 #     if image:
 #         children = html.Img(src=image, style=image_style)
@@ -41,20 +44,19 @@ image_style = {'height': '75px', 'padding': '10px'}
 #     return dbc.Col(dbc.Card(style=card_style, children=[children]), style={'marginRight': 'auto', 'marginLeft': 'auto'})
 
 def create_row_card(h2_text, p_text, image=None):
-    return dbc.Col(dbc.Card(style=card_style, children=[
+    return dbc.Col(dbc.Card(style=image_card_style, children=[
         # html.Img(src=image, style=top_image_style),
         html.H2(h2_text, style={'color': '#ff5e18'}),
-        html.P(p_text)]),
-                   style={'marginRight': 'auto', 'marginLeft': 'auto'})
+        html.P(p_text)]),)
 
 def create_image_text_block(text, image=None):
     if image:
         return html.Div(style=metric_row_style, children=[
                         html.Img(src='assets/{}'.format(image), style=image_style),
-                        html.Span(text, style={'padding': '10px'})])
+                        html.Span(text, style={'padding': '10px', 'width': '100%', 'height': 'auto'})])
     else:
         return html.Div(style=metric_row_style, children=[
-                        html.Span(text, style={'padding': '10px'})])
+                        html.Span(text, style={'padding': '10px', 'width': '100%', 'height': 'auto'})])
     
 
 def create_pie_chart(df, col, value, est_reward=False):
