@@ -35,7 +35,7 @@ card_style = {
     'backgroundColor': card_color,
     'color': 'white',
     # 'marginBottom': '25px',
-    'padding': '25x',
+    'padding': '15x',
     # 'fontSize': '12px',
     'textAlign': 'center',
     'justifyContent': 'center'
@@ -46,25 +46,36 @@ metric_row_style = {
     'alignItems': 'center',
     'justifyContent': 'flex-start',
     'fontSize': '18px',
+    'padding': '25x',
+
 }
 
 top_row_style = {
+    'backgroundColor': card_color,
+    'color': 'white',
     'display': 'flex',
-    'alignItems': 'center',
-    'justifyContent': 'flex-start',
-    'fontSize': '18px',
+    'padding': '10px',
+    # 'alignItems': 'center',
+    # 'justifyContent': 'flex-start',
+    # 'fontSize': '16px',
 }
 
 bottom_row_style = {
-    'display': 'flex',
-    'alignItems': 'center',
-    'justifyContent': 'flex-start',
+    # 'border': '1px solid {}'.format('#292929'),
+    'backgroundColor': card_color,
+    'color': 'white',
+    # 'marginBottom': '25px',
+    'padding': '15x',
+    # 'fontSize': '12px',
+    'textAlign': 'left',
+    # 'justifyContent': 'left',
+    # 'display': 'flex',
+    # 'alignItems': 'left',
+    'justifyContent': 'left',
     'fontSize': '14px',
-    'padding': '20px',
 }
-
 image_style = {'height': '46px', 'justifyContent': 'center',}
-bottom_image_style = {'height': '40px', 'justifyContent': 'center',}
+bottom_image_style = {'height': '40px'}
 top_image_style = {'height': '80px', 'justifyContent': 'center',}
 image_card_style={
     'margin': '10px','textAlign': 'center',

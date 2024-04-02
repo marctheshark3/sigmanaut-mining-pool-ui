@@ -3,7 +3,7 @@ from dash import html, dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
 from utils.reader import SigmaWalletReader, PriceReader
 from pandas import DataFrame
-from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style
+from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style
 import plotly.graph_objs as go
 from dash import html
 price_reader = PriceReader()

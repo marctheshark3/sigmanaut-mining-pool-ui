@@ -422,7 +422,11 @@ class SigmaWalletReader:
         hashes_to_find_block = network_difficulty  # This is a simplification
         
         # Calculate the time to find a block
-        time_to_find_block = hashes_to_find_block / hashrate
+        print(hashrate, 'hashhh', hashes_to_find_block)
+        try:
+            time_to_find_block = hashes_to_find_block / hashrate
+        except ZeroDivisionError:
+            time_to_find_block = 1
         
         return round(time_to_find_block / 3600 / 24, 3)
 
