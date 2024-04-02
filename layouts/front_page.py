@@ -3,6 +3,7 @@ from dash import html, dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
 from utils.reader import SigmaWalletReader, PriceReader
 from pandas import DataFrame
+from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style
 import plotly.graph_objs as go
 from dash import html
 price_reader = PriceReader()
@@ -89,7 +90,7 @@ table_style = {'backgroundColor': 'rgb(50, 50, 50)', 'color': large_text_color,
 image_style = {'height': '24px'}
 
 def create_row_card(image, h2_text, p_text):
-    return dbc.Col(dbc.Card(style=top_card_style, children=[
+    return dbc.Col(dbc.Card(style=image_card_style, children=[
         dbc.CardImg(src=image, top=True, style={'width': '100%', 'height': '15%'}),
         html.H2(h2_text, style={'color': large_text_color}),
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)

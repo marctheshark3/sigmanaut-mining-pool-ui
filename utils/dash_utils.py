@@ -14,23 +14,58 @@ dark_theme_style_header = {'backgroundColor': '#222', 'color': '#FFFFFF', 'fontW
 dark_theme_style_cell = {'backgroundColor': '#333', 'color': '#FFFFFF', 'textAlign': 'left', 'padding': '10px',}
 
 container_style = {'flex': 1, 'margin': '10px', 'padding': '10px', 'border': 'none', 'borderRadius': '5px', 'background': '#1e1e1e'}
+card_color = '#27374D'
+background_color = '#526D82'
+large_text_color = '#9DB2BF' 
+small_text_color = '#DDE6ED'
+top_card_style = {
+    'backgroundColor': card_color,
+    'color': small_text_color,
+    # 'margin': '10px',
+    'padding': '20px',
+    # 'justifyContent': 'center',
+    # 'height': '350px',
+    # 'textAlign': 'center',
+    # 'border': '1px solid {}'.format(small_text_color),
+    
+}
 
 card_style = {
-    'backgroundColor': '#292929',
+    'border': '1px solid {}'.format('#292929'),
+    'backgroundColor': card_color,
     'color': 'white',
     # 'marginBottom': '25px',
-    'padding': '20px',
-    # 'justify': 'center',
-    # 'justifyContent': 'center'
+    'padding': '25x',
+    # 'fontSize': '12px',
+    'textAlign': 'center',
+    'justifyContent': 'center'
 }
 
 metric_row_style = {
     'display': 'flex',
     'alignItems': 'center',
     'justifyContent': 'flex-start',
+    'fontSize': '18px',
 }
 
-image_style = {'height': '75px', 'padding': '10px'}
+top_row_style = {
+    'display': 'flex',
+    'alignItems': 'center',
+    'justifyContent': 'flex-start',
+    'fontSize': '18px',
+}
+
+bottom_row_style = {
+    'display': 'flex',
+    'alignItems': 'center',
+    'justifyContent': 'flex-start',
+    'fontSize': '14px',
+    'padding': '20px',
+}
+
+image_style = {'height': '46px', 'justifyContent': 'center',}
+bottom_image_style = {'height': '40px', 'justifyContent': 'center',}
+top_image_style = {'height': '80px', 'justifyContent': 'center',}
 image_card_style={
     'margin': '10px','textAlign': 'center',
     'padding': '20px',}
@@ -45,18 +80,18 @@ image_card_style={
 #     return dbc.Col(dbc.Card(style=card_style, children=[children]), style={'marginRight': 'auto', 'marginLeft': 'auto'})
 
 def create_row_card(h2_text, p_text, image=None):
-    return dbc.Col(dbc.Card(style=image_card_style, children=[
+    return dbc.Col(dbc.Card(style=top_card_style, children=[
         # html.Img(src=image, style=top_image_style),
         html.H2(h2_text, style={'color': '#ff5e18'}),
         html.P(p_text)]),)
 
-def create_image_text_block(text, image=None):
+def create_image_text_block(text, image=None, block_style=bottom_row_style, image_style=bottom_image_style):
     if image:
-        return html.Div(style=metric_row_style, children=[
+        return html.Div(style=block_style, children=[
                         html.Img(src='assets/{}'.format(image), style=image_style),
                         html.Span(text, style={'padding': '10px', 'width': '100%', 'height': 'auto'})])
     else:
-        return html.Div(style=metric_row_style, children=[
+        return html.Div(style=block_style, children=[
                         html.Span(text, style={'padding': '10px', 'width': '100%', 'height': 'auto'})])
     
 
