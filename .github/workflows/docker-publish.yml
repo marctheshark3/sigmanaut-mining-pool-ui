@@ -1,8 +1,6 @@
 name: Docker and Release Workflow
 
 on:
-  schedule:
-    - cron: '26 16 * * *'
   push:
     branches: [ "main" ]
     tags: [ 'v*.*.*' ]
