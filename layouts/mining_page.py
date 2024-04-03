@@ -12,7 +12,7 @@ import plotly.graph_objs as go
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
-debug = False
+debug = True
 server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
 server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
@@ -64,8 +64,10 @@ def setup_mining_page_callbacks(app):
 
         last_block_timestamp = max(block_df['Time Found'])
         my_blocks = block_df[block_df.my_wallet == True]
-        
-        my_last_block_timestamp = max(my_blocks['Time Found'])
+        try:
+            my_last_block_timestamp = max(my_blocks['Time Found'])
+        except ValueError:
+            my_last_block_timestamp = min(block_df['Time Found'])
           
         pool_hash, network_difficulty, network_hashrate = get_net_stats(wallet)
 
@@ -122,7 +124,24 @@ def setup_mining_page_callbacks(app):
         payment['Paid Today'] = payment.pop('todayPaid')
         payment['Last Payment'] = payment.pop('lastPayment')[:-17]
         payment['Price'] = erg_price
-        payment['Estimated Reward']= 0
+
+        miners = sigma_reader.get_miner_ls()
+        ls = []
+        for miner in miners:
+            df, _ = sigma_reader.get_mining_stats(miner)
+            shares = df[df['Mining Stats'] == 'pendingShares'].Values[0]
+            ls.append([miner, shares])
+        
+        df = pd.DataFrame(ls, columns=['Miner', 'Shares'])
+        total = df.Shares.sum()
+        df['participation'] = [shares / total for shares in df.Shares]
+        df['reward'] = df['participation'] * 30
+        my_df = df[df.Miner == wallet]
+        participation = my_df.participation.values[0]
+        print(participation)
+
+        
+        payment['Participation']= participation
         payment['Schema'] = 'PPLNS'
 
         payment_images ={'Pending Shares': 'ergo.png',
@@ -130,7 +149,7 @@ def setup_mining_page_callbacks(app):
                          'Total Paid': 'ergo.png',
                          'Paid Today': 'ergo.png',
                          'Last Payment': 'ergo.png',
-                         'Estimated Reward': 'ergo.png',
+                         'Participation': 'ergo.png',
                          'Price': 'ergo.png',
                          'Schema': 'ergo.png',
                          'lastPaymentLink': 'ergo.png',
@@ -221,9 +240,12 @@ def setup_mining_page_callbacks(app):
             yaxis=dict(title='Hashrate', color='#FFFFFF')
         )
 
-        block_df = block_df[block_df.miner == short_wallet]
-        latest = max(block_df['Time Found'])
-        print(latest, 'o', type(latest))
+        my_block_df = block_df[block_df.miner == short_wallet]
+        try:
+            latest = max(my_block_df['Time Found'])
+        except ValueError:
+            latest = min(block_df['Time Found'])
+        
         if not isinstance(latest, str):
             print('triggered')
             latest = min(block_df['Time Found'])
@@ -255,7 +277,7 @@ def setup_mining_page_callbacks(app):
             title_2 = 'WORKER DATA'
 
         elif table == 'blocks':
-            df = block_df
+            df = my_block_df
             title_2 = 'Your Blocks Found'
         else:
             df = work_data
