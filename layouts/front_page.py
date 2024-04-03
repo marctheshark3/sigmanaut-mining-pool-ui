@@ -3,45 +3,24 @@ from dash import html, dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
 from utils.reader import SigmaWalletReader, PriceReader
 from pandas import DataFrame
-from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style
+from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style, bottom_row_style, bottom_image_style, card_color, large_text_color, small_text_color, background_color
 import plotly.graph_objs as go
+import plotly.express as px
+
 from dash import html
 price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
 
-debug = True
-data = sigma_reader.get_front_page_data()
-_, ergo = price_reader.get(debug=debug)
-# Pool Metrics
-fee = 'Pool Fee: {}%'.format(data['fee'])
-paid = 'Cumulative Payments: {}'.format(data['paid'])
-blocks_found = 'Blocks Found: {}'.format(data['blocks'])
-last_block = 'Last Block Found: {}'.format(data['last_block_found'])
-effort= 'Current Pool Effort: {}'.format(data['pool_effort'])
-min_payout = 'Minimum Payout: {}'.format(data['minimumPayment'])
+debug = False
 
-payout_schema = 'Pool Payout Schema: {}'.format(data['payoutScheme'])
-n_miners = '{}'.format(data['connectedMiners'])
-hashrate = '{} GH/s'.format(round(data['poolHashrate'], 3))
-
-# Network Metrics
-net_hashrate = 'Network Hashrate: {} TH/s'.format(data['networkHashrate'])
-difficulty = 'Network Difficulty: {}P'.format(round(data['networkDifficulty'], 3))
-net_block_found = 'Last Block Found on Network: {}'.format(data['lastNetworkBlockTime'])
-height = 'Height: {}'.format(data['blockHeight'])
-
-card_color = '#27374D'
-background_color = '#526D82'
-large_text_color = '#9DB2BF' 
-small_text_color = '#DDE6ED'
 button_color = large_text_color
 
 
 # refactor this into dash_utils
 def create_image_text_block(image, text, value):
-    return html.Div(style=metric_row_style, children=[
-                    html.Img(src='assets/{}'.format(image), style=image_style),
-                    html.Span(text, style={'padding': '10px', 'color': 'white'}),
+    return html.Div(style=bottom_row_style, children=[
+                    html.Img(src='assets/{}'.format(image), style=bottom_image_style),
+                    html.Span(text, style={'padding': '10px', 'width': '100%', 'height': 'auto', 'color': 'white'}),
                     html.Span(value, style={'color': large_text_color})])
 
 # Style for the card containers
@@ -51,22 +30,24 @@ card_style = {
     # 'marginBottom': '25px',
     'padding': '25px',
     'justifyContent': 'center',
-    'border': '1px solid {}'.format(large_text_color),
+    # 'border': '1px solid {}'.format(large_text_color),
 }
 
 top_card_style = {
     'backgroundColor': card_color,
     'color': small_text_color,
-    'margin': '10px',
-    'padding': '20px',
-    # 'justifyContent': 'center',
+    # 'margin': '10px',
+    'height': '225px',
+    'padding': '15px',
+    'justifyContent': 'center',
     'textAlign': 'center',
-    'border': '1px solid {}'.format(large_text_color),
+    'justify': 'center',
+    # 'border': '1px solid {}'.format(large_text_color),
     
 }
 
 top_image_style = {
-    'width': '100px',
+    'width': '120px',
     'display': 'block',  # Use block display style
     'margin-left': 'auto',  # Auto margins for horizontal centering
     'margin-right': 'auto', 
@@ -84,111 +65,168 @@ metric_row_style = {
     'fontSize': '13px',
 }
 
-table_style = {'backgroundColor': 'rgb(50, 50, 50)', 'color': large_text_color,
+color_discrete_map = {
+    'Rolling Effort': 'black', 
+    'effort': 'white',      
+    'networkDifficulty': large_text_color 
+}
+
+table_style = {'backgroundColor': card_color, 'color': large_text_color,
                'fontWeight': 'bold', 'textAlign': 'center', 'border': '1px solid black',}
 
 image_style = {'height': '24px'}
 
 def create_row_card(image, h2_text, p_text):
-    return dbc.Col(dbc.Card(style=image_card_style, children=[
-        dbc.CardImg(src=image, top=True, style={'width': '100%', 'height': '15%'}),
+    return dbc.Col(dbc.Card(style=top_card_style, children=[
+        dbc.CardImg(src=image, top=True, style=top_image_style),
         html.H2(h2_text, style={'color': large_text_color}),
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
 def setup_front_page_callbacks(app):
-    
-    @app.callback([Output('a-1', 'children'),
-                   Output('a-2', 'children'),
-                   Output('total-hashrate-plot', 'figure'),
-                   Output('table', 'data'),
-                   Output('dropdown-title', 'children'),
-                  ],
-                  [Input('front-page-interval', 'n_intervals'),
-                  Input('dataset-dropdown', 'value')])
 
-    def update_content(n, selected_data):
-        # if not n or n > 1:
+    @app.callback([Output('metric-1', 'children'),
+                   Output('metric-2', 'children'),],
+                   [Input('fp-int-1', 'n_intervals')])
+
+    def update_metrics(n):
         print('UPDATING FRONT PAGE')
-        price_reader = PriceReader()
-        sigma_reader = SigmaWalletReader(config_path="../conf")
- 
-        data = sigma_reader.get_front_page_data()
-        _, ergo = price_reader.get(debug=debug)
-        # Pool Metrics
-        fee = 'Pool Fee: {}%'.format(data['fee'])
-        paid = 'Total Paid: {} ERG'.format(round(data['paid'], 3))
-        blocks_found = 'Blocks Found: {}'.format(data['blocks'])
-        last_block = 'Last Block Found: {}'.format(data['last_block_found'])
-        effort = 'Current Block Effort: {}%'.format(round(data['pool_effort'] * 100, 3))
-        min_payout = 'Minimum Payout: {}'.format(data['minimumPayment'])
-        # print(data)
 
-        payout_schema = 'Schema: {}'.format(data['payoutScheme'])
+        data = sigma_reader.get_front_page_data() # 
+        _, ergo = price_reader.get(debug=debug)
+        # payout_schema = 'Schema: {}'.format(data['payoutScheme'])
         n_miners = '{}'.format(data['connectedMiners'])
         hashrate = '{} GH/s'.format(round(data['poolHashrate'], 3))
-
-        # Network Metrics
-        net_hashrate = 'Net Hashrate: {}TH/s'.format(round(data['networkHashrate'], 3))
-        difficulty = 'Net Difficulty: {}P'.format(round(data['networkDifficulty'], 3))
-        net_block_found = 'Last Block Found on Network: {}'.format(data['lastNetworkBlockTime'])
-        height = 'Height: {}'.format(data['blockHeight'])
-
-        total_hashrate_df = sigma_reader.get_total_hash()
-        top_miner_df = sigma_reader.get_all_miner_data('')
-        block_df, miner_df, effort_df = sigma_reader.get_block_stats('')
-        block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort', 'reward', 'status'])
-        
-        block_data = block_df.to_dict('records')
-
-        total_hashrate_df = total_hashrate_df.sort_values(['Date'])
-
-        total_hashrate_plot={'data': [go.Scatter(x=total_hashrate_df['Date'], y=total_hashrate_df['Hashrate'],
-                                    mode='lines+markers', name='Hashrate Over Time', line={'color': card_color})],
-                   
-                   'layout': go.Layout(xaxis =  {'showgrid': False},yaxis = {'showgrid': True},        
-                                       paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                                       margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
-                                       legend={'font': {'color': '#FFFFFF'}}, font=dict(color=card_color))}
 
         row_1 = dbc.Row(justify='center', align='stretch',
                         children=[create_row_card('assets/boltz.png', hashrate, 'Pool Hashrate'),
                                  create_row_card('assets/smileys.png', n_miners, 'Miners Online'),
                                  create_row_card('assets/coins.png', ergo, 'Price ($)')])
         md = 4
-        row_2_col_1 = dbc.Row(children=[
-                                dbc.Col(md=md, children=[
-                                    dbc.Card(style=card_style, children=[
-                                        create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumPayment']),
-                                        create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'])),
-                                        create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'], 3))),
-                                    ])
-                                ]),
-                                dbc.Col(md=md, children=[
-                                    dbc.Card(style=card_style, children=[
-                                        create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkHashrate'], 3))),
-                                        create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkDifficulty'], 3))),
-                                        create_image_text_block('height.png', 'Block Height:', data['blockHeight']),
-                                       ])
-                                ]),
+        row_2 = dbc.Row(children=[
+                    dbc.Col(md=md, children=[
+                        dbc.Card(style=bottom_row_style, children=[
+                            create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumPayment']),
+                            create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'])),
+                            create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'], 3))),
+                        ])
+                    ]),
+                    dbc.Col(md=md, children=[
+                        dbc.Card(style=bottom_row_style, children=[
+                            create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkHashrate'], 3))),
+                            create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkDifficulty'], 3))),
+                            create_image_text_block('height.png', 'Block Height:', data['blockHeight']),
+                           ])
+                    ]),
+    
+                    dbc.Col(md=md, children=[
+                        dbc.Card(style=bottom_row_style, children=[
+                            create_image_text_block('triangle.png', 'Schema:', data['payoutScheme']),
+                            create_image_text_block('ergo.png', 'Blocks Found:', data['blocks']),
+                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['pool_effort'], 3)),
+                        ])
+                    ])])
+        return row_1, row_2
 
-                                dbc.Col(md=md, children=[
-                                    dbc.Card(style=card_style, children=[
-                                        create_image_text_block('triangle.png', 'Schema:', data['payoutScheme']),
-                                        create_image_text_block('blocks.png', 'Blocks Found:', data['blocks']),
-                                        create_image_text_block('effort.png', 'Effort:', round(data['pool_effort'], 3)),
-                                    ])
-                                ])])
+    @app.callback([Output('plot-1', 'figure'),Output('plot-title', 'children'),],
+                   [Input('fp-int-2', 'n_intervals'), Input('chart-dropdown', 'value')])
 
+    def update_plots(n, value):
+        
+        if value == 'effort':
+            block_df, _, _ = sigma_reader.get_block_stats('') #
+            title = 'EFFORT AND DIFFICULTY'
+            
+            block_df = block_df.sort_values('Time Found')
+            block_df['Rolling Effort'] = block_df['effort'].expanding().mean()
+            response_df = block_df.melt(id_vars = ['Time Found'], value_vars=['Rolling Effort', 'effort', 'networkDifficulty'])
+            
+            effort_response_chart = px.line(response_df[response_df['variable'] != 'networkDifficulty'], 
+                                    x='Time Found', 
+                                    y='value', 
+                                    color='variable', 
+                                    color_discrete_map=color_discrete_map, 
+                                    markers=True)
+    
+            # Add 'networkDifficulty' on a secondary y-axis
+            effort_response_chart.add_trace(go.Scatter(x=response_df['Time Found'][response_df['variable'] == 'networkDifficulty'], 
+                                                       y=response_df['value'][response_df['variable'] == 'networkDifficulty'],
+                                                       name='networkDifficulty',
+                                                       yaxis='y2',
+                                                       marker=dict(color='rgba(255,0,0,0.5)'), # Adjust color accordingly
+                                                       mode='lines+markers'))
+            
+            # Update layout with secondary y-axis
+            effort_response_chart.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                legend_title_text='Metric',
+                legend=dict(font=dict(color='#FFFFFF')),
+                titlefont=dict(color='#FFFFFF'),
+                xaxis=dict(title='Block Found Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
+                yaxis=dict(title='Effort', color='#FFFFFF'),
+                yaxis2=dict(title='Network Difficulty', color='#FFFFFF', overlaying='y', side='right'),
+            )
+            return effort_response_chart, title
+        title = 'HASHRATE OVER TIME'
+        total_hashrate_df = sigma_reader.get_total_hash()
+        total_hashrate_df = total_hashrate_df.sort_values(['Date'])
+
+        total_hashrate_plot={'data': [go.Scatter(x=total_hashrate_df['Date'], y=total_hashrate_df['Hashrate'],
+                                    mode='lines+markers', name='Hashrate Over Time', line={'color': small_text_color})],
+                   
+                   'layout': go.Layout(xaxis =  {'showgrid': False},yaxis = {'showgrid': True},        
+                                       paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                       margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
+                                       legend={'font': {'color': '#FFFFFF'}}, font=dict(color=small_text_color))}
+
+        return total_hashrate_plot, title
+        
+    
+    @app.callback([
+                   Output('table', 'data'),
+                   Output('dropdown-title', 'children'),
+                  ],
+                  [Input('fp-int-3', 'n_intervals'),
+                  Input('dataset-dropdown', 'value')])
+
+    def update_content(n, selected_data):   
+        block_df, _, _ = sigma_reader.get_block_stats('')
+        latest = max(block_df['Time Found'])
+        
         if selected_data == 'blocks':
+            
+            # print(block_df.columns)
+            block_df['Confirmation'] = round(block_df['confirmationProgress'], 2)
+            block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort', 'reward', 'status', 'Confirmation'])
+            
             df = block_df
             title = 'Blocks Data'
         elif selected_data == 'miners':
+            data = sigma_reader.get_front_page_data() # 
+            top_miner_df = sigma_reader.get_all_miner_data('')
             ls = []
+            print(latest)
             for miner in top_miner_df.miner.unique():
                 temp = top_miner_df[top_miner_df.miner == miner]
-                ls.append([miner, temp.hashrate.sum(), temp.sharesPerSecond.sum()])
+                temp_block = block_df[block_df.miner == miner]
+                print('\--------', temp_block['Time Found'], miner, 'minerszzzz')
+                try:
+                    temp_latest = max(temp_block['Time Found'])
+                    print('latest')
+                except ValueError:
+                    temp_latest = min(block_df['Time Found'])
+
+                if not isinstance(latest, str):
+                    temp_latest = min(block_df['Time Found'])
+                
+
+                temp_hash = round(temp.hashrate.sum(), 3)
+                effort = sigma_reader.calculate_mining_effort(data['networkDifficulty'], data['networkHashrate'], temp_hash, temp_latest)
+                ttf = sigma_reader.calculate_time_to_find_block(data['networkDifficulty'], data['networkHashrate'], temp_hash, temp_latest)
+                ls.append([miner, temp_hash, round(temp.sharesPerSecond.sum(), 2), effort, ttf])
             
-            df = DataFrame(ls, columns=['Miner', 'Hashrate', 'SharesPerSecond'])
+            df = DataFrame(ls, columns=['Miner', 'Hashrate', 'SharesPerSecond', 'Effort', 'Time To Find'])
+
             title = 'Current Top Miners'
 
         else:
@@ -198,20 +236,22 @@ def setup_front_page_callbacks(app):
         columns = [{"name": i, "id": i} for i in df.columns]
         table_data = df.to_dict('records')
         
-        return row_1, row_2_col_1, total_hashrate_plot, table_data, title
+        return table_data, title
 
 
 def get_layout():
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
                            children=[
-                               dcc.Interval(id='front-page-interval', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='fp-int-1', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='fp-int-2', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='fp-int-3', interval=60*1000, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': large_text_color, 'textAlign': 'center',}),                                   
                                  # Metrics overview row
-                                 dbc.Row(id='a-1', justify='center', style={'padding': '5px'}),
+                                 dbc.Row(id='metric-1', justify='center', style={'padding': '5px'}),
 
                                 # Detailed stats
-                                dbc.Row(id='a-2', justify='center', style={'padding': '5px'}),
+                                dbc.Row(id='metric-2', justify='center', style={'padding': '5px'}),
 
                                # Mining Address Input
                                 dbc.Row(justify='center', children=[
@@ -236,15 +276,42 @@ def get_layout():
                                         'fontSize': '20px',
                                         'borderRadius': '5px',
                                          'marginBottom': '50px',
+                                        'width': '97.5%',
                                     })
                                 ]),
-                                
-                               # dcc.Graph(id='total-hashrate-plot'),
-                               dbc.Row(children=[
-                                   html.Div(children=[html.H2('Pool Hashrate over Time - [GH/s]'),
-                                                      dcc.Graph(id='total-hashrate-plot'),],
-                                            style={'flex': 1,}),]),
 
+                               html.Div(
+                                    [
+                                        html.Div(
+                                            html.H1(
+                                                id='plot-title',
+                                                children='Please select an option',
+                                                style={'fontSize': '24px'}
+                                            ),
+                                            style={'flex': '1'}
+                                        ),
+                                        html.Div(
+                                            dcc.Dropdown(
+                                                id='chart-dropdown',
+                                                options=[
+                                                    {'label': 'Hashrate', 'value': 'hash'},
+                                                    {'label': 'Effort', 'value': 'effort'}
+                                                ],
+                                                value='hash',  # Default value
+                                                style={'width': '300px', 'color': 'black'}
+                                            ),
+                                            style={'flex': '1'}
+                                        )
+                                    ],
+                                    style={
+                                        'display': 'flex', 
+                                        'justifyContent': 'space-between', 
+                                        'alignItems': 'center',
+                                        'padding': '10px'
+                                    }
+                                ),
+                                dcc.Graph(id='plot-1',  style={'backgroundColor': card_color}),
+                       
                                html.Div(
                                     [
                                         html.Div(

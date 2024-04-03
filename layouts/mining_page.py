@@ -12,15 +12,11 @@ import plotly.graph_objs as go
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
-debug = True
+debug = False
 server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
 server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
 
-# card_color = '#27374D'
-# background_color = '#526D82'
-# large_text_color = '#9DB2BF' 
-# small_text_color = '#DDE6ED'
 button_color = large_text_color
 Session(server)
 
@@ -67,17 +63,10 @@ def setup_mining_page_callbacks(app):
         block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet)
 
         last_block_timestamp = max(block_df['Time Found'])
+        my_blocks = block_df[block_df.my_wallet == True]
         
-        # try:
-        #     pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 2)
-        #     network_difficulty = round(pool_df[pool_df['Pool Stats'] == 'networkDifficulty [Peta]']['Values'].iloc[0], 2)
-        #     network_hashrate = round(pool_df[pool_df['Pool Stats'] == 'networkHashrate [Th/s]']['Values'].iloc[0], 2)
-            
-        # except IndexError:
-        #     print('POOL API EXCEPTION TRIGGERED!!!!')
-        #     pool_hash = -10
-        #     network_difficulty = -10
-        #     network_hashrate = -10   
+        my_last_block_timestamp = max(my_blocks['Time Found'])
+          
         pool_hash, network_difficulty, network_hashrate = get_net_stats(wallet)
 
         your_total_hash = round(performance_df[performance_df['Worker'] == 'Totals']['Hashrate [Mh/s]'].iloc[0], 2)
@@ -89,8 +78,8 @@ def setup_mining_page_callbacks(app):
         pool_ttf_text = '{} Days'.format(pool_ttf)
         pool_hash_text = '{} GH/s'.format(pool_hash)
 
-        your_effort = sigma_reader.calculate_mining_effort(network_difficulty, network_hashrate, your_total_hash, sigma_reader.latest_block)
-        your_ttf = sigma_reader.calculate_time_to_find_block(network_difficulty, network_hashrate, your_total_hash, sigma_reader.latest_block)
+        your_effort = sigma_reader.calculate_mining_effort(network_difficulty, network_hashrate, your_total_hash, my_last_block_timestamp)
+        your_ttf = sigma_reader.calculate_time_to_find_block(network_difficulty, network_hashrate, your_total_hash, my_last_block_timestamp)
         
         your_effort_text = '{}%'.format(your_effort)
         your_ttf_text = '{} Days'.format(your_ttf)
@@ -125,7 +114,6 @@ def setup_mining_page_callbacks(app):
         
         stats = dbc.Row(justify='center', children=[pool_stats, your_stats])
         
-        # first col, payment stats -mining_df, second performance - mask_performance_df, pool and net stats - pool-df
         payment = dict(zip(mining_df['Mining Stats'], mining_df['Values']))
         
         payment['Pending Shares'] = round(payment.pop('pendingShares'), 3)
@@ -154,7 +142,6 @@ def setup_mining_page_callbacks(app):
                         html.Span(dcc.Link('Last Payment Link', href=payment['lastPaymentLink'], target='_blank'), style={'padding': '10px'})])
         
         payment_children.append(link)
-        # payment_children.insert(0, html.H3('Pool Settings', style={'color': '#FFA500', 'fontWeight': 'bold'}))
 
         performance = dict(zip(mask_performance_df['Worker'], mask_performance_df['Hashrate [Mh/s]']))
         performance_images = {key: 'qx-fan-club.png' for key in performance.keys()}
@@ -188,14 +175,13 @@ def setup_mining_page_callbacks(app):
     
     @app.callback([
                 Output('chart', 'figure'),
-                Output('chart-title', 'children'),
                 Output('table-2', 'data'),
                 Output('table-title', 'children'),
                   ],
-                  [Input('mp-interveral-2', 'n_intervals'), Input('chart-dropdown', 'value'), Input('table-dropdown', 'value')],
+                  [Input('mp-interveral-2', 'n_intervals'), Input('table-dropdown', 'value')],
                  [State('url', 'pathname')])
     
-    def update_charts(n_intervals, chart, table, pathname):
+    def update_charts(n_intervals, table, pathname):
         print('updating mining page')
         wallet = unquote(pathname.lstrip('/'))
         print(wallet)
@@ -205,11 +191,10 @@ def setup_mining_page_callbacks(app):
         else:
             short_wallet = wallet
     
-        # mining_df, performance_df = sigma_reader.get_mining_stats(wallet)
+        print(wallet, 'wallllllllet')
         block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet) #
         pool_df, _ = sigma_reader.get_pool_stats(wallet)
-        # top_miner_df = sigma_reader.get_all_miner_data(wallet)
-        # miner_reward_df = sigma_reader.get_estimated_payments(wallet)
+
         miner_performance = sigma_reader.get_miner_samples(wallet) #        
         last_block_timestamp = max(block_df['Time Found'])
         
@@ -236,58 +221,15 @@ def setup_mining_page_callbacks(app):
             yaxis=dict(title='Hashrate', color='#FFFFFF')
         )
 
-
-        effort_chart = create_bar_chart(block_df, x='Time Found', y='effort',
-                                    color='networkDifficulty', 
-                                    labels={'Time Found': 'Block Creation Date',
-                                            'effort': 'Effort', 'networkDifficulty': 'Network Difficulty'})
-
-        block_df = block_df.sort_values('Time Found')
-        block_df['Rolling Effort'] = block_df['effort'].expanding().mean()
-        response_df = block_df.melt(id_vars = ['Time Found'], value_vars=['Rolling Effort', 'effort', 'networkDifficulty'])
-        
-        effort_response_chart = px.line(response_df[response_df['variable'] != 'networkDifficulty'], 
-                                x='Time Found', 
-                                y='value', 
-                                color='variable', 
-                                color_discrete_map=color_discrete_map, 
-                                markers=True)
-
-        # Add 'networkDifficulty' on a secondary y-axis
-        effort_response_chart.add_trace(go.Scatter(x=response_df['Time Found'][response_df['variable'] == 'networkDifficulty'], 
-                                                   y=response_df['value'][response_df['variable'] == 'networkDifficulty'],
-                                                   name='networkDifficulty',
-                                                   yaxis='y2',
-                                                   marker=dict(color='rgba(255,0,0,0.5)'), # Adjust color accordingly
-                                                   mode='lines+markers'))
-        
-        # Update layout with secondary y-axis
-        effort_response_chart.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend_title_text='Metric',
-            legend=dict(font=dict(color='#FFFFFF')),
-            titlefont=dict(color='#FFFFFF'),
-            xaxis=dict(title='Block Found Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
-            yaxis=dict(title='Effort', color='#FFFFFF'),
-            yaxis2=dict(title='Network Difficulty', color='#FFFFFF', overlaying='y', side='right'),
-        )
-
-        # print(block_df)
-        block_df = block_df[block_df.my_wallet == True]
+        block_df = block_df[block_df.miner == short_wallet]
         latest = max(block_df['Time Found'])
-        print(latest, 'o')
-        if type(latest) != 'str':
-            latest = last_block_timestamp
+        print(latest, 'o', type(latest))
+        if not isinstance(latest, str):
+            print('triggered')
+            latest = min(block_df['Time Found'])
         print(latest, '1')
         
-        if chart == 'hash':
-            plot = miner_performance_chart
-            title = 'WORKER HASHRATE OVER TIME'
-
-        elif chart == 'effort':
-            plot = effort_response_chart
-            title = 'POOL EFFORT AND DIFFICULTY OVER TIME'
+        plot = miner_performance_chart
 
         df = sigma_reader.get_all_miner_data(wallet)
         # print(wallet)
@@ -300,6 +242,7 @@ def setup_mining_page_callbacks(app):
         ls = ['Totals', total_hash, total_shares]
         d = pd.DataFrame([ls], columns=['worker', 'hashrate', 'sharesPerSecond'])
         work_data = pd.concat([my_data, d])
+        print(latest, 'miningpage latest')
 
         work_data['ttf'] = [sigma_reader.calculate_time_to_find_block(network_difficulty, network_hashrate, hash, latest) for hash in work_data.hashrate]
         work_data['effort'] = [sigma_reader.calculate_mining_effort(network_difficulty, network_hashrate, hash, latest) for hash in work_data.hashrate]
@@ -314,10 +257,14 @@ def setup_mining_page_callbacks(app):
         elif table == 'blocks':
             df = block_df
             title_2 = 'Your Blocks Found'
+        else:
+            df = work_data
+            title_2 = 'WORKER DATA'
+            
         columns = [{"name": i, "id": i} for i in df.columns]
         data = df.to_dict('records')
         # print(first, second)
-        return plot, title, data, title_2
+        return plot, data, title_2
                                 
 
 def get_layout():
@@ -327,43 +274,11 @@ def get_layout():
                                dcc.Interval(id='mp-interveral-1', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interveral-2', interval=60*1000, n_intervals=0),
 
-                               html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}),
-                                 # Metrics overview row
-                            # dbc.Row(id='first-row', justify='center', style={'padding': '20px'}),
-                               
+                               html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
                                dbc.Row(id='mp-stats', justify='center', style={'padding': '20px'}),
                                dbc.Row(id='mp-metrics', justify='center', style={'padding': '20px'}),
 
-                               html.Div(
-                                    [
-                                        html.Div(
-                                            html.H1(
-                                                id='chart-title',
-                                                children='Please select an option',
-                                                style={'fontSize': '24px'}
-                                            ),
-                                            style={'flex': '1'}
-                                        ),
-                                        html.Div(
-                                            dcc.Dropdown(
-                                                id='chart-dropdown',
-                                                options=[
-                                                    {'label': 'Hashrate Over Time', 'value': 'hash'},
-                                                    {'label': 'Your Block Data', 'value': 'effort'}
-                                                ],
-                                                value='hash',  # Default value
-                                                style={'width': '300px', 'color': 'black'}
-                                            ),
-                                            style={'flex': '1'}
-                                        )
-                                    ],
-                                    style={
-                                        'display': 'flex', 
-                                        'justifyContent': 'space-between', 
-                                        'alignItems': 'center',
-                                        'padding': '10px'
-                                    }
-                                ),
+                               html.H2('Worker Hashrate Over Time', style={'color': 'white', 'textAlign': 'center',}),
                                dcc.Graph(id='chart', style={'backgroundColor': card_color}),
 
                                html.Div(
@@ -380,7 +295,7 @@ def get_layout():
                                             dcc.Dropdown(
                                                 id='table-dropdown',
                                                 options=[
-                                                    {'label': 'Worker Data', 'value': 'workers'},
+                                                    {'label': 'Your Worker Data', 'value': 'workers'},
                                                     {'label': 'Your Block Data', 'value': 'blocks'}
                                                 ],
                                                 value='workers',  # Default value

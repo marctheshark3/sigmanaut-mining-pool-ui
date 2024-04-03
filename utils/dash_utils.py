@@ -75,7 +75,7 @@ bottom_row_style = {
     'fontSize': '14px',
 }
 image_style = {'height': '46px', 'justifyContent': 'center',}
-bottom_image_style = {'height': '40px'}
+bottom_image_style = {'height': '40px', 'justifyContent': 'center',}
 top_image_style = {'height': '80px', 'justifyContent': 'center',}
 image_card_style={
     'margin': '10px','textAlign': 'center',
