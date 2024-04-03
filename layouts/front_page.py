@@ -11,7 +11,7 @@ from dash import html
 price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
 
-debug = True
+debug = False
 
 button_color = large_text_color
 
