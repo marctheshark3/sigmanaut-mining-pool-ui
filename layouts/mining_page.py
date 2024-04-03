@@ -28,7 +28,7 @@ price_reader = PriceReader()
 sigma_reader = SigmaWalletReader(config_path="../conf")
 
 color_discrete_map = {
-    'Rolling Effort': card_color, 
+    'Rolling Effort': 'black', 
     'effort': 'white',      
     'networkDifficulty': large_text_color 
 }
