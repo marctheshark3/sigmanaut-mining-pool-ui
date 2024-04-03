@@ -134,22 +134,22 @@ def setup_mining_page_callbacks(app):
         
         df = pd.DataFrame(ls, columns=['Miner', 'Shares'])
         total = df.Shares.sum()
-        df['participation'] = [shares / total for shares in df.Shares]
+        df['participation'] = [shares / total for shares in df.Shares] 
         df['reward'] = df['participation'] * 30
         my_df = df[df.Miner == wallet]
-        participation = round(my_df.participation.values[0], 3)
+        participation = round(my_df['participation'].values[0] * 100, 3)
         print(participation)
 
         
-        payment['Participation']= participation
+        payment['Participation [%]']= participation
         payment['Schema'] = 'PPLNS'
 
-        payment_images ={'Pending Shares': 'ergo.png',
-                         'Pending Balance': 'ergo.png',
+        payment_images ={'Pending Shares': 'min-payout.png',
+                         'Pending Balance': 'triangle.png',
                          'Total Paid': 'ergo.png',
                          'Paid Today': 'ergo.png',
-                         'Last Payment': 'ergo.png',
-                         'Participation': 'ergo.png',
+                         'Last Payment': 'coins.png',
+                         'Participation [%]': 'smileys.png',
                          'Price': 'ergo.png',
                          'Schema': 'ergo.png',
                          'lastPaymentLink': 'ergo.png',
