@@ -10,4 +10,5 @@ flask-login
 requests
 flask-session
 dash-auth
-redis
+locust
+cachelib
