@@ -17,4 +17,4 @@ EXPOSE 8050
 ENV FLASK_APP app.py
 
 # Run the application
-CMD ["gunicorn", "-w", "3", "--timeout", "2000", "-b", "0.0.0.0:8050", "app:server"]
+CMD ["gunicorn", "-w", "4", "--timeout", "2000", "-b", "0.0.0.0:8050", "app:server"]
