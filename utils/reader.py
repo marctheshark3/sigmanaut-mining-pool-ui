@@ -3,6 +3,10 @@ from hydra import compose, initialize
 from omegaconf import DictConfig, OmegaConf
 from pandas import DataFrame, concat, to_datetime
 from pycoingecko import CoinGeckoAPI
+from datetime import datetime
+from hydra.core.global_hydra import GlobalHydra
+import pytz
+
 
 class PriceReader:
     def __init__(self):
@@ -27,14 +31,95 @@ class SigmaWalletReader:
     def __init__(self, config_path: str):
         self.block_reward = 30
         self.config_path = config_path
-        
-        initialize(config_path, self.config_path, version_base=None)
+        try:
+            initialize(config_path, self.config_path, version_base=None)
+        except ValueError:
+            GlobalHydra.instance().clear()
+            initialize(config_path, self.config_path, version_base=None)
         cfg = compose(config_name='conf')
 
         self.api = cfg.default_values.url
         self.token_id = cfg.user_defined.token_id
         self.token_ls = cfg.default_values.token_ls
         self.base_api = cfg.default_values.base_api
+
+    def get_miner_ls(self):
+        data = self.get_api_data('{}/{}'.format(self.base_api, 'miners'))
+        miner_ls = []
+        for sample in data:
+            miner_ls.append(sample['miner'])
+    
+        return miner_ls
+
+    def get_front_page_data(self):
+        pool = self.get_api_data(self.base_api)['pool']
+        
+        payment_data = pool['paymentProcessing'] # dict
+
+        port_data = pool['ports']
+
+        ls = []
+        for port in port_data:
+            temp = port_data[port]
+            if 'pikes_peak' in temp['name']:
+                high_or_low = 'Greater Than 10GH/s'
+            else:
+                high_or_low = 'Lower Than 10GH/s'
+            ls.append([temp['name'], port, high_or_low, temp['tls']])
+        port_df = DataFrame(ls, columns=['Name', 'Port', 'Hashrate Threshold', 'TLS'])
+
+        pool_fee = pool['poolFeePercent']
+        pool_stats = pool['poolStats'] # dict
+        net_stats = pool['networkStats'] # dict
+     
+        total_paid = pool['totalPaid']
+        total_blocks = pool['totalBlocks']
+        last_block_found = pool['lastPoolBlockTime']
+
+        format_string = '%Y-%m-%dT%H:%M:%S.%fZ'
+
+        date_time_obj = datetime.strptime(last_block_found, format_string)
+        last_block_found = date_time_obj.strftime('%A, %B %d, %Y at %I:%M:%S %p')
+        
+        pool_effort = pool['poolEffort']
+
+        data = {'port_df': port_df,
+                'fee': pool_fee,
+                'paid': total_paid,
+                'blocks': total_blocks,
+                'last_block_found': last_block_found,
+                'pool_effort': pool_effort}
+        
+        
+
+        for key in payment_data.keys():
+            data[key] = payment_data[key]
+
+        for key in pool_stats.keys():
+            data[key] = pool_stats[key]
+
+        for key in net_stats.keys():
+                data[key] = net_stats[key]
+
+        data['poolHashrate'] = data['poolHashrate'] / 1e9 # GigaHash/Second
+        data['networkHashrate'] = data['networkHashrate'] / 1e12 # Terra Hash/Second
+        data['networkDifficulty'] = data['networkDifficulty'] / 1e15 # Peta
+
+        return data
+
+    def get_main_page_metrics(self, wallet, debug=False):
+        ''' btc_price, erg_price, your_total_hash, pool_hash, network_hashrate, avg_block_effort, network_difficulty '''
+        price_reader = PriceReader()
+        btc, erg = price_reader.get(debug)
+        _, performance_df = self.get_mining_stats(wallet)
+        _, _, effort_df = self.get_block_stats(wallet)
+        data = self.get_front_page_data()
+        pool_hash = data['poolHashrate']
+        net_hash = data['networkHashrate']
+        net_diff = data['networkDifficulty']
+        your_total_hash = round(performance_df[performance_df['Worker'] == 'Totals']['Hashrate [Mh/s]'].iloc[0], 5)
+        avg_block_effort = round(effort_df[effort_df['Mining Stats'] == 'Average Block Effort']['Values'].iloc[0], 5)
+        return btc, erg, your_total_hash, pool_hash, net_hash, avg_block_effort, net_diff       
     
     def get_api_data(self, api_url):
         try:
@@ -74,6 +159,42 @@ class SigmaWalletReader:
         reward_df['my_wallet'] = reward_df['miner'].apply(lambda address: address == wallet)
         
         return reward_df
+        
+    def get_all_miner_data(self, my_wallet):
+        wallets = self.get_miner_ls()
+        data = []
+
+        for wallet in wallets:
+            temp = self.get_miner_samples(wallet) 
+            temp['miner'] = wallet
+            latest = max(temp['created'])
+            latest_df = temp[temp.created == latest]
+            data.append(latest_df)
+        df = concat(data)
+        
+        df['hashrate'] = df['hashrate'] / 1e6 # Mh/s
+        
+        total_hash = df['hashrate'].sum()
+        df['Percentage'] = (df['hashrate'] / total_hash) * 100
+        df['ProjectedReward'] = (df['Percentage'] / 100) * self.block_reward
+        df['my_wallet'] = df['miner'].apply(lambda address: address == my_wallet)
+        df['miner'] = df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
+        return df
+
+    def get_total_hash(self):
+        miners = self.get_miner_ls()
+        data = []
+        for miner in miners:
+            temp = self.get_miner_samples(miner)
+            data.append(temp)
+        
+        df = concat(data)
+        ls = []
+        for date in df.created.unique():
+            temp = df[df.created == date]
+            ls.append([date, temp.hashrate.sum() / 1e9])
+        
+        return DataFrame(ls, columns=['Date', 'Hashrate'])
 
     def get_miner_samples(self, wallet):
         url = '{}/{}/{}'.format(self.base_api, 'miners', wallet)
@@ -142,7 +263,7 @@ class SigmaWalletReader:
             performance_df.columns = ['Worker', 'Hashrate [Mh/s]', 'SharesPerSecond']  # Rename columns
             performance_df['Hashrate [Mh/s]'] = performance_df['Hashrate [Mh/s]'] / 1e6 # MH/s
         except:
-            print('PERFORMANCE DATA EXCEPTION TRIGGERED: {} WALLET'.format(wallet))
+            print('NO VALID WALLET ENTERED'.format(wallet))
           
             performance = 'PLEASE ENTER YOUR MINING WALLET ADDRESS'
             performance_df = DataFrame()
@@ -165,7 +286,6 @@ class SigmaWalletReader:
     def get_block_stats(self, wallet):
         url = '{}/{}'.format(self.base_api, 'Blocks')
         block_data = self.get_api_data(url)
-
         miners = {}
         blocks = {}
         for block in block_data:
@@ -176,7 +296,11 @@ class SigmaWalletReader:
                 miners[miner] += 1
             except KeyError:
                 miners[miner] = 1
-            blocks[block_height] = block['effort']
+            try:
+                blocks[block_height] = block['effort']
+            except KeyError:
+                blocks[block_height] = 0
+            
         try:
             average_effort = {'Average Block Effort': sum(blocks.values()) / len(blocks)}
         except ZeroDivisionError:
@@ -221,13 +345,90 @@ class SigmaWalletReader:
             block_df['miner'] = 'NONE'
             block_df['effort'] = 'NONE'
             block_df['networkDifficulty'] = 0
-        
+        self.latest_block = max(block_df['Time Found'])
     
         block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
                                     'miner', 'networkDifficulty', 'my_wallet'])
-
         
         return block_df, miner_df, effort_df
+
+    def calculate_mining_effort(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
+        """
+        Calculate the mining effort for the pool to find a block on Ergo blockchain based on the given timestamp.
+        
+        :param network_difficulty: The current difficulty of the Ergo network.
+        :param network_hashrate: The total hash rate of the Ergo network (in hashes per second).
+        :param pool_hashrate: The hash rate of the mining pool (in hashes per second).
+        :param last_block_timestamp: Timestamp of the last block found in ISO 8601 format.
+        :return: The estimated mining effort for the pool.
+        """
+
+        network_difficulty = network_difficulty * 1e15
+        network_hashratev = network_hashrate * 1e12
+        hashrate = hashrate * 1e6
+        
+        # Parse the last block timestamp
+        time_format = '%Y-%m-%d %H:%M:%S' 
+        last_block_time = datetime.strptime(last_block_timestamp, time_format)
+        last_block_time = last_block_time.replace(tzinfo=pytz.utc)  # Assume the timestamp is in UTC
+        
+        # Get the current time in UTC
+        now = datetime.now(pytz.utc)
+        
+        # Calculate the time difference in seconds
+        time_since_last_block = (now - last_block_time).total_seconds()
+        
+        # Hashes to find a block at current difficulty
+        hashes_to_find_block = network_difficulty# This is a simplification
+        
+        # Total hashes by the network in the time since last block
+        total_network_hashes = network_hashrate * time_since_last_block
+        
+        # Pool's share of the total network hashes
+        pool_share_of_hashes = (hashrate / network_hashrate ) * total_network_hashes
+        
+        # Effort is the pool's share of hashes divided by the number of hashes to find a block
+        effort = pool_share_of_hashes / hashes_to_find_block * 100
+        
+        return round(effort, 3)
+
+    def calculate_time_to_find_block(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
+        """
+        Calculate the time to find a block on Ergo blockchain based on the given timestamp.
+        
+        :param network_difficulty: The current difficulty of the Ergo network.
+        :param network_hashrate: The total hash rate of the Ergo network (in hashes per second).
+        :param pool_hashrate: The hash rate of the mining pool (in hashes per second).
+        :param last_block_timestamp: Timestamp of the last block found in ISO 8601 format.
+        :return: The estimated time to find a block for the pool.
+        """
+    
+        network_difficulty = network_difficulty * 1e15
+        network_hashrate = network_hashrate * 1e12
+        hashrate = hashrate * 1e6
+    
+        # Parse the last block timestamp
+        time_format = '%Y-%m-%d %H:%M:%S' 
+        last_block_time = datetime.strptime(last_block_timestamp, time_format)
+        last_block_time = last_block_time.replace(tzinfo=pytz.utc)  # Assume the timestamp is in UTC
+        
+        # Get the current time in UTC
+        now = datetime.now(pytz.utc)
+        
+        # Calculate the time difference in seconds
+        time_since_last_block = (now - last_block_time).total_seconds()
+        
+        # Hashes to find a block at current difficulty
+        hashes_to_find_block = network_difficulty  # This is a simplification
+        
+        # Calculate the time to find a block
+        print(hashrate, 'hashhh', hashes_to_find_block)
+        try:
+            time_to_find_block = hashes_to_find_block / hashrate
+        except ZeroDivisionError:
+            time_to_find_block = 1
+        
+        return round(time_to_find_block / 3600 / 24, 3)
 
     def get_pool_stats(self, wallet):
         data = self.get_api_data(self.base_api)

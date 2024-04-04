@@ -1,3 +1,5 @@
 # Ignore Jupyter Notebook checkpoint files
 .ipynb_checkpoints/
 *flask_session
+*_files/
+*venv
