@@ -43,6 +43,152 @@ class SigmaWalletReader:
         self.token_ls = cfg.default_values.token_ls
         self.base_api = cfg.default_values.base_api
 
+    def update_data(self, wallet):
+        miner_data = self.get_api_data('{}/{}'.format(self.base_api, 'miners'))
+        miner_ls = [sample.miner for sample in miner_data]
+
+        ### Metrics and Stats ###
+        stats = self.get_api_data(self.base_api)['pool']
+        
+        last_block_found = stats['lastPoolBlockTime']
+        format_string = '%Y-%m-%dT%H:%M:%S.%fZ'
+        date_time_obj = datetime.strptime(last_block_found, format_string)
+        last_block_found = date_time_obj.strftime('%A, %B %d, %Y at %I:%M:%S %p')
+        pool_effort = stats['poolEffort']
+        
+        data = {'fee': stats['poolFeePercent'],
+                'paid': stats['totalPaid'],
+                'blocks': stats['totalBlocks'],
+                'last_block_found': last_block_found,
+                'pool_effort': pool_effort}
+
+        payment_data = stats['paymentProcessing'] # dict
+        pool_stats = stats['poolStats'] # dict
+        net_stats = stats['networkStats'] # dict
+
+        for key in payment_data.keys():
+            data[key] = payment_data[key]
+
+        for key in pool_stats.keys():
+            data[key] = pool_stats[key]
+
+        for key in net_stats.keys():
+                data[key] = net_stats[key]
+
+        data['poolHashrate'] = data['poolHashrate'] / 1e9 # GigaHash/Second
+        data['networkHashrate'] = data['networkHashrate'] / 1e12 # Terra Hash/Second
+        data['networkDifficulty'] = data['networkDifficulty'] / 1e15 # Peta
+        
+        data['poolEffort'] = reader.calculate_mining_effort(data['networkDifficulty'], data['networkHashrate'],
+                                                            data['poolHashrate'] * 1e3, self.latest_block)
+        
+        data['poolTTF'] = reader.calculate_time_to_find_block(data['networkDifficulty'], data['networkHashrate'],
+                                                              data['poolHashrate'] * 1e3, self.latest_block)
+
+        ### BLOCK STATS ###
+        url = '{}/{}'.format(self.base_api, 'Blocks')
+        block_data = self.get_api_data(url)
+        block_df = DataFrame(block_data)
+
+        try:
+            block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == wallet)
+            
+        except ValueError:
+            print('my wallet_value errr')
+            block_df['my_wallet'] = 'NOT ENTERED'
+
+        except KeyError:
+            block_df['my_wallet'] = 'NONE'
+
+        try:
+            block_df['Time Found'] = to_datetime(block_df['created'])
+            block_df['Time Found'] = block_df['Time Found'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        except KeyError:
+            block_df['Time Found'] = 'Not Found Yet'
+        
+        try:
+            block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
+            block_df['effort'] = round(block_df['effort'], 3)
+        except KeyError:
+            block_df['miner'] = 'NONE'
+            block_df['effort'] = 'NONE'
+            block_df['networkDifficulty'] = 0
+            
+        self.latest_block = max(block_df['Time Found'])
+    
+        block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
+                                    'miner', 'networkDifficulty', 'my_wallet'])
+
+        self.block_df = block_df
+
+        ### TOTAL HASH ####
+        all_miner_samples = [self.get_miner_samples(miner) for miner in miner_ls]
+        self.miner_sample_df = pd.concat(all_miner_samples)
+        lastest_miner_sample = self.miner_sample_df[self.miner_sample_df.created == self.latest_block]
+        self.miner_latest_samples = self.miner_sample_df[self.miner_sample_df.miner == wallet]
+        self.miner_total_hash = self.miner_latest_samples.hashrate.sum()
+
+        ### YOUR EFFORT AND TTF ###
+        data['yourEffort'] = reader.calculate_mining_effort(data['networkDifficulty'], data['networkHashrate'],
+                                                            your_total_hash, self.latest_block)
+        
+        data['yourTTF'] = reader.calculate_time_to_find_block(data['networkDifficulty'], data['networkHashrate'],
+                                                              your_total_hash, self.latest_block)
+        self.data = data
+
+        ### Miner Payment Stats ###
+
+        
+
+    def get_latest_worker_samples(self, wallet):
+        '''
+        This function is to be used for individual Miner work stats
+        '''
+        # DF FOR LASTEST SAMPLES FOR ALL MINERS
+        
+        
+
+        total_hash = self.miner_latest_samples.hashrate.sum()
+        total_shares = self.miner_latest_samples.sharesPerSecond.sum()
+        ls = ['Totals', total_hash, total_shares]
+        totals = pd.DataFrame([ls], columns=['worker', 'hashrate', 'sharesPerSecond'])
+        df = pd.concat([self.miner_latest_samples, totals])
+
+        df['ttf'] = [self.calculate_time_to_find_block(self.data.network_difficulty, self.data.network_hashrate, hash, self.latest_block) for hash in df.hashrate]
+        df['effort'] = [self.calculate_mining_effort(self.data.network_difficulty, self.data.network_hashrate, hash, self.latest_block) for hash in df.hashrate]
+
+        df['hashrate'] = round(df['hashrate'], 3)
+        df['sharesPerSecond'] = round(df['sharesPerSecond'], 3)
+        
+        return df
+        
+    def get_total_hash_data(self):
+        '''
+        This function is to be used for the Front Page Hashrate over Time
+        '''
+        total_hash = []
+        for date in self.miner_sample_df.created.unique():
+            temp = self.miner_sample_df[self.miner_sample_df.created == date]
+            total_hash.append([date, temp.hashrate.sum() / 1e9])
+
+        # DF FOR PLOTTING TOTAL HASH ON FRONT PAGE
+        total_hash_df = DataFrame(total_hash, columns=['Date', 'Hashrate'])
+        return total_hash_df
+        
+        
+
+        
+
+        
+        
+        
+
+        
+        
+        
+
+    
+
     def get_miner_ls(self):
         data = self.get_api_data('{}/{}'.format(self.base_api, 'miners'))
         miner_ls = []
@@ -59,15 +205,7 @@ class SigmaWalletReader:
         port_data = pool['ports']
 
         ls = []
-        for port in port_data:
-            temp = port_data[port]
-            if 'pikes_peak' in temp['name']:
-                high_or_low = 'Greater Than 10GH/s'
-            else:
-                high_or_low = 'Lower Than 10GH/s'
-            ls.append([temp['name'], port, high_or_low, temp['tls']])
-        port_df = DataFrame(ls, columns=['Name', 'Port', 'Hashrate Threshold', 'TLS'])
-
+        
         pool_fee = pool['poolFeePercent']
         pool_stats = pool['poolStats'] # dict
         net_stats = pool['networkStats'] # dict
@@ -83,8 +221,7 @@ class SigmaWalletReader:
         
         pool_effort = pool['poolEffort']
 
-        data = {'port_df': port_df,
-                'fee': pool_fee,
+        data = {'fee': pool_fee,
                 'paid': total_paid,
                 'blocks': total_blocks,
                 'last_block_found': last_block_found,
@@ -215,7 +352,8 @@ class SigmaWalletReader:
                     'created': created_time,
                     'worker': worker_name,
                     'hashrate': metrics['hashrate'],
-                    'sharesPerSecond': metrics['sharesPerSecond']
+                    'sharesPerSecond': metrics['sharesPerSecond',
+                    'miner': wallet]
                 }
 
                 flattened_data.append(flat_entry)
@@ -289,7 +427,6 @@ class SigmaWalletReader:
         url = '{}/{}'.format(self.base_api, 'Blocks')
         block_data = self.get_api_data(url)
         miners = {}
-        blocks = {}
         for block in block_data:
             miner = block['miner']
             block_height = block['blockHeight']
@@ -298,15 +435,6 @@ class SigmaWalletReader:
                 miners[miner] += 1
             except KeyError:
                 miners[miner] = 1
-            try:
-                blocks[block_height] = block['effort']
-            except KeyError:
-                blocks[block_height] = 0
-            
-        try:
-            average_effort = {'Average Block Effort': sum(blocks.values()) / len(blocks)}
-        except ZeroDivisionError:
-            average_effort = {'Average Block Effort': 0}
 
         block_df = DataFrame(block_data)
         
@@ -352,7 +480,7 @@ class SigmaWalletReader:
         block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
                                     'miner', 'networkDifficulty', 'my_wallet'])
         
-        return block_df
+        return block_df, miner_df, effort_df
 
     def calculate_mining_effort(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
         """

@@ -9,7 +9,7 @@ import plotly.express as px
 
 from dash import html
 price_reader = PriceReader()
-sigma_reader = SigmaWalletReader(config_path="../conf")
+# sigma_reader = SigmaWalletReader(config_path="../conf")
 
 debug = False
 
@@ -82,7 +82,7 @@ def create_row_card(image, h2_text, p_text):
         html.H2(h2_text, style={'color': large_text_color}),
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
-def setup_front_page_callbacks(app):
+def setup_front_page_callbacks(app, reader):
 
     @app.callback([Output('metric-1', 'children'),
                    Output('metric-2', 'children'),],
@@ -91,7 +91,7 @@ def setup_front_page_callbacks(app):
     def update_metrics(n):
         print('UPDATING FRONT PAGE')
 
-        data = sigma_reader.get_front_page_data() # 
+        data = reader.get_front_page_data() # 
         _, ergo = price_reader.get(debug=debug)
         # payout_schema = 'Schema: {}'.format(data['payoutScheme'])
         n_miners = '{}'.format(data['connectedMiners'])
@@ -133,7 +133,7 @@ def setup_front_page_callbacks(app):
     def update_plots(n, value):
         
         if value == 'effort':
-            block_df, _, _ = sigma_reader.get_block_stats('') #
+            block_df = reader.get_block_stats('') #
             title = 'EFFORT AND DIFFICULTY'
             
             block_df = block_df.sort_values('Time Found')
@@ -167,8 +167,9 @@ def setup_front_page_callbacks(app):
                 yaxis2=dict(title='Network Difficulty', color='#FFFFFF', overlaying='y', side='right'),
             )
             return effort_response_chart, title
+            
         title = 'HASHRATE OVER TIME'
-        total_hashrate_df = sigma_reader.get_total_hash()
+        total_hashrate_df = reader.get_total_hash()
         total_hashrate_df = total_hashrate_df.sort_values(['Date'])
 
         total_hashrate_plot={'data': [go.Scatter(x=total_hashrate_df['Date'], y=total_hashrate_df['Hashrate'],
@@ -190,7 +191,7 @@ def setup_front_page_callbacks(app):
                   Input('dataset-dropdown', 'value')])
 
     def update_content(n, selected_data):   
-        block_df, _, _ = sigma_reader.get_block_stats('')
+        block_df= reader.get_block_stats('')
         latest = max(block_df['Time Found'])
         
         if selected_data == 'blocks':
@@ -202,8 +203,8 @@ def setup_front_page_callbacks(app):
             df = block_df
             title = 'Blocks Data'
         elif selected_data == 'miners':
-            data = sigma_reader.get_front_page_data() # 
-            top_miner_df = sigma_reader.get_all_miner_data('')
+            data = reader.get_front_page_data() # 
+            top_miner_df = reader.get_all_miner_data('')
             ls = []
             print(latest)
             for miner in top_miner_df.miner.unique():
@@ -221,8 +222,8 @@ def setup_front_page_callbacks(app):
                 
 
                 temp_hash = round(temp.hashrate.sum(), 3)
-                effort = sigma_reader.calculate_mining_effort(data['networkDifficulty'], data['networkHashrate'], temp_hash, temp_latest)
-                ttf = sigma_reader.calculate_time_to_find_block(data['networkDifficulty'], data['networkHashrate'], temp_hash, temp_latest)
+                effort = reader.calculate_mining_effort(data['networkDifficulty'], data['networkHashrate'], temp_hash, temp_latest)
+                ttf = reader.calculate_time_to_find_block(data['networkDifficulty'], data['networkHashrate'], temp_hash, temp_latest)
                 ls.append([miner, temp_hash, round(temp.sharesPerSecond.sum(), 2), effort, ttf])
             
             df = DataFrame(ls, columns=['Miner', 'Hashrate', 'SharesPerSecond', 'Effort', 'Time To Find'])
@@ -239,7 +240,7 @@ def setup_front_page_callbacks(app):
         return table_data, title
 
 
-def get_layout():
+def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
                            children=[
                                dcc.Interval(id='fp-int-1', interval=60*1000, n_intervals=0),
