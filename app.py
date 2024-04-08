@@ -1,23 +1,39 @@
 # app.py
 from dash import Dash, html, dcc, Input, Output, State
 
-from layouts import front_page, main_page, mining_page
+from layouts import front_page_1, mining_page_1
 from urllib.parse import quote, unquote
 import dash_bootstrap_components as dbc
-from utils.reader import SigmaWalletReader, PriceReader
-from layouts.front_page import setup_front_page_callbacks
-from layouts.main_page import setup_main_page_callbacks
-from layouts.mining_page import setup_mining_page_callbacks
+from utils.api_reader import SigmaWalletReader, PriceReader
+from layouts.front_page_1 import setup_front_page_callbacks
+# from layouts.main_page import setup_main_page_callbacks
+from layouts.mining_page_1 import setup_mining_page_callbacks
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
 
+# Initialize Flask app
 server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
 server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
 Session(server)
-reader = SigmaWalletReader('../conf')
 
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(server)
+
+# Mock user database (you will replace this with your actual user authentication mechanism)
+class User(UserMixin):
+    pass
+
+@login_manager.user_loader
+def load_user(user_id):
+    # Load user from database or other source
+    user = User()
+    user.id = user_id
+    
+reader = SigmaWalletReader('../conf')
+reader.update_data()
 app = Dash(__name__, url_base_pathname='/', server=server, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 server = app.server 
 app.layout = html.Div([
@@ -33,9 +49,9 @@ def display_page(pathname):
         mining_address = unquote(pathname.lstrip('/'))
         # Use the mining address to generate the page content
         # This is where you might call a function to get the layout based on the mining address
-        return mining_page.get_layout(reader)
+        return mining_page_1.get_layout(reader)
     else:
-        return front_page.get_layout(reader)
+        return front_page_1.get_layout(reader)
 
 # Define callback to update page content or handle business logic
 @app.callback(
