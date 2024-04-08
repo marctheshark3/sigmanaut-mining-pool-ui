@@ -21,7 +21,7 @@ button_color = large_text_color
 Session(server)
 
 price_reader = PriceReader()
-sigma_reader = SigmaWalletReader(config_path="../conf")
+# sigma_reader = SigmaWalletReader(config_path="../conf")
 
 color_discrete_map = {
     'Rolling Effort': 'black', 
@@ -29,9 +29,9 @@ color_discrete_map = {
     'networkDifficulty': large_text_color 
 }
 
-def setup_mining_page_callbacks(app):
+def setup_mining_page_callbacks(app, reader):
     def get_net_stats(wallet):
-        pool_df, _ = sigma_reader.get_pool_stats(wallet) 
+        pool_df, _ = reader.get_pool_stats(wallet) 
         try:
             pool_hash = round(pool_df[pool_df['Pool Stats'] == 'poolHashrate [Gh/s]']['Values'].iloc[0], 2)
             network_difficulty = round(pool_df[pool_df['Pool Stats'] == 'networkDifficulty [Peta]']['Values'].iloc[0], 2)
@@ -57,10 +57,10 @@ def setup_mining_page_callbacks(app):
         else:
             short_wallet = wallet
     
-        mining_df, performance_df = sigma_reader.get_mining_stats(wallet)
-        pool_df, _ = sigma_reader.get_pool_stats(wallet) 
+        mining_df, performance_df = reader.get_mining_stats(wallet)
+        pool_df, _ = reader.get_pool_stats(wallet) 
         _, erg_price = price_reader.get(debug=debug)
-        block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet)
+        block_df = reader.get_block_stats(wallet)
 
         last_block_timestamp = max(block_df['Time Found'])
         my_blocks = block_df[block_df.my_wallet == True]
@@ -73,15 +73,15 @@ def setup_mining_page_callbacks(app):
 
         your_total_hash = round(performance_df[performance_df['Worker'] == 'Totals']['Hashrate [Mh/s]'].iloc[0], 2)
         
-        current_effort = sigma_reader.calculate_mining_effort(network_difficulty, network_hashrate, pool_hash * 1e3, last_block_timestamp)
-        pool_ttf = sigma_reader.calculate_time_to_find_block(network_difficulty, network_hashrate, pool_hash * 1e3, last_block_timestamp)
+        current_effort = reader.calculate_mining_effort(network_difficulty, network_hashrate, pool_hash * 1e3, last_block_timestamp)
+        pool_ttf = reader.calculate_time_to_find_block(network_difficulty, network_hashrate, pool_hash * 1e3, last_block_timestamp)
         
         pool_effort_text = '{}%'.format(current_effort)
         pool_ttf_text = '{} Days'.format(pool_ttf)
         pool_hash_text = '{} GH/s'.format(pool_hash)
 
-        your_effort = sigma_reader.calculate_mining_effort(network_difficulty, network_hashrate, your_total_hash, my_last_block_timestamp)
-        your_ttf = sigma_reader.calculate_time_to_find_block(network_difficulty, network_hashrate, your_total_hash, my_last_block_timestamp)
+        your_effort = reader.calculate_mining_effort(network_difficulty, network_hashrate, your_total_hash, my_last_block_timestamp)
+        your_ttf = reader.calculate_time_to_find_block(network_difficulty, network_hashrate, your_total_hash, my_last_block_timestamp)
         
         your_effort_text = '{}%'.format(your_effort)
         your_ttf_text = '{} Days'.format(your_ttf)
@@ -125,10 +125,10 @@ def setup_mining_page_callbacks(app):
         payment['Last Payment'] = payment.pop('lastPayment')[:-17]
         payment['Price'] = erg_price
 
-        miners = sigma_reader.get_miner_ls()
+        miners = reader.get_miner_ls()
         ls = []
         for miner in miners:
-            df, _ = sigma_reader.get_mining_stats(miner)
+            df, _ = reader.get_mining_stats(miner)
             shares = df[df['Mining Stats'] == 'pendingShares'].Values[0]
             ls.append([miner, shares])
         
@@ -211,17 +211,13 @@ def setup_mining_page_callbacks(app):
             short_wallet = wallet
     
         print(wallet, 'wallllllllet')
-        block_df, miner_df, effort_df = sigma_reader.get_block_stats(wallet) #
-        pool_df, _ = sigma_reader.get_pool_stats(wallet)
-
-        miner_performance = sigma_reader.get_miner_samples(wallet) #        
+        block_df = reader.get_block_stats(wallet) #
+        miner_performance = reader.get_miner_samples(wallet) #        
         last_block_timestamp = max(block_df['Time Found'])
         
         values_to_drop = ['networkHashrate [Th/s]', 'networkDifficulty [Peta]',
                           'poolHashrate [Gh/s]', 'networkType', 'connectedPeers', 'rewardType']
         
-        mask = pool_df['Pool Stats'].isin(values_to_drop)
-        pool_df = pool_df[~mask]
 
         miner_performance_chart = px.line(miner_performance, 
               x='created', 
@@ -253,7 +249,7 @@ def setup_mining_page_callbacks(app):
         
         plot = miner_performance_chart
 
-        df = sigma_reader.get_all_miner_data(wallet)
+        df = reader.get_all_miner_data(wallet)
         # print(wallet)
         # print(latest)
         latest_data = df[df.created == max(df.created)]
@@ -266,8 +262,8 @@ def setup_mining_page_callbacks(app):
         work_data = pd.concat([my_data, d])
         print(latest, 'miningpage latest')
 
-        work_data['ttf'] = [sigma_reader.calculate_time_to_find_block(network_difficulty, network_hashrate, hash, latest) for hash in work_data.hashrate]
-        work_data['effort'] = [sigma_reader.calculate_mining_effort(network_difficulty, network_hashrate, hash, latest) for hash in work_data.hashrate]
+        work_data['ttf'] = [reader.calculate_time_to_find_block(network_difficulty, network_hashrate, hash, latest) for hash in work_data.hashrate]
+        work_data['effort'] = [reader.calculate_mining_effort(network_difficulty, network_hashrate, hash, latest) for hash in work_data.hashrate]
 
         work_data['hashrate'] = round(work_data['hashrate'], 3)
         work_data['sharesPerSecond'] = round(work_data['sharesPerSecond'], 3)
@@ -289,7 +285,7 @@ def setup_mining_page_callbacks(app):
         return plot, data, title_2
                                 
 
-def get_layout():
+def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px'},
                            children=[
                                
@@ -332,9 +328,7 @@ def get_layout():
                                         'alignItems': 'center',
                                         'padding': '10px'
                                     }
-                                ),
-                               # dash_table.DataTable(id='table',),
-           
+                                ),           
                                
                        # html.Div(children=[html.H2('Block Statistics'), 
                        dash_table.DataTable(id='table-2',
@@ -356,7 +350,8 @@ def get_layout():
             ], style={'backgroundColor': card_color})  # This sets the background color for the whole page
 
 if __name__ == '__main__':
+    reader = SigmaWalletReader('../conf')
     app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-    app.layout = get_layout()
-    setup_front_page_callbacks(app)
+    app.layout = get_layout(reader)
+    setup_front_page_callbacks(app, reader)
     app.run_server(debug=True)
