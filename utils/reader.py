@@ -29,7 +29,7 @@ class SigmaWalletReader:
     #     self.token_ls = token_ls_url
 
     def __init__(self, config_path: str):
-        self.block_reward = 30
+        self.block_reward = 30 #need to calc this from emissions.csv
         self.config_path = config_path
         try:
             initialize(config_path, self.config_path, version_base=None)
@@ -90,8 +90,6 @@ class SigmaWalletReader:
                 'last_block_found': last_block_found,
                 'pool_effort': pool_effort}
         
-        
-
         for key in payment_data.keys():
             data[key] = payment_data[key]
 
@@ -161,6 +159,7 @@ class SigmaWalletReader:
         return reward_df
         
     def get_all_miner_data(self, my_wallet):
+        #
         wallets = self.get_miner_ls()
         data = []
 
@@ -197,6 +196,7 @@ class SigmaWalletReader:
         return DataFrame(ls, columns=['Date', 'Hashrate'])
 
     def get_miner_samples(self, wallet):
+        #
         url = '{}/{}/{}'.format(self.base_api, 'miners', wallet)
         sample_data = self.get_api_data(url)
         try:
@@ -228,6 +228,7 @@ class SigmaWalletReader:
 
                     
     def get_mining_stats(self, wallet):
+        #
         url = '{}/{}/{}'.format(self.base_api, 'miners', wallet)
         mining_data = self.get_api_data(url)
         # WALLET NOT ADDED EXCEPTIONS
@@ -284,6 +285,7 @@ class SigmaWalletReader:
         return mining_df, performance_df
 
     def get_block_stats(self, wallet):
+        # 
         url = '{}/{}'.format(self.base_api, 'Blocks')
         block_data = self.get_api_data(url)
         miners = {}
@@ -350,7 +352,7 @@ class SigmaWalletReader:
         block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
                                     'miner', 'networkDifficulty', 'my_wallet'])
         
-        return block_df, miner_df, effort_df
+        return block_df
 
     def calculate_mining_effort(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
         """
@@ -431,6 +433,7 @@ class SigmaWalletReader:
         return round(time_to_find_block / 3600 / 24, 3)
 
     def get_pool_stats(self, wallet):
+        #
         data = self.get_api_data(self.base_api)
         pool_data = data['pool']['poolStats']
         net_data = data['pool']['networkStats']

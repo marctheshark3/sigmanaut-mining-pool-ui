@@ -13,6 +13,8 @@ dark_theme_style_header = {'backgroundColor': '#222', 'color': '#FFFFFF', 'fontW
 
 dark_theme_style_cell = {'backgroundColor': '#333', 'color': '#FFFFFF', 'textAlign': 'left', 'padding': '10px',}
 
+
+
 container_style = {'flex': 1, 'margin': '10px', 'padding': '10px', 'border': 'none', 'borderRadius': '5px', 'background': '#1e1e1e'}
 card_color = '#27374D'
 background_color = '#526D82'
@@ -41,6 +43,8 @@ card_style = {
     'justifyContent': 'center'
 }
 
+table_style = {'backgroundColor': card_color, 'color': large_text_color,
+               'fontWeight': 'bold', 'textAlign': 'center', 'border': '1px solid black',}
 metric_row_style = {
     'display': 'flex',
     'alignItems': 'center',
@@ -54,9 +58,10 @@ top_row_style = {
     'backgroundColor': card_color,
     'color': 'white',
     'display': 'flex',
-    'padding': '10px',
+    'padding': '20px',
+    'height': 'auto',
     # 'alignItems': 'center',
-    # 'justifyContent': 'flex-start',
+    'justifyContent': 'flex-start',
     # 'fontSize': '16px',
 }
 
@@ -64,13 +69,13 @@ bottom_row_style = {
     # 'border': '1px solid {}'.format('#292929'),
     'backgroundColor': card_color,
     'color': 'white',
-    # 'marginBottom': '25px',
-    'padding': '15x',
+    # 'marginBottom': '20px',
+    'padding': '20x',
     # 'fontSize': '12px',
-    'textAlign': 'left',
+    # 'textAlign': 'left',
+    'display': 'flex',
     # 'justifyContent': 'left',
-    # 'display': 'flex',
-    # 'alignItems': 'left',
+    'alignItems': 'left',
     'justifyContent': 'left',
     'fontSize': '14px',
 }
