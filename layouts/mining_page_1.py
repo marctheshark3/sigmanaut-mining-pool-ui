@@ -208,6 +208,7 @@ def setup_mining_page_callbacks(app, reader):
             df = reader.get_latest_worker_samples(False)
             df = df[df.miner == wallet]       
             df = df.filter(['worker', 'hashrate', 'sharesPerSecond', 'Effort', 'TTF'])
+            df = df.rename(columns={"Effort": "Current Effort [%]", "hashrate": "MH/s", 'TTF': 'TTF [Days]'})
             
             title_2 = 'WORKER DATA'
 
@@ -216,7 +217,7 @@ def setup_mining_page_callbacks(app, reader):
             my_block_df = block_df[block_df.miner == wallet]
             df = my_block_df
             print(df.columns)
-            df = df.filter(['Time Found', 'blockHeight', 'status', 'effort', 'reward'])
+            df = df.filter(['Time Found', 'blockHeight', 'effort [%]', 'reward [erg]', 'Confirmation [%]'])
             title_2 = 'Your Blocks Found'
             
         columns = [{"name": i, "id": i} for i in df.columns]
@@ -227,7 +228,7 @@ def setup_mining_page_callbacks(app, reader):
 
 def get_layout(reader):
     md=4
-    return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px'},
+    return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '15px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px'},
                            children=[
                                
                                dcc.Interval(id='mp-interval-1', interval=60*1000, n_intervals=0),
@@ -287,11 +288,7 @@ def get_layout(reader):
                                                         'padding': '10px',},
                                             style_header=table_style,
                                             style_data=table_style,
-                                            # style_data_conditional=[{'if': {'column_id': 'status', 'filter_query': '{status} eq confirmed'},
-                                            #                          'backgroundColor': 'lightgreen', 'color': 'black', 'after': {'content': '" ✔"'}}],
-                                            # style_as_list_view=True,  style_cell_conditional=[{'if': {'column_id': c},
-                                            #                                                    'textAlign': 'left'} for c in ['Name', 'status']],
-                                            # style_header_conditional=[{'if': {'column_id': 'status'}, 'textAlign': 'center'}]
+
                                            ),
                            ]),], style={'backgroundColor': card_color})  # This sets the background color for the whole page
 

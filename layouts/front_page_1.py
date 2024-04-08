@@ -20,30 +20,25 @@ button_color = large_text_color
 def create_image_text_block(image, text, value):
     return html.Div(style=bottom_row_style, children=[
                     html.Img(src='assets/{}'.format(image), style=bottom_image_style),
-                    html.Span(text, style={'padding': '10px', 'width': '100%', 'height': 'auto', 'color': 'white'}),
-                    html.Span(value, style={'color': large_text_color})])
+                    html.Span(text, style={'padding': '5px', 'color': 'white'}),
+                    html.Span(value, style={'padding': '5px', 'color': large_text_color})])
 
 # Style for the card containers
 card_style = {
     'backgroundColor': card_color,
     'color': small_text_color,
-    # 'marginBottom': '25px',
     'padding': '25px',
     'justifyContent': 'center',
-    # 'border': '1px solid {}'.format(large_text_color),
 }
 
 top_card_style = {
     'backgroundColor': card_color,
     'color': small_text_color,
-    # 'margin': '10px',
     'height': '225px',
     'padding': '15px',
     'justifyContent': 'center',
     'textAlign': 'center',
-    'justify': 'center',
-    # 'border': '1px solid {}'.format(large_text_color),
-    
+    'justify': 'center',    
 }
 
 top_image_style = {
@@ -104,14 +99,14 @@ def setup_front_page_callbacks(app, reader):
                                  create_row_card('assets/coins.png', ergo, 'Price ($)')])
         md = 4
         row_2 = dbc.Row(children=[
-                    dbc.Col(md=md, children=[
+                    dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
                             create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumPayment']),
                             create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'])),
                             create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'], 3))),
                         ])
                     ]),
-                    dbc.Col(md=md, children=[
+                    dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
                             create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkHashrate'], 3))),
                             create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkDifficulty'], 3))),
@@ -119,7 +114,7 @@ def setup_front_page_callbacks(app, reader):
                            ])
                     ]),
     
-                    dbc.Col(md=md, children=[
+                    dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
                             create_image_text_block('triangle.png', 'Schema:', data['payoutScheme']),
                             create_image_text_block('ergo.png', 'Blocks Found:', data['blocks']),
@@ -145,7 +140,7 @@ def setup_front_page_callbacks(app, reader):
                                     x='Time Found', 
                                     y='value', 
                                     color='variable', 
-                                    color_discrete_map=color_discrete_map, 
+                                    # color_discrete_map=color_discrete_map, 
                                     markers=True)
     
             # Add 'networkDifficulty' on a secondary y-axis
@@ -163,20 +158,22 @@ def setup_front_page_callbacks(app, reader):
                 legend_title_text='Metric',
                 legend=dict(font=dict(color='#FFFFFF')),
                 titlefont=dict(color='#FFFFFF'),
-                xaxis=dict(title='Block Found Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
-                yaxis=dict(title='Effort', color='#FFFFFF'),
-                yaxis2=dict(title='Network Difficulty', color='#FFFFFF', overlaying='y', side='right'),
+                xaxis=dict(title='Time Found', color='#FFFFFF',showgrid=False, showline=False),
+                yaxis=dict(title='Effort [%]', color='#FFFFFF', side='right'),
+                yaxis2=dict(title='Network Difficulty', color='#FFFFFF', overlaying='y'),
             )
+            
             return effort_response_chart, title
             
         title = 'HASHRATE OVER TIME'
         total_hashrate_df = reader.get_total_hash_data()
         total_hashrate_df = total_hashrate_df.sort_values(['Date'])
+        total_hashrate_df['Hashrate'] = total_hashrate_df['Hashrate']
 
         total_hashrate_plot={'data': [go.Scatter(x=total_hashrate_df['Date'], y=total_hashrate_df['Hashrate'],
                                     mode='lines+markers', name='Hashrate Over Time', line={'color': small_text_color})],
                    
-                   'layout': go.Layout(xaxis =  {'showgrid': False},yaxis = {'showgrid': True},        
+                   'layout': go.Layout(xaxis =  {'showgrid': False, 'title': 'Snap Shot Time'},yaxis = {'showgrid': True, 'title': 'GH/s'},        
                                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                        margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
                                        legend={'font': {'color': '#FFFFFF'}}, font=dict(color=small_text_color))}
@@ -196,13 +193,14 @@ def setup_front_page_callbacks(app, reader):
         if selected_data == 'blocks':
             block_df['Confirmation'] = round(block_df['confirmationProgress'], 2)
             
-            block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort', 'reward', 'status', 'Confirmation'])
+            block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort [%]', 'reward [erg]', 'Confirmation [%]'])
             
             df = block_df
             df['miner'] = df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
             title = 'Blocks Data'
         elif selected_data == 'miners':
             df = reader.get_latest_worker_samples(totals=True)
+            df = df.rename(columns={"Effort": "Current Effort [%]", "Hashrate": "MH/s", 'TTF': 'TTF [Days]'})
             title = 'Current Top Miners'
 
         else:

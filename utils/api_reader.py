@@ -88,6 +88,7 @@ class SigmaWalletReader:
         url = '{}/{}'.format(self.base_api, 'Blocks')
         block_data = self.get_api_data(url)
         block_df = DataFrame(block_data)
+        print(block_df.columns)
         
 
         # try:
@@ -107,13 +108,17 @@ class SigmaWalletReader:
             block_df['Time Found'] = 'Not Found Yet'
         
         try:
-            block_df['effort'] = round(block_df['effort'], 3)
+            block_df['effort [%]'] = round(block_df['effort'] * 100, 3)
         except KeyError:
             block_df['miner'] = 'NONE'
-            block_df['effort'] = 'NONE'
+            block_df['effort [%]'] = 'NONE'
             block_df['networkDifficulty'] = 0
 
-        block_df['Rolling Effort'] = block_df['effort'].expanding().mean()
+        block_df['Rolling Effort'] = block_df['effort [%]'].expanding().mean()
+        block_df['Confirmation [%]'] = round(block_df['confirmationProgress'] * 100, 3)
+        block_df['reward [erg]'] = block_df['reward']
+        # block_df.drop(['reward', 'Confirmation', 'effort', 'confirmationProgress'])
+        
         self.block_df = block_df
     
         # block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
@@ -203,7 +208,7 @@ class SigmaWalletReader:
 
             
            
-            temp_hash = round(temp.hashrate.sum(), 3)
+            temp_hash = round(temp.hashrate.sum(), 1)
             effort = self.calculate_mining_effort(self.data['networkDifficulty'], self.data['networkHashrate'], temp_hash, temp_latest)
             ttf = self.calculate_time_to_find_block(self.data['networkDifficulty'], self.data['networkHashrate'], temp_hash, temp_latest)
             temp['Last Block Found'] = temp_latest
@@ -228,7 +233,8 @@ class SigmaWalletReader:
         for date in self.miner_sample_df.created.unique():
             
             temp = self.miner_sample_df[self.miner_sample_df.created == date]
-            total_hash.append([date, temp.hashrate.sum() / 1e9])
+            print(temp.hashrate.sum())
+            total_hash.append([date, temp.hashrate.sum() / 1e3])
 
         # DF FOR PLOTTING TOTAL HASH ON FRONT PAGE
         total_hash_df = DataFrame(total_hash, columns=['Date', 'Hashrate'])
