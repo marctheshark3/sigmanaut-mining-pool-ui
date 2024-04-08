@@ -83,6 +83,7 @@ def create_row_card(image, h2_text, p_text):
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
 def setup_front_page_callbacks(app, reader):
+    reader.update_data()
 
     @app.callback([Output('metric-1', 'children'),
                    Output('metric-2', 'children'),],
@@ -122,7 +123,7 @@ def setup_front_page_callbacks(app, reader):
                         dbc.Card(style=bottom_row_style, children=[
                             create_image_text_block('triangle.png', 'Schema:', data['payoutScheme']),
                             create_image_text_block('ergo.png', 'Blocks Found:', data['blocks']),
-                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['pool_effort'], 3)),
+                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['poolEffort'], 3)),
                         ])
                     ])])
         return row_1, row_2
@@ -194,14 +195,14 @@ def setup_front_page_callbacks(app, reader):
         block_df= reader.block_df        
         if selected_data == 'blocks':
             block_df['Confirmation'] = round(block_df['confirmationProgress'], 2)
+            
             block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort', 'reward', 'status', 'Confirmation'])
             
             df = block_df
+            df['miner'] = df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
             title = 'Blocks Data'
         elif selected_data == 'miners':
             df = reader.get_latest_worker_samples(totals=True)
-
-
             title = 'Current Top Miners'
 
         else:

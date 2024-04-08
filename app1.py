@@ -1,7 +1,7 @@
 # app.py
 from dash import Dash, html, dcc, Input, Output, State
 
-from layouts import front_page, mining_page
+from layouts import front_page_1, mining_page_1
 from urllib.parse import quote, unquote
 import dash_bootstrap_components as dbc
 from utils.api_reader import SigmaWalletReader, PriceReader
@@ -33,9 +33,9 @@ def display_page(pathname):
         mining_address = unquote(pathname.lstrip('/'))
         # Use the mining address to generate the page content
         # This is where you might call a function to get the layout based on the mining address
-        return mining_page.get_layout(reader)
+        return mining_page_1.get_layout(reader)
     else:
-        return front_page.get_layout(reader)
+        return front_page_1.get_layout(reader)
 
 # Define callback to update page content or handle business logic
 @app.callback(
