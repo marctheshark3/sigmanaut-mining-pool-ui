@@ -193,7 +193,7 @@ class SigmaWalletReader:
 
             
            
-            temp_hash = round(temp.hashrate.sum(), 1)
+            temp_hash = round(temp.hashrate.sum(), 0)
             effort = self.calculate_mining_effort(self.data['networkDifficulty'], self.data['networkHashrate'], temp_hash, temp_latest)
             ttf = self.calculate_time_to_find_block(self.data['networkDifficulty'], self.data['networkHashrate'], temp_hash, temp_latest)
             temp['Last Block Found'] = temp_latest
