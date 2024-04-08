@@ -80,15 +80,15 @@ def create_row_card(image, h2_text, p_text):
 def setup_front_page_callbacks(app, reader):
     reader.update_data()
 
-    @app.callback([Output('metric-1', 'children'),
-                   Output('metric-2', 'children'),],
-                   [Input('fp-int-1', 'n_intervals')])
+    @app.callback([Output('metric-1', 'children')],
+                   [Input('fp-int-4', 'n_intervals')])
 
-    def update_metrics(n):
+    def update_first_row(n):
         reader.update_data()
         data = reader.data
         # data = reader.get_front_page_data() # 
-        _, ergo = price_reader.get(debug=debug)
+        # _, ergo = price_reader.get(debug=debug)
+        ergo = reader.erg_price
         # payout_schema = 'Schema: {}'.format(data['payoutScheme'])
         n_miners = '{}'.format(data['connectedMiners'])
         hashrate = '{} GH/s'.format(round(data['poolHashrate'], 3))
@@ -97,6 +97,17 @@ def setup_front_page_callbacks(app, reader):
                         children=[create_row_card('assets/boltz.png', hashrate, 'Pool Hashrate'),
                                  create_row_card('assets/smileys.png', n_miners, 'Miners Online'),
                                  create_row_card('assets/coins.png', ergo, 'Price ($)')])
+        return [row_1]
+        
+
+    @app.callback([
+                   Output('metric-2', 'children'),],
+                   [Input('fp-int-1', 'n_intervals')])
+
+    def update_metrics(n):
+        # reader.update_data()
+        data = reader.data
+
         md = 4
         row_2 = dbc.Row(children=[
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
@@ -121,8 +132,8 @@ def setup_front_page_callbacks(app, reader):
                             create_image_text_block('ergo.png', 'Current Block Effort:', round(data['poolEffort'], 3)),
                         ])
                     ])])
-        return row_1, row_2
-
+        return [row_2]
+               
     @app.callback([Output('plot-1', 'figure'),Output('plot-title', 'children'),],
                    [Input('fp-int-2', 'n_intervals'), Input('chart-dropdown', 'value')])
 
@@ -140,7 +151,6 @@ def setup_front_page_callbacks(app, reader):
                                     x='Time Found', 
                                     y='value', 
                                     color='variable', 
-                                    # color_discrete_map=color_discrete_map, 
                                     markers=True)
     
             # Add 'networkDifficulty' on a secondary y-axis
@@ -219,6 +229,7 @@ def get_layout(reader):
                                dcc.Interval(id='fp-int-1', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-2', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-3', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='fp-int-4', interval=60*1000, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': large_text_color, 'textAlign': 'center',}),                                   
                                  # Metrics overview row

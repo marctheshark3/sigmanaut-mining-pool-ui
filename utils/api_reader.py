@@ -90,17 +90,6 @@ class SigmaWalletReader:
         block_df = DataFrame(block_data)
         print(block_df.columns)
         
-
-        # try:
-        #     block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == wallet)
-            
-        # except ValueError:
-        #     print('my wallet_value errr')
-        #     block_df['my_wallet'] = 'NOT ENTERED'
-
-        # except KeyError:
-        #     block_df['my_wallet'] = 'NONE'
-
         try:
             block_df['Time Found'] = to_datetime(block_df['created'])
             block_df['Time Found'] = block_df['Time Found'].dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -117,12 +106,8 @@ class SigmaWalletReader:
         block_df['Rolling Effort'] = block_df['effort [%]'].expanding().mean()
         block_df['Confirmation [%]'] = round(block_df['confirmationProgress'] * 100, 3)
         block_df['reward [erg]'] = block_df['reward']
-        # block_df.drop(['reward', 'Confirmation', 'effort', 'confirmationProgress'])
         
         self.block_df = block_df
-    
-        # block_df = block_df.filter(['Time Found', 'blockHeight', 'effort', 'status', 'confirmationProgress', 'reward', 
-        #                             'miner', 'networkDifficulty', 'my_wallet'])
 
         self.latest_block = max(block_df['Time Found'])
         

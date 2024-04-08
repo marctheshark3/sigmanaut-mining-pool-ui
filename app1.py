@@ -12,10 +12,26 @@ from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
 
+# Initialize Flask app
 server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
 server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
 Session(server)
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(server)
+
+# Mock user database (you will replace this with your actual user authentication mechanism)
+class User(UserMixin):
+    pass
+
+@login_manager.user_loader
+def load_user(user_id):
+    # Load user from database or other source
+    user = User()
+    user.id = user_id
+    
 reader = SigmaWalletReader('../conf')
 reader.update_data()
 app = Dash(__name__, url_base_pathname='/', server=server, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
