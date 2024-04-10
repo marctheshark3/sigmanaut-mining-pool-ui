@@ -7,7 +7,7 @@ from datetime import datetime
 from hydra.core.global_hydra import GlobalHydra
 import pytz
 
-debug=True
+debug=False
 
 class PriceReader:
     def __init__(self):
