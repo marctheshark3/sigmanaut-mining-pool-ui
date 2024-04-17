@@ -3,3 +3,4 @@
 *flask_session
 *_files/
 *venv
+**__pycache__/

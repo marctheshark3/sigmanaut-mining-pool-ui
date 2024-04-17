@@ -85,10 +85,9 @@ class SigmaWalletReader:
         
 
         ### BLOCK STATS ###
-        url = '{}/{}'.format(self.base_api, 'Blocks')
+        url = '{}/{}'.format(self.base_api, 'blocks?pageSize=5000')
         block_data = self.get_api_data(url)
         block_df = DataFrame(block_data)
-        print(block_df.columns)
         
         try:
             block_df['Time Found'] = to_datetime(block_df['created'])
@@ -171,7 +170,6 @@ class SigmaWalletReader:
         '''
    
         df = self.miner_latest_samples
-        print(df)
 
         total_ls = []
         work_ls = []
@@ -179,13 +177,10 @@ class SigmaWalletReader:
         
         for miner in df.miner.unique():                
             temp = df[df.miner == miner]
-            print(temp.columns)
             temp_block = block_df[block_df.miner == miner]
             try:
                 temp_latest = max(temp_block['Time Found'])
-                print('latest')
             except ValueError:
-                print('value error')
                 temp_latest = min(block_df['Time Found'])
 
             if not isinstance(temp_latest, str):
@@ -218,7 +213,6 @@ class SigmaWalletReader:
         for date in self.miner_sample_df.created.unique():
             
             temp = self.miner_sample_df[self.miner_sample_df.created == date]
-            print(temp.hashrate.sum())
             total_hash.append([date, temp.hashrate.sum() / 1e3])
 
         # DF FOR PLOTTING TOTAL HASH ON FRONT PAGE
