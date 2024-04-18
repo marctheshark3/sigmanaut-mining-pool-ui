@@ -49,7 +49,7 @@ class SigmaWalletReader:
         self.data = {'poolEffort': 0}
 
     def update_data(self):
-        miner_data = self.get_api_data('{}/{}'.format(self.base_api, 'miners'))
+        miner_data = self.get_api_data('{}/{}'.format(self.base_api, 'miners?pageSize=5000'))
         miner_ls = [sample['miner'] for sample in miner_data]
 
         ### Metrics and Stats ###
@@ -181,7 +181,7 @@ class SigmaWalletReader:
             try:
                 temp_latest = max(temp_block['Time Found'])
             except ValueError:
-                temp_latest = min(block_df['Time Found'])
+                temp_latest = max(block_df['Time Found'])
 
             if not isinstance(temp_latest, str):
                 temp_latest = max(temp_block['Time Found'])
@@ -259,6 +259,9 @@ class SigmaWalletReader:
     
         for entry in samples:
             created_time = entry['created']
+            # print(created_time)
+            # if not isinstance(created_time, str):
+            #     print(created_time)
             
             for worker_name, metrics in entry['workers'].items():
                 
@@ -274,7 +277,8 @@ class SigmaWalletReader:
         df = DataFrame(flattened_data)
 
         if df.empty:
-            df = DataFrame({'created': [0], 'hashrate': [0], 'worker': ['not loaded']})
+            # print('empty')
+            df = DataFrame({'created': ['2024-04-18T12:00:00Z'], 'hashrate': [0], 'worker': ['not loaded']})
     
         return df
 

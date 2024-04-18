@@ -135,7 +135,11 @@ def setup_mining_page_callbacks(app, reader):
         df['participation'] = [shares / total for shares in df.Shares] 
         df['reward'] = df['participation'] * reader.block_reward
         my_df = df[df.Miner == wallet]
-        participation = round(my_df['participation'].values[0] * 100, 3)
+        try:
+            participation = round(my_df['participation'].values[0] * 100, 3)
+        except:
+            participation = 0
+            # print(my_df['participation'], my_df)
 
         my_payment['Participation [%]']= participation
 
