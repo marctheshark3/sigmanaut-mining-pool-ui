@@ -6,6 +6,7 @@ from pycoingecko import CoinGeckoAPI
 from datetime import datetime
 from hydra.core.global_hydra import GlobalHydra
 import pytz
+import pandas as pd
 
 from utils.db_util import PostgreSQLDatabase
 
@@ -105,13 +106,21 @@ class DataSyncer:
             print(f"An error occurred: {e}")
             return None
 
-    def __create_table_(self, table
+    def __create_table__(self):
         self.db.create_table('stats', self.stats_headers)
         self.db.create_table('block', self.block_headers)
         self.db.create_table('payment', self.payment_headers)
         self.db.create_table('live_worker', self.live_worker_headers)
         self.db.create_table('performance', self.performance_headers)
-        return
+        return True
+
+    def __delete_table__(self):
+        self.db.delete_table('stats')
+        self.db.delete_table('block')
+        self.db.delete_table('payment')
+        self.db.delete_table('live_worker')
+        self.db.delete_table('performance')
+        return True     
 
     def insert_df_rows(self, df, table):
         for index, row in df.iterrows():
@@ -122,10 +131,11 @@ class DataSyncer:
         The purpose of this method is to grab all the relevant stats of the pool and network 
         '''
         stats = self.get_api_data(self.base_api)['pool']
+        # last_block_found = str(format_datetime(stats['lastPoolBlockTime']))
         last_block_found = stats['lastPoolBlockTime']
         format_string = '%Y-%m-%dT%H:%M:%S.%fZ'
         date_time_obj = datetime.strptime(last_block_found, format_string)
-        last_block_found = date_time_obj.strftime('%A, %B %d, %Y at %I:%M:%S %p')
+        last_block_found = date_time_obj.strftime('%Y-%m-%d %H:%M:%S')
         
         self.data = {'fee': stats['poolFeePercent'],
                      'paid': stats['totalPaid'],
@@ -149,6 +159,17 @@ class DataSyncer:
         self.data['networkHashrate'] = self.data['networkHashrate'] / 1e12 # Terra Hash/Second
         self.data['networkDifficulty'] = self.data['networkDifficulty'] / 1e15 # Peta
         self.data['insert_time_stamp'] = timenow
+        self.data['poolEffort'] = self.calculate_mining_effort(self.data['networkDifficulty'],
+                                                               self.data['networkHashrate'],
+                                                               self.data['poolHashrate'] * 1e3,
+                                                               last_block_found)
+        
+        self.data['poolTTF'] = self.calculate_time_to_find_block(self.data['networkDifficulty'],
+                                                                 self.data['networkHashrate'],
+                                                                 self.data['poolHashrate'] * 1e3)
+
+        del self.data['payoutSchemeConfig']
+        del self.data['extra']
 
         self.db.insert_data('stats', self.data)
 
@@ -160,10 +181,10 @@ class DataSyncer:
 
         Will need to add Rolling Effort in the df in the page itself vs db
         '''
-        url = '{}/{}'.format(reader.base_api, 'blocks?pageSize=10')
-        block_data = reader.get_api_data(url)
+        url = '{}/{}'.format(self.base_api, 'blocks?pageSize=5000')
+        block_data = self.get_api_data(url)
         for data in block_data:
-            data['rolling_effort'] = data['effort'].expanding().mean()
+            # data['rolling_effort'] = data['effort'].expanding().mean()
             data['time_found'] = format_datetime(data.pop('created'))
             data['confirmationProgress'] = data['confirmationProgress'] * 100
             data['networkDifficulty'] = round(data['networkDifficulty'], 2)
@@ -171,7 +192,6 @@ class DataSyncer:
             data['reward'] = round(data['reward'], 2)
             data['miner'] = '{}...{}'.format(data['miner'][:3], data['miner'][-5:])
             self.db.update_or_insert('block', data)
-
 
     def update_miner_data(self, timenow):
         _, erg_price = self.price_reader.get()
@@ -185,7 +205,7 @@ class DataSyncer:
         networkDifficulty = stats['networkdifficulty'][0]
         for miner in miner_ls:
             url = '{}/{}/{}'.format(self.base_api, 'miners', miner)
-            mining_data = reader.get_api_data(url)        
+            mining_data = self.get_api_data(url)        
             
             payment_data = {k: v for k, v in mining_data.items() if k not in ['performance', 'performanceSamples']}
             payment_data['Schema'] = 'PPLNS'
@@ -205,7 +225,7 @@ class DataSyncer:
             
             performance_samples = mining_data.pop('performanceSamples')
             
-            payment_data['created_at'] = time_now
+            payment_data['created_at'] = timenow
             payment_data['miner'] = miner
             miner_blocks = block_data[block_data.miner == miner]
             
@@ -232,18 +252,81 @@ class DataSyncer:
                 live_df['last_block_found'] = last_block_found
             
                 self.insert_df_rows(live_df, 'live_worker') 
-                print('live worker inserted')
                 
             except KeyError:
                 live_df = pd.DataFrame()
-                print('no live data')
+                print('no live data for miner {}'.format(miner))
             
             self.db.insert_data('payment', payment_data)
-            print('payments inserted')
         
             self.insert_df_rows(performance_df, 'performance') 
-            print('performance inserted')
-                
+        return
+
+    def calculate_mining_effort(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
+        """
+        Calculate the mining effort for the pool to find a block on Ergo blockchain based on the given timestamp.
+        
+        :param network_difficulty: The current difficulty of the Ergo network.
+        :param network_hashrate: The total hash rate of the Ergo network (in hashes per second).
+        :param pool_hashrate: The hash rate of the mining pool (in hashes per second).
+        :param last_block_timestamp: Timestamp of the last block found in ISO 8601 format.
+        :return: The estimated mining effort for the pool.
+        """
+
+        network_difficulty = network_difficulty * 1e15
+        network_hashratev = network_hashrate * 1e12
+        hashrate = hashrate * 1e6
+        
+        # Parse the last block timestamp
+        time_format = '%Y-%m-%d %H:%M:%S' 
+        last_block_time = datetime.strptime(last_block_timestamp, time_format)
+        last_block_time = last_block_time.replace(tzinfo=pytz.utc)  # Assume the timestamp is in UTC
+        
+        # Get the current time in UTC
+        now = datetime.now(pytz.utc)
+        
+        # Calculate the time difference in seconds
+        time_since_last_block = (now - last_block_time).total_seconds()
+        
+        # Hashes to find a block at current difficulty
+        hashes_to_find_block = network_difficulty# This is a simplification
+        
+        # Total hashes by the network in the time since last block
+        total_network_hashes = network_hashrate * time_since_last_block
+        
+        # Pool's share of the total network hashes
+        pool_share_of_hashes = (hashrate / network_hashrate ) * total_network_hashes
+        
+        # Effort is the pool's share of hashes divided by the number of hashes to find a block
+        effort = pool_share_of_hashes / hashes_to_find_block * 100
+        
+        return round(effort, 3)
+
+    def calculate_time_to_find_block(self, network_difficulty, network_hashrate, hashrate):
+        """
+        Calculate the time to find a block on Ergo blockchain based on the given timestamp.
+        
+        :param network_difficulty: The current difficulty of the Ergo network.
+        :param network_hashrate: The total hash rate of the Ergo network (in hashes per second).
+        :param pool_hashrate: The hash rate of the mining pool (in hashes per second).
+        :param last_block_timestamp: Timestamp of the last block found in ISO 8601 format.
+        :return: The estimated time to find a block for the pool.
+        """
+    
+        network_difficulty = network_difficulty * 1e15
+        network_hashrate = network_hashrate * 1e12
+        hashrate = hashrate * 1e6
+        
+        # Hashes to find a block at current difficulty
+        hashes_to_find_block = network_difficulty  # This is a simplification
+        
+        # Calculate the time to find a block
+        try:
+            time_to_find_block = hashes_to_find_block / hashrate
+        except ZeroDivisionError:
+            time_to_find_block = 1
+        
+        return round(time_to_find_block / 3600 / 24, 3)
     
 
         

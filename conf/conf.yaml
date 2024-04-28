@@ -28,7 +28,7 @@ default_values:
         'rewardType VARCHAR(50)',  # String type for reward types
         'poolEffort NUMERIC',  # Numeric type for pool effort
         'poolTTF NUMERIC',  # Numeric type for pool time to find
-        'db_timestamp TIMESTAMP']  # Timestamp for the exact time data was recorded
+        'insert_time_stamp TIMESTAMP']  # Timestamp for the exact time data was recorded
         
     block_cols: ['poolId VARCHAR(255)',
                 'blockHeight INTEGER',
@@ -42,7 +42,7 @@ default_values:
                 'hash VARCHAR(255)', 
                 'miner VARCHAR(255)',
                 'source VARCHAR(255)',
-                'created VARCHAR(255)']
+                'time_found VARCHAR(255)']
                 
     payment_headers: ['pendingShares NUMERIC',
                     'pendingBalance NUMERIC',
