@@ -91,12 +91,13 @@ def setup_front_page_callbacks(app, reader):
 
     def update_first_row(n):
         data = db_sync.db.fetch_data('stats')
+        data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
         payment = db_sync.db.fetch_data('payment')
         # reader.update_data()
         # data = reader.data
-        ergo = payment['price'][0] # need to pull latest or move to data
-        n_miners = '{}'.format(data['connectedpeers'][0])
-        hashrate = '{} GH/s'.format(data['poolhashrate'][0])
+        ergo = payment['price'][0] # need to pull latest or move to data and not use the first index
+        n_miners = '{}'.format(data['connectedminers'].item())
+        hashrate = '{} GH/s'.format(data['poolhashrate'].item())
 
         row_1 = dbc.Row(justify='center', align='stretch',
                         children=[create_row_card('assets/boltz.png', hashrate, 'Pool Hashrate'),
@@ -113,29 +114,30 @@ def setup_front_page_callbacks(app, reader):
         # reader.update_data()
         # data = reader.data
         data = db_sync.db.fetch_data('stats') # need to pull latest sample and grab values
+        data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
 
         md = 4
         row_2 = dbc.Row(children=[
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumpayment'][0]),
-                            create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'][0])),
-                            create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'][0], 3))),
+                            create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumpayment'].item()),
+                            create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'].item())),
+                            create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'].item(), 3))),
                         ])
                     ]),
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkhashrate'][0], 2))),
-                            create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkdifficulty'][0], 2))),
-                            create_image_text_block('height.png', 'Block Height:', data['blockheight'][0]),
+                            create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkhashrate'].item(), 2))),
+                            create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkdifficulty'].item(), 2))),
+                            create_image_text_block('height.png', 'Block Height:', data['blockheight'].item()),
                            ])
                     ]),
     
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('triangle.png', 'Schema:', data['payoutscheme'][0]),
-                            create_image_text_block('ergo.png', 'Blocks Found:', data['blocks'][0]),
-                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['pooleffort'][0], 3)),
+                            create_image_text_block('triangle.png', 'Schema:', data['payoutscheme'].item()),
+                            create_image_text_block('ergo.png', 'Blocks Found:', data['blocks'].item()),
+                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['pooleffort'].item(), 3)),
                         ])
                     ])])
         return [row_2]
