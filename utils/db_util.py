@@ -72,7 +72,8 @@ class PostgreSQLDatabase:
                 print(f"Insertion failed: {e}")
 
             except Exception as e:
-                print(e)
+                print('EXCEPTION', e)
+                pass
             finally:
                 cursor.close()
 
@@ -129,13 +130,8 @@ class PostgreSQLDatabase:
                 query = f"SELECT {', '.join(columns) if isinstance(columns, list) else columns} FROM {table_name}"
                 if where:
                     query += f" WHERE {where}"
-                # 
-                # return cursor.fetchall()  # Fetch all rows of a query result
-                # try:
                 return pd.read_sql_query(query, self.conn)
-                # except Exception:
-                #     cursor.execute(query)
-                    # return cursor.fetchall()
+         
             except psycopg2.OperationalError as e:
                 print(f"Data fetch failed: {e}")
             finally:
