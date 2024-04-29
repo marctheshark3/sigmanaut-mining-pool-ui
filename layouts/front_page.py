@@ -6,16 +6,12 @@ from pandas import DataFrame
 from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style, bottom_row_style, bottom_image_style, card_color, large_text_color, small_text_color, background_color
 import plotly.graph_objs as go
 import plotly.express as px
-
-# from dash import HTML
-
 from utils.api_2_db import DataSyncer
 
 db_sync = DataSyncer(config_path="../conf")
 
 
 price_reader = PriceReader()
-# sigma_reader = SigmaWalletReader(config_path="../conf")
 
 debug = False
 
@@ -84,8 +80,6 @@ def create_row_card(image, h2_text, p_text):
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
 def setup_front_page_callbacks(app, reader):
-    # reader.update_data()
-
     @app.callback([Output('metric-1', 'children')],
                    [Input('fp-int-4', 'n_intervals')])
 
@@ -93,7 +87,7 @@ def setup_front_page_callbacks(app, reader):
         data = db_sync.db.fetch_data('stats')
         data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
        
-        ergo = data['price'].item() # need to pull latest or move to data and not use the first index
+        ergo = data['price'].item() 
         n_miners = '{}'.format(data['connectedminers'].item())
         hashrate = '{} GH/s'.format(data['poolhashrate'].item())
 
@@ -110,7 +104,7 @@ def setup_front_page_callbacks(app, reader):
 
     def update_metrics(n):
  
-        data = db_sync.db.fetch_data('stats') # need to pull latest sample and grab values
+        data = db_sync.db.fetch_data('stats')
         data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
 
         md = 4
@@ -149,7 +143,6 @@ def setup_front_page_callbacks(app, reader):
             block_df = block_df.sort_values(['time_found'])
             block_df['rolling_effort'] = block_df['effort'].expanding().mean()
             block_df['effort'] = block_df['effort'] * 100
-            # block_df = reader.block_df
             title = 'EFFORT AND DIFFICULTY'
             
             block_df = block_df.sort_values('time_found')
@@ -217,13 +210,11 @@ def setup_front_page_callbacks(app, reader):
                   Input('dataset-dropdown', 'value')])
 
     def update_content(n, selected_data):   
-        # block_df= reader.block_df   
         
         if selected_data == 'blocks':
             block_df = db_sync.db.fetch_data('block')
             block_df = block_df.filter(['time_found', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'miner'])
             block_df = block_df.sort_values(['time_found'], ascending=False)
-            # block_df['rolling_effort'] = block_df['effort'].expanding().mean()
             block_df['effort'] = block_df['effort'] * 100            
 
             block_df = block_df.rename(columns={'effort': 'Effort [%]', 'time_found': 'Time Found',
@@ -239,24 +230,13 @@ def setup_front_page_callbacks(app, reader):
             df = df.filter(['miner', 'hashrate', 'effort', 'ttf', 'last_block_found'])
             df['miner'] = ['{}...{}'.format(miner[:3], miner[-5:]) for miner in df.miner]
             df['hashrate'] = round(df['hashrate'], 2)
+            df = df.sort_values(['effort', 'hashrate'], ascending=False)
  
             df = df.rename(columns={'miner': 'Miner',
                                     'hashrate': 'MH/s',
                                     'effort': 'Current Effort [%]',
                                     'ttf': 'Days to Find',
                                     'last_block_found': 'Last Block Found'})
-            
-            # df = df.groupby('miner').agg({
-            #     'hashrate': 'sum',                  # Sum of hashrate
-            #     'shares_per_second': 'sum',         # Sum of shares_per_second
-            #     'worker': 'nunique',                # Count of unique workers
-            #     # 'miner': 'miner'                  # Count of unique miners
-            # }).reset_index()
-            
-            # need to add TTF EFFORT etc
-
-            # df = reader.get_latest_worker_samples(totals=True)
-            # df = df.rename(columns={"Effort": "Current Effort [%]", "Hashrate": "MH/s", 'TTF': 'TTF [Days]'})
             title = 'Current Top Miners'
 
         else:
