@@ -92,10 +92,8 @@ def setup_front_page_callbacks(app, reader):
     def update_first_row(n):
         data = db_sync.db.fetch_data('stats')
         data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
-        payment = db_sync.db.fetch_data('payment')
-        # reader.update_data()
-        # data = reader.data
-        ergo = payment['price'][0] # need to pull latest or move to data and not use the first index
+       
+        ergo = data['price'].item() # need to pull latest or move to data and not use the first index
         n_miners = '{}'.format(data['connectedminers'].item())
         hashrate = '{} GH/s'.format(data['poolhashrate'].item())
 
@@ -111,8 +109,7 @@ def setup_front_page_callbacks(app, reader):
                    [Input('fp-int-1', 'n_intervals')])
 
     def update_metrics(n):
-        # reader.update_data()
-        # data = reader.data
+ 
         data = db_sync.db.fetch_data('stats') # need to pull latest sample and grab values
         data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
 
@@ -190,6 +187,8 @@ def setup_front_page_callbacks(app, reader):
         title = 'HASHRATE OVER TIME'
         
         performance_df = db_sync.db.fetch_data('performance')
+        performance_df = performance_df[performance_df.worker != 'totals']
+        performance_df['hashrate'] = performance_df['hashrate'] / 1e3
 
         total_hashrate_df = performance_df.groupby('created').agg({
             'hashrate': 'sum',                  # Sum of hashrate
@@ -222,24 +221,38 @@ def setup_front_page_callbacks(app, reader):
         
         if selected_data == 'blocks':
             block_df = db_sync.db.fetch_data('block')
-            block_df = block_df.sort_values(['time_found'])
-            block_df['rolling_effort'] = block_df['effort'].expanding().mean()
-            block_df['effort'] = block_df['effort'] * 100
-            # block_df['Confirmation'] = round(block_df['confirmationProgress'], 2)
-            
-            # block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort [%]', 'reward [erg]', 'Confirmation [%]'])
+            block_df = block_df.filter(['time_found', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'miner'])
+            block_df = block_df.sort_values(['time_found'], ascending=False)
+            # block_df['rolling_effort'] = block_df['effort'].expanding().mean()
+            block_df['effort'] = block_df['effort'] * 100            
+
+            block_df = block_df.rename(columns={'effort': 'Effort [%]', 'time_found': 'Time Found',
+                            'blockheight': 'Height', 'miner': 'Miner',
+                            'reward': 'ERG Reward', 'confirmationprogress': 'Confirmation'})
             
             df = block_df
-            df['miner'] = df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
             title = 'Blocks Data'
+            
         elif selected_data == 'miners':
             df = db_sync.db.fetch_data('live_worker')
-            df = df.groupby('miner').agg({
-                'hashrate': 'sum',                  # Sum of hashrate
-                'shares_per_second': 'sum',         # Sum of shares_per_second
-                'worker': 'nunique',                # Count of unique workers
-                # 'miner': 'miner'                  # Count of unique miners
-            })
+            df = df[df.worker == 'totals']
+            df = df.filter(['miner', 'hashrate', 'effort', 'ttf', 'last_block_found'])
+            df['miner'] = ['{}...{}'.format(miner[:3], miner[-5:]) for miner in df.miner]
+            df['hashrate'] = round(df['hashrate'], 2)
+ 
+            df = df.rename(columns={'miner': 'Miner',
+                                    'hashrate': 'MH/s',
+                                    'effort': 'Current Effort [%]',
+                                    'ttf': 'Days to Find',
+                                    'last_block_found': 'Last Block Found'})
+            
+            # df = df.groupby('miner').agg({
+            #     'hashrate': 'sum',                  # Sum of hashrate
+            #     'shares_per_second': 'sum',         # Sum of shares_per_second
+            #     'worker': 'nunique',                # Count of unique workers
+            #     # 'miner': 'miner'                  # Count of unique miners
+            # }).reset_index()
+            
             # need to add TTF EFFORT etc
 
             # df = reader.get_latest_worker_samples(totals=True)

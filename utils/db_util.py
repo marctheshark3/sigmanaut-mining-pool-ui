@@ -1,6 +1,6 @@
 import psycopg2
 import pandas as pd
-
+import time 
 class PostgreSQLDatabase:
     def __init__(self, username, password, host, port, database_name):
         self.username = username
@@ -32,6 +32,15 @@ class PostgreSQLDatabase:
                 return None
         return None
 
+    def get_db_size(self):
+        query = f"SELECT pg_size_pretty(pg_database_size('{self.database_name}'));"
+        cursor = self.get_cursor()
+        cursor.execute(query)
+    
+        # Fetch the result
+        size = cursor.fetchone()[0]
+        return size
+
     def create_table(self, table_name, columns):
         cursor = self.get_cursor()
         if cursor:
@@ -54,6 +63,40 @@ class PostgreSQLDatabase:
                 print(f"Table {table_name} deleted successfully.")
             except psycopg2.OperationalError as e:
                 print(f"Table deletion failed: {e}")
+            finally:
+                cursor.close()
+
+    def delete_data_in_batches(self, table_name, batch_size=10000):
+        cursor = self.get_cursor()
+        if cursor:
+            try:
+                # First, determine the total number of rows in the table
+                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                total_rows = cursor.fetchone()[0]
+                num_batches = (total_rows + batch_size - 1) // batch_size  # Calculate how many batches are needed
+
+                for batch in range(num_batches):
+                    # Use ROW_NUMBER() to select a range of rows within the current batch
+                    delete_query = f"""
+                    DELETE FROM {table_name}
+                    WHERE ctid IN (
+                        SELECT ctid FROM (
+                            SELECT ctid, ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) as rn
+                            FROM {table_name}
+                        ) sub
+                        WHERE rn BETWEEN {batch * batch_size + 1} AND {(batch + 1) * batch_size}
+                    );
+                    """
+                    cursor.execute(delete_query)
+                    self.conn.commit()
+                    print(f"Batch {batch + 1}/{num_batches}: Deleted up to {batch_size} rows from {table_name}")
+
+                    # Avoid overloading the database with a small delay
+                    time.sleep(1)
+
+            except psycopg2.OperationalError as e:
+                print(f"Batch deletion failed: {e}")
+                self.conn.rollback()
             finally:
                 cursor.close()
 

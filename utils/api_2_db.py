@@ -32,15 +32,28 @@ def format_datetime(time_str):
 
 def worker_to_df(data):
     rows = []
+    total_hash = 0
+    total_shares = 0
     for worker, details in data['workers'].items():
+        hashrate = round(details['hashrate'] / 1e6, 2)
+        shares = round(details['sharesPerSecond'], 2)
         row = {
             'worker': worker,
-            'hashrate': round(details['hashrate'] / 1e6, 2), #MH/s
-            'shares_per_second': round(details['sharesPerSecond'], 2),
+            'hashrate': hashrate, #MH/s
+            'shares_per_second': shares,
             'created': format_datetime(data['created'])
         }
         rows.append(row)
-    
+        total_hash += hashrate
+        total_shares += shares
+
+    totals = {'worker': 'totals',
+            'hashrate': total_hash, #MH/s
+            'shares_per_second': total_shares,
+            'created': format_datetime(data['created'])
+        }
+    rows.append(totals)
+        
     # Create DataFrame
     return pd.DataFrame(rows)
     
@@ -115,11 +128,11 @@ class DataSyncer:
         return True
 
     def __delete_table__(self):
-        self.db.delete_table('stats')
-        self.db.delete_table('block')
-        self.db.delete_table('payment')
-        self.db.delete_table('live_worker')
-        self.db.delete_table('performance')
+        self.db.delete_data_in_batches('stats', 10)
+        self.db.delete_data_in_batches('block')
+        self.db.delete_data_in_batches('payment')
+        self.db.delete_data_in_batches('live_worker')
+        self.db.delete_data_in_batches('performance')
         return True     
 
     def insert_df_rows(self, df, table):
@@ -140,7 +153,9 @@ class DataSyncer:
         self.data = {'fee': stats['poolFeePercent'],
                      'paid': stats['totalPaid'],
                      'blocks': stats['totalBlocks'],
-                     'last_block_found': last_block_found}
+                     'last_block_found': last_block_found,
+                     }
+
 
         payment_data = stats['paymentProcessing'] # dict
         pool_stats = stats['poolStats'] # dict
@@ -167,6 +182,7 @@ class DataSyncer:
         self.data['poolTTF'] = self.calculate_time_to_find_block(self.data['networkDifficulty'],
                                                                  self.data['networkHashrate'],
                                                                  self.data['poolHashrate'] * 1e3)
+        self.data['price'] = self.price_reader.get()[1]
 
         del self.data['payoutSchemeConfig']
         del self.data['extra']
@@ -194,15 +210,22 @@ class DataSyncer:
             self.db.update_or_insert('block', data)
 
     def update_miner_data(self, timenow):
+        self.db.delete_data_in_batches('live_worker')
+        self.db.create_table('live_worker', self.live_worker_headers)
+
+        self.db.delete_data_in_batches('performance')
+        self.db.create_table('performance', self.live_worker_headers)
         _, erg_price = self.price_reader.get()
         miner_data = self.get_api_data('{}/{}'.format(self.base_api, 'miners?pageSize=5000'))
         miner_ls = [sample['miner'] for sample in miner_data]
         
         # time_now = pd.Timestamp.now()
-        stats = self.db.fetch_data('data')
+        stats = self.db.fetch_data('stats')
+        print(stats.columns)
+        stats = stats[stats.insert_time_stamp == max(stats.insert_time_stamp)]
         block_data = self.db.fetch_data('block')
-        networkHashrate = stats['networkhashrate'][0] # use logic to get the lastest not just the first index
-        networkDifficulty = stats['networkdifficulty'][0]
+        networkHashrate = stats['networkhashrate'].item() # use logic to get the lastest not just the first index
+        networkDifficulty = stats['networkdifficulty'].item()
         for miner in miner_ls:
             url = '{}/{}/{}'.format(self.base_api, 'miners', miner)
             mining_data = self.get_api_data(url)        
@@ -227,10 +250,17 @@ class DataSyncer:
             
             payment_data['created_at'] = timenow
             payment_data['miner'] = miner
-            miner_blocks = block_data[block_data.miner == miner]
-            
-            performance_df = pd.concat(worker_to_df(sample) for sample in performance_samples)
-            performance_df['miner'] = miner
+            print(miner, block_data.miner)
+            shorten_miner = '{}...{}'.format(miner[:3], miner[-5:])
+
+            miner_blocks = block_data[block_data.miner == shorten_miner]
+            try: 
+                performance_df = pd.concat(worker_to_df(sample) for sample in performance_samples)
+                performance_df['miner'] = miner
+
+            except ValueError:
+                # might need to add something here
+                pass
         
             if miner_blocks.empty:
                 # still need to adjust to pull from performance table for this miner
@@ -245,7 +275,10 @@ class DataSyncer:
                 live_performance = mining_data.pop('performance')
                 live_df = worker_to_df(live_performance)
                 live_df['miner'] = miner
-                live_df['effort'] = [self.calculate_mining_effort(networkDifficulty, networkHashrate,
+                if last_block_found == 'N/A':
+                    live_df['effort'] = 0
+                else:
+                    live_df['effort'] = [self.calculate_mining_effort(networkDifficulty, networkHashrate,
                                                                     temp_hash, latest) for temp_hash in live_df.hashrate]
                 live_df['ttf'] = [self.calculate_time_to_find_block(networkDifficulty, networkHashrate,
                                                                       temp_hash) for temp_hash in live_df.hashrate]

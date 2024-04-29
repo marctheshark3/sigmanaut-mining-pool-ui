@@ -28,6 +28,7 @@ default_values:
         'rewardType VARCHAR(50)',  # String type for reward types
         'poolEffort NUMERIC',  # Numeric type for pool effort
         'poolTTF NUMERIC',  # Numeric type for pool time to find
+        'price NUMERIC',
         'insert_time_stamp TIMESTAMP']  # Timestamp for the exact time data was recorded
         
     block_cols: ['poolId VARCHAR(255)',
