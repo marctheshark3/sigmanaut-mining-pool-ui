@@ -1,4 +1,3 @@
-from utils.api_reader import SigmaWalletReader, PriceReader
 from utils.dash_utils import image_style, create_pie_chart, create_bar_chart, create_table_component, create_row_card, create_image_text_block, card_style, image_card_style, bottom_row_style, card_color, background_color, large_text_color, small_text_color, bottom_image_style, top_row_style, table_style
 from dash import Dash, html, dash_table, dcc, callback_context
 from dash.exceptions import PreventUpdate
@@ -25,8 +24,6 @@ server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based sessio
 button_color = large_text_color
 Session(server)
 
-price_reader = PriceReader()
-# sigma_reader = SigmaWalletReader(config_path="../conf")
 
 color_discrete_map = {
     'Rolling Effort': 'black', 
@@ -108,8 +105,6 @@ def setup_mining_page_callbacks(app, reader):
         ### PAYMENT STATS ###
         payment = db_sync.db.fetch_data('payment')
         my_payment = payment[payment.miner == wallet]
-
-        # my_payment = reader.get_miner_payment_stats(wallet)
 
         payment_images ={
             'pendingshares': 'min-payout.png',
@@ -223,7 +218,6 @@ def setup_mining_page_callbacks(app, reader):
             
         columns = [{"name": i, "id": i} for i in df.columns]
         data = df.to_dict('records')
-        # print(first, second)
         return data, title_2
                                 
 

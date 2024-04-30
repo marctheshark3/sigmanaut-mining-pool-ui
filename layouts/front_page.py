@@ -1,7 +1,6 @@
 import dash
 from dash import html, dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
-from utils.api_reader import SigmaWalletReader, PriceReader
 from pandas import DataFrame
 from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style, bottom_row_style, bottom_image_style, card_color, large_text_color, small_text_color, background_color
 import plotly.graph_objs as go
@@ -9,9 +8,6 @@ import plotly.express as px
 from utils.api_2_db import DataSyncer
 
 db_sync = DataSyncer(config_path="../conf")
-
-
-price_reader = PriceReader()
 
 debug = False
 
