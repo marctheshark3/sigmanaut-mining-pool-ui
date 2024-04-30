@@ -53,6 +53,7 @@ default_values:
                     'Price NUMERIC',
                     'lastPayment VARCHAR(50)',
                     'lastPaymentLink TEXT',
+                    'participation NUMERIC',
                     'created_at TIMESTAMP',
                     'miner VARCHAR(100)']
 

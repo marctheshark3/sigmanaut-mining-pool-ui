@@ -174,14 +174,14 @@ class DataSyncer:
         self.data['networkHashrate'] = self.data['networkHashrate'] / 1e12 # Terra Hash/Second
         self.data['networkDifficulty'] = self.data['networkDifficulty'] / 1e15 # Peta
         self.data['insert_time_stamp'] = timenow
-        self.data['poolEffort'] = self.calculate_mining_effort(self.data['networkDifficulty'],
+        self.data['poolEffort'] = round(self.calculate_mining_effort(self.data['networkDifficulty'],
                                                                self.data['networkHashrate'],
                                                                self.data['poolHashrate'] * 1e3,
-                                                               last_block_found)
+                                                               last_block_found), 2)
         
-        self.data['poolTTF'] = self.calculate_time_to_find_block(self.data['networkDifficulty'],
+        self.data['poolTTF'] = round(self.calculate_time_to_find_block(self.data['networkDifficulty'],
                                                                  self.data['networkHashrate'],
-                                                                 self.data['poolHashrate'] * 1e3)
+                                                                 self.data['poolHashrate'] * 1e3), 2)
         self.data['price'] = self.price_reader.get()[1]
 
         del self.data['payoutSchemeConfig']
@@ -223,6 +223,7 @@ class DataSyncer:
         stats = self.db.fetch_data('stats')
         print(stats.columns)
         stats = stats[stats.insert_time_stamp == max(stats.insert_time_stamp)]
+        
         block_data = self.db.fetch_data('block')
         networkHashrate = stats['networkhashrate'].item() # use logic to get the lastest not just the first index
         networkDifficulty = stats['networkdifficulty'].item()
@@ -233,7 +234,10 @@ class DataSyncer:
             payment_data = {k: v for k, v in mining_data.items() if k not in ['performance', 'performanceSamples']}
             payment_data['Schema'] = 'PPLNS'
             payment_data['Price'] = erg_price
-        
+            payment_data['totalPaid'] = round(payment_data['totalPaid'], 2)
+            payment_data['pendingShares'] = round(payment_data['pendingShares'], 2)
+            payment_data['pendingBalance'] = round(payment_data['pendingBalance'], 2)
+          
             try:
                 payment_data['lastPayment'] = mining_data['lastPayment'][:-17]
                 payment_data['lastPaymentLink'] = mining_data['lastPaymentLink']
@@ -247,6 +251,7 @@ class DataSyncer:
                 payment_data['lastPaymentLink'] = 'Keep Mining!'
             
             performance_samples = mining_data.pop('performanceSamples')
+            
             
             payment_data['created_at'] = timenow
             payment_data['miner'] = miner
@@ -274,14 +279,15 @@ class DataSyncer:
             try:
                 live_performance = mining_data.pop('performance')
                 live_df = worker_to_df(live_performance)
+                live_df['hashrate'] = round(live_df['hashrate'], 0)
                 live_df['miner'] = miner
                 if last_block_found == 'N/A':
                     live_df['effort'] = 0
                 else:
-                    live_df['effort'] = [self.calculate_mining_effort(networkDifficulty, networkHashrate,
-                                                                    temp_hash, latest) for temp_hash in live_df.hashrate]
-                live_df['ttf'] = [self.calculate_time_to_find_block(networkDifficulty, networkHashrate,
-                                                                      temp_hash) for temp_hash in live_df.hashrate]
+                    live_df['effort'] = [round(self.calculate_mining_effort(networkDifficulty, networkHashrate,
+                                                                    temp_hash, latest), 2) for temp_hash in live_df.hashrate]
+                live_df['ttf'] = [round(self.calculate_time_to_find_block(networkDifficulty, networkHashrate,
+                                                                      temp_hash), 2) for temp_hash in live_df.hashrate]
                 live_df['last_block_found'] = last_block_found
             
                 self.insert_df_rows(live_df, 'live_worker') 
@@ -289,6 +295,8 @@ class DataSyncer:
             except KeyError:
                 live_df = pd.DataFrame()
                 print('no live data for miner {}'.format(miner))
+
+            
             
             self.db.insert_data('payment', payment_data)
         

@@ -12,6 +12,11 @@ import plotly.graph_objs as go
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
+
+from utils.api_2_db import DataSyncer
+
+db_sync = DataSyncer(config_path="../conf")
+
 debug = False
 server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
@@ -36,18 +41,24 @@ def setup_mining_page_callbacks(app, reader):
 
     def update_front_row(n, pathname):
 
-        wallet = unquote(pathname.lstrip('/'))
+        miner = unquote(pathname.lstrip('/'))
+        wallet = miner
 
-        if wallet != 'Enter Your Address':
-            short_wallet = '{}...{}'.format(wallet[:5], wallet[-5:])
+        if miner != 'Enter Your Address':
+            short_wallet = '{}...{}'.format(wallet[:3], wallet[-5:])
         else:
             short_wallet = wallet
 
-        worker_df = reader.get_latest_worker_samples(True)
-        my_worker_df = worker_df[worker_df.Miner == short_wallet]
-        my_total_hash = round(list(my_worker_df.Hashrate)[0], )
-        my_effort = list(my_worker_df.Effort)[0]
-        my_ttf = list(my_worker_df.TTF)[0]
+        worker_df = db_sync.db.fetch_data('live_worker')
+        total_df = worker_df[worker_df.worker == 'totals']
+        my_worker_df = total_df[total_df.miner == miner]
+        my_total_hash = my_worker_df.hashrate.item()
+        my_effort = my_worker_df.effort.item()
+        my_ttf = my_worker_df.ttf.item()
+
+        data = db_sync.db.fetch_data('stats')
+        data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
+        
         
         block_df = reader.block_df
         block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
@@ -56,9 +67,9 @@ def setup_mining_page_callbacks(app, reader):
 
 
         ### GATHERING POOL AND YOUR HASH TTF AND EFFORT ###
-        pool_effort_text = '{}%'.format(reader.data['poolEffort'])
-        pool_ttf_text = '{} Days'.format(reader.data['poolTTF'])
-        pool_hash_text = '{} GH/s'.format(reader.data['poolHashrate'])
+        pool_effort_text = '{}%'.format(data['pooleffort'].item())
+        pool_ttf_text = '{} Days'.format(data['poolttf'].item())
+        pool_hash_text = '{} GH/s'.format(data['poolhashrate'].item())
         
         your_effort_text = '{}%'.format(my_effort)
         your_ttf_text = '{} Days'.format(my_ttf)
@@ -95,18 +106,21 @@ def setup_mining_page_callbacks(app, reader):
         wallet = unquote(pathname.lstrip('/'))
 
         ### PAYMENT STATS ###
-        my_payment = reader.get_miner_payment_stats(wallet)
+        payment = db_sync.db.fetch_data('payment')
+        my_payment = payment[payment.miner == wallet]
+
+        # my_payment = reader.get_miner_payment_stats(wallet)
 
         payment_images ={
-            'Pending Shares': 'min-payout.png',
-             'Pending Balance': 'triangle.png',
-             'Total Paid': 'ergo.png',
-             'Last Payment': 'coins.png',
-             'Price': 'ergo.png',
-             'Schema': 'ergo.png',
+            'pendingshares': 'min-payout.png',
+             'pendingbalance': 'triangle.png',
+             'totalpaid': 'ergo.png',
+             'lastpayment': 'coins.png',
+             'price': 'ergo.png',
+             'schema': 'ergo.png',
             }
         
-        payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key]), image=payment_images[key]) for key in payment_images.keys() if key != 'lastPaymentLink']
+        payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key].item()), image=payment_images[key]) for key in payment_images.keys() if key != 'lastPaymentLink']
 
         
         return payment_children[:3], payment_children[3:]
@@ -118,40 +132,25 @@ def setup_mining_page_callbacks(app, reader):
                   [State('url', 'pathname')])
 
     def update_outside(n, pathname):
-        wallet = unquote(pathname.lstrip('/'))
+        miner = unquote(pathname.lstrip('/'))
 
         ### PAYMENT STATS ###
-        my_payment = reader.get_miner_payment_stats(wallet)
-        all_payment_stats = [reader.get_miner_payment_stats(wallet) for wallet in reader.get_miner_ls()]
-        miners = reader.get_miner_ls()
-        ls = []
-        for miner in miners:
-            d = reader.get_miner_payment_stats(miner)
-            shares =  d['Pending Shares']
-            ls.append([miner, shares])
-        
-        df = pd.DataFrame(ls, columns=['Miner', 'Shares'])
-        total = df.Shares.sum()
-        df['participation'] = [shares / total for shares in df.Shares] 
-        df['reward'] = df['participation'] * reader.block_reward
-        my_df = df[df.Miner == wallet]
-        try:
-            participation = round(my_df['participation'].values[0] * 100, 3)
-        except:
-            participation = 0
-            # print(my_df['participation'], my_df)
+        payment = db_sync.db.fetch_data('payment')
+        total = payment.pendingshares.sum()
+        payment['participation'] = [round(shares / total * 100, 2) for shares in payment.pendingshares] 
+        my_payment = payment[payment.miner == miner]
 
-        my_payment['Participation [%]']= participation
+        my_payment['Participation [%]']= my_payment['participation'].item()
 
         payment_images ={'Participation [%]': 'smileys.png',
-                         'Paid Today': 'ergo.png',
-                         'lastPaymentLink': 'ergo.png',
+                         'todaypaid': 'ergo.png',
+                         'lastpaymentlink': 'ergo.png',
                         }
         
-        payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key]), image=payment_images[key]) for key in payment_images.keys() if key != 'lastPaymentLink']
+        payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key].item()), image=payment_images[key]) for key in payment_images.keys() if key != 'lastpaymentlink']
         link = html.Div(style=bottom_row_style, children=[
                         html.Img(src='assets/{}'.format('ergo.png'), style=bottom_image_style),
-                        html.Span(dcc.Link('Last Payment Link', href=my_payment['lastPaymentLink'], target='_blank'), style={'padding': '10px'})])
+                        html.Span(dcc.Link('Last Payment Link', href=my_payment['lastpaymentlink'].item(), target='_blank'), style={'padding': '10px'})])
         
         payment_children.append(link)
 
@@ -165,10 +164,8 @@ def setup_mining_page_callbacks(app, reader):
     
     def update_charts(n_intervals, pathname):
         wallet = unquote(pathname.lstrip('/'))
-        
-        block_df = reader.block_df #
-        worker_performace = reader.miner_sample_df
-        my_worker_performance = worker_performace[worker_performace.miner == wallet]        
+        df = db_sync.db.fetch_data('performance')
+        my_worker_performance = df[df.miner == wallet]
 
         miner_performance_chart = px.line(my_worker_performance, 
               x='created', 
@@ -200,24 +197,28 @@ def setup_mining_page_callbacks(app, reader):
         wallet = unquote(pathname.lstrip('/'))
 
         if wallet != 'Enter Your Address':
-            short_wallet = '{}...{}'.format(wallet[:5], wallet[-5:])
+            short_wallet = '{}...{}'.format(wallet[:3], wallet[-5:])
         else:
             short_wallet = wallet
     
         if table == 'workers':
-            df = reader.get_latest_worker_samples(False)
-            df = df[df.miner == wallet]       
-            df = df.filter(['worker', 'hashrate', 'sharesPerSecond', 'Effort', 'TTF'])
-            df = df.rename(columns={"Effort": "Current Effort [%]", "hashrate": "MH/s", 'TTF': 'TTF [Days]'})
+            df = db_sync.db.fetch_data('live_worker')
+            
+            df = df[df.miner == wallet]
+            df  = df[df.worker != 'totals']     
+            df = df.filter(['worker', 'hashrate', 'sharesPerSecond', 'effort', 'ttf'])
+            df = df.rename(columns={"effort": "Current Effort [%]", "hashrate": "MH/s", 'ttf': 'TTF [Days]'})
             
             title_2 = 'WORKER DATA'
 
         elif table == 'blocks':
-            block_df = reader.block_df #
-            my_block_df = block_df[block_df.miner == wallet]
+            block_df = db_sync.db.fetch_data('block')
+            my_block_df = block_df[block_df.miner == short_wallet]
             df = my_block_df
             print(df.columns)
-            df = df.filter(['Time Found', 'blockHeight', 'effort [%]', 'reward [erg]', 'Confirmation [%]'])
+            df = df.filter(['time_found', 'blockheight', 'effort', 'reward', 'confirmationprogress'])
+            df = df.rename(columns={'time_found': 'Time Found', 'blockheight': 'Height',
+                                    'effort': 'Effort [%]', 'confirmationprogress': 'Confirmation [%]'})
             title_2 = 'Your Blocks Found'
             
         columns = [{"name": i, "id": i} for i in df.columns]
@@ -265,7 +266,7 @@ def get_layout(reader):
                                                     {'label': 'Your Worker Data', 'value': 'workers'},
                                                     {'label': 'Your Block Data', 'value': 'blocks'}
                                                 ],
-                                                value='workers',  # Default value
+                                                value='blocks',  # Default value
                                                 style={'width': '300px', 'color': 'black'}
                                             ),
                                             style={'flex': '1'}

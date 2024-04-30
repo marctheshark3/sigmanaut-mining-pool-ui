@@ -222,6 +222,7 @@ def setup_front_page_callbacks(app, reader):
                             'reward': 'ERG Reward', 'confirmationprogress': 'Confirmation'})
             
             df = block_df
+            df = df[:15]
             title = 'Blocks Data'
             
         elif selected_data == 'miners':
