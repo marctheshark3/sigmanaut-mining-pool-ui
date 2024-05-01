@@ -262,26 +262,28 @@ class DataSyncer:
                 payment_data['miner'] = miner
                 self.db.insert_data('payment', payment_data)
 
+            
+            shorten_miner = '{}...{}'.format(miner[:3], miner[-5:])
+
+            miner_blocks = block_data[block_data.miner == shorten_miner]
+            try: 
+                performance_df = pd.concat(worker_to_df(sample) for sample in performance_samples)
+                performance_df['miner'] = miner
+
+            except ValueError:
+                # might need to add something here
+                pass
+        
+            if miner_blocks.empty:
+                # still need to adjust to pull from performance table for this miner
+                latest = min(performance_df.created) 
+                last_block_found = 'N/A'
+        
+            else:
+                latest = str(max(miner_blocks.time_found))
+                last_block_found = latest
+                
             if performance:
-                shorten_miner = '{}...{}'.format(miner[:3], miner[-5:])
-    
-                miner_blocks = block_data[block_data.miner == shorten_miner]
-                try: 
-                    performance_df = pd.concat(worker_to_df(sample) for sample in performance_samples)
-                    performance_df['miner'] = miner
-    
-                except ValueError:
-                    # might need to add something here
-                    pass
-            
-                if miner_blocks.empty:
-                    # still need to adjust to pull from performance table for this miner
-                    latest = min(performance_df.created) 
-                    last_block_found = 'N/A'
-            
-                else:
-                    latest = str(max(miner_blocks.time_found))
-                    last_block_found = latest
     
                 self.insert_df_rows(performance_df, 'performance') 
 

@@ -11,7 +11,7 @@ services:
       - mining_data:/var/lib/postgresql/data
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5431:5432"
 
   cronjob:
     build:
