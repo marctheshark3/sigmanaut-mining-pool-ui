@@ -12,3 +12,4 @@ flask-session
 dash-auth
 locust
 cachelib
+psycopg2-binary

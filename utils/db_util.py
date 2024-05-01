@@ -131,6 +131,7 @@ class PostgreSQLDatabase:
         hash = data['hash']
         new_confirmation = data['confirmationProgress']
         cursor = self.get_cursor()
+        flag = False
         if cursor:
             try:
                 # First, try to fetch the existing row with the same hash.
@@ -144,17 +145,20 @@ class PostgreSQLDatabase:
                         columns = ', '.join([f"{key} = %s" for key in data.keys()])
                         values = list(data.values())
                         cursor.execute(f"UPDATE {table_name} SET {columns} WHERE hash = %s", values + [hash])
+                        flag = True
                 else:
                     # If no existing row, insert new.
                     columns = ', '.join(data.keys())
                     placeholders = ', '.join(['%s'] * len(data))
                     cursor.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", list(data.values()))
+                    flag = True
     
                 self.conn.commit()
             except psycopg2.OperationalError as e:
                 print(f"Database operation failed: {e}")
             finally:
                 cursor.close()
+        return flag
 
 
 

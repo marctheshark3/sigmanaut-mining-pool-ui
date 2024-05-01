@@ -1,0 +1,26 @@
+FROM python:3.9
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the current directory contents into the container at /usr/src/app
+COPY . /app
+
+# Install cron
+RUN apt-get update && apt-get -y install cron
+
+# Copy the crontab file from the utils directory and set it up
+COPY utils/crontab_updates /etc/cron.d/crontab_updates
+RUN chmod 0644 /etc/cron.d/crontab_updates
+RUN crontab /etc/cron.d/crontab_updates
+RUN touch /var/log/cron.log
+
+# Start cron and tail the log file to keep the container running
+CMD cron && tail -f /var/log/cron.log
+CMD ['ls']
+CMD ["python3", "-m", "utils.init_db"]

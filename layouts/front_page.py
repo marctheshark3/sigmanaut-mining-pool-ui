@@ -249,6 +249,7 @@ def setup_front_page_callbacks(app, reader):
 def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
                            children=[
+                               
                                dcc.Interval(id='fp-int-1', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-2', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-3', interval=60*1000, n_intervals=0),
@@ -260,10 +261,21 @@ def get_layout(reader):
 
                                 # Detailed stats
                                 dbc.Row(id='metric-2', justify='center', style={'padding': '5px'}),
+                                dbc.Row(justify='center', children=[
+                                html.Img(src='https://i.imgur.com/M84CKef.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                                html.Img(src='https://i.imgur.com/XvPvUgp.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                                html.Img(src='https://i.imgur.com/l0xluPE.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                                
+                                html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                                
+                                
+                                ]),
+                            
 
                                # Mining Address Input
                                 dbc.Row(justify='center', children=[
                                     dbc.Col(md=8, children=[
+                                        
                                         dcc.Input(id='mining-address-input', type='text', placeholder='Mining Address', style={
                                             'width': '100%',
                                             'padding': '10px',
@@ -274,7 +286,9 @@ def get_layout(reader):
                                 ]),
 
                                 # Start Mining Button
+                               
                                 dbc.Row(justify='center', children=[
+                                    
                                     html.Button('Start Mining ⛏️', id='start-mining-button', style={
                                         'marginTop': '20px',
                                         'backgroundColor': button_color,

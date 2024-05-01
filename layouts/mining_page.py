@@ -48,7 +48,15 @@ def setup_mining_page_callbacks(app, reader):
 
         worker_df = db_sync.db.fetch_data('live_worker')
         total_df = worker_df[worker_df.worker == 'totals']
-        my_worker_df = total_df[total_df.miner == miner]
+        try:
+            
+            my_worker_df = total_df[total_df.miner == miner]
+        except ValueError:
+            db_sync.update_miner_data(payment=False, live_data=True, performance=False)
+            worker_df = db_sync.db.fetch_data('live_worker')
+            total_df = worker_df[worker_df.worker == 'totals']
+            my_worker_df = total_df[total_df.miner == miner]
+        
         my_total_hash = my_worker_df.hashrate.item()
         my_effort = my_worker_df.effort.item()
         my_ttf = my_worker_df.ttf.item()
@@ -104,6 +112,7 @@ def setup_mining_page_callbacks(app, reader):
 
         ### PAYMENT STATS ###
         payment = db_sync.db.fetch_data('payment')
+        payment = payment[payment.created_at == max(payment.created_at)]
         my_payment = payment[payment.miner == wallet]
 
         payment_images ={
@@ -127,10 +136,11 @@ def setup_mining_page_callbacks(app, reader):
                   [State('url', 'pathname')])
 
     def update_outside(n, pathname):
-        miner = unquote(pathname.lstrip('/'))
+        miner = unquote(pathname.lstrip('/')) 
 
         ### PAYMENT STATS ###
         payment = db_sync.db.fetch_data('payment')
+        payment = payment[payment.created_at == max(payment.created_at)]
         total = payment.pendingshares.sum()
         payment['participation'] = [round(shares / total * 100, 2) for shares in payment.pendingshares] 
         my_payment = payment[payment.miner == miner]

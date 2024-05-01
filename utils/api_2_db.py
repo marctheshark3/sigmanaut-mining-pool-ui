@@ -96,7 +96,7 @@ class DataSyncer:
         
         self.data = {'poolEffort': 0}
 
-        self.db = PostgreSQLDatabase('marctheshark', 'password', 'localhost', 5432, 'mining-db')
+        self.db = PostgreSQLDatabase('marctheshark', 'password', 'db', 5432, 'mining-db')
         self.db.connect()
         self.db.get_cursor()
 
@@ -187,7 +187,9 @@ class DataSyncer:
         del self.data['payoutSchemeConfig']
         del self.data['extra']
 
-        self.db.insert_data('stats', self.data)
+        flag = self.db.insert_data('stats', self.data)
+        print('UPDATED STATS TABLE SUCCESFULLY')
+        return flag
 
     def update_block_data(self, timenow):
         '''
@@ -209,7 +211,9 @@ class DataSyncer:
             data['miner'] = '{}...{}'.format(data['miner'][:3], data['miner'][-5:])
             self.db.update_or_insert('block', data)
 
-    def update_miner_data(self, timenow):
+        print('UPDATED BLOCK TABLE SUCCESFULLY')
+
+    def update_miner_data(self, timenow, payment=True, live_data=True, performance=True):
         self.db.delete_data_in_batches('live_worker')
         self.db.create_table('live_worker', self.live_worker_headers)
 
@@ -230,77 +234,82 @@ class DataSyncer:
         for miner in miner_ls:
             url = '{}/{}/{}'.format(self.base_api, 'miners', miner)
             mining_data = self.get_api_data(url)        
+
+            if payment:
+                payment_data = {k: v for k, v in mining_data.items() if k not in ['performance', 'performanceSamples']}
+                payment_data['Schema'] = 'PPLNS'
+                payment_data['Price'] = erg_price
+                payment_data['totalPaid'] = round(payment_data['totalPaid'], 2)
+                payment_data['pendingShares'] = round(payment_data['pendingShares'], 2)
+                payment_data['pendingBalance'] = round(payment_data['pendingBalance'], 2)
+              
+                try:
+                    payment_data['lastPayment'] = mining_data['lastPayment'][:-17]
+                    payment_data['lastPaymentLink'] = mining_data['lastPaymentLink']
+                    
+                except KeyError: 
+                    payment_data['lastPayment'] = 'N/A'
+                    payment_data['lastPaymentLink'] = 'Keep Mining!'
             
-            payment_data = {k: v for k, v in mining_data.items() if k not in ['performance', 'performanceSamples']}
-            payment_data['Schema'] = 'PPLNS'
-            payment_data['Price'] = erg_price
-            payment_data['totalPaid'] = round(payment_data['totalPaid'], 2)
-            payment_data['pendingShares'] = round(payment_data['pendingShares'], 2)
-            payment_data['pendingBalance'] = round(payment_data['pendingBalance'], 2)
-          
-            try:
-                payment_data['lastPayment'] = mining_data['lastPayment'][:-17]
-                payment_data['lastPaymentLink'] = mining_data['lastPaymentLink']
+                except TypeError:
+                    payment_data['lastPayment'] = 'N/A'
+                    payment_data['lastPaymentLink'] = 'Keep Mining!'
                 
-            except KeyError: 
-                payment_data['lastPayment'] = 'N/A'
-                payment_data['lastPaymentLink'] = 'Keep Mining!'
-        
-            except TypeError:
-                payment_data['lastPayment'] = 'N/A'
-                payment_data['lastPaymentLink'] = 'Keep Mining!'
-            
-            performance_samples = mining_data.pop('performanceSamples')
-            
-            
-            payment_data['created_at'] = timenow
-            payment_data['miner'] = miner
-            print(miner, block_data.miner)
-            shorten_miner = '{}...{}'.format(miner[:3], miner[-5:])
+                performance_samples = mining_data.pop('performanceSamples')
+                
+                
+                payment_data['created_at'] = timenow
+                payment_data['miner'] = miner
+                self.db.insert_data('payment', payment_data)
 
-            miner_blocks = block_data[block_data.miner == shorten_miner]
-            try: 
-                performance_df = pd.concat(worker_to_df(sample) for sample in performance_samples)
-                performance_df['miner'] = miner
-
-            except ValueError:
-                # might need to add something here
-                pass
-        
-            if miner_blocks.empty:
-                # still need to adjust to pull from performance table for this miner
-                latest = min(performance_df.created) 
-                last_block_found = 'N/A'
-        
-            else:
-                latest = str(max(miner_blocks.time_found))
-                last_block_found = latest
-        
-            try:
-                live_performance = mining_data.pop('performance')
-                live_df = worker_to_df(live_performance)
-                live_df['hashrate'] = round(live_df['hashrate'], 0)
-                live_df['miner'] = miner
-                if last_block_found == 'N/A':
-                    live_df['effort'] = 0
+            if performance:
+                shorten_miner = '{}...{}'.format(miner[:3], miner[-5:])
+    
+                miner_blocks = block_data[block_data.miner == shorten_miner]
+                try: 
+                    performance_df = pd.concat(worker_to_df(sample) for sample in performance_samples)
+                    performance_df['miner'] = miner
+    
+                except ValueError:
+                    # might need to add something here
+                    pass
+            
+                if miner_blocks.empty:
+                    # still need to adjust to pull from performance table for this miner
+                    latest = min(performance_df.created) 
+                    last_block_found = 'N/A'
+            
                 else:
-                    live_df['effort'] = [round(self.calculate_mining_effort(networkDifficulty, networkHashrate,
-                                                                    temp_hash, latest), 2) for temp_hash in live_df.hashrate]
-                live_df['ttf'] = [round(self.calculate_time_to_find_block(networkDifficulty, networkHashrate,
-                                                                      temp_hash), 2) for temp_hash in live_df.hashrate]
-                live_df['last_block_found'] = last_block_found
-            
-                self.insert_df_rows(live_df, 'live_worker') 
-                
-            except KeyError:
-                live_df = pd.DataFrame()
-                print('no live data for miner {}'.format(miner))
+                    latest = str(max(miner_blocks.time_found))
+                    last_block_found = latest
+    
+                self.insert_df_rows(performance_df, 'performance') 
 
-            
-            
-            self.db.insert_data('payment', payment_data)
+            if live_data:
         
-            self.insert_df_rows(performance_df, 'performance') 
+                try:
+                    live_performance = mining_data.pop('performance')
+                    live_df = worker_to_df(live_performance)
+                    live_df['hashrate'] = round(live_df['hashrate'], 0)
+                    live_df['miner'] = miner
+                    if last_block_found == 'N/A':
+                        live_df['effort'] = 0
+                    else:
+                        live_df['effort'] = [round(self.calculate_mining_effort(networkDifficulty, networkHashrate,
+                                                                        temp_hash, latest), 2) for temp_hash in live_df.hashrate]
+                    live_df['ttf'] = [round(self.calculate_time_to_find_block(networkDifficulty, networkHashrate,
+                                                                          temp_hash), 2) for temp_hash in live_df.hashrate]
+                    live_df['last_block_found'] = last_block_found
+                
+                    self.insert_df_rows(live_df, 'live_worker') 
+                    
+                except KeyError:
+                    live_df = pd.DataFrame()
+                    print('no live data for miner {}'.format(miner))
+
+
+        print('UPDATED LIVE WORK, PERFORMANCE, AND PAYMENT TABLES SUCCESFULLY')
+            
         return
 
     def calculate_mining_effort(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
