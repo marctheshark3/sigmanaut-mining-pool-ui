@@ -51,8 +51,6 @@ def setup_mining_page_callbacks(app, reader):
         my_worker_df = total_df[total_df.miner == miner]
         try:
              my_total_hash = my_worker_df.hashrate.item()
-            
-            # print(my_worker_df.hashrate, 'TESTESTTEST')
         except ValueError:
             timenow = pd.Timestamp.now()
             db_sync.update_miner_data(timenow=timenow, payment=False, live_data=True, performance=False)
@@ -60,8 +58,7 @@ def setup_mining_page_callbacks(app, reader):
             total_df = worker_df[worker_df.worker == 'totals']
             my_worker_df = total_df[total_df.miner == miner]
             my_total_hash = my_worker_df.hashrate.item()
-        # print(my_worker_df.hashrate, 'TESTESTTEST')
-        # my_total_hash = my_worker_df.hashrate.item()
+
         my_effort = my_worker_df.effort.item()
         my_ttf = my_worker_df.ttf.item()
 

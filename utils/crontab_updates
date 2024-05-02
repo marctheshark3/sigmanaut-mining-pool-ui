@@ -1,10 +1,10 @@
 # Run 'update_blocks_and_workers.py' every minute
-*/2 * * * * python3 /utils/update_blocks_and_workers.py >> /var/log/cron.log 2>&1
+*/5 * * * * python3 ~/Documents/sigmanaut-mining-pool-ui/utils/update_blocks_and_workers.py >> /var/log/cron.log 2>&1
 
 # Run 'update_payment_and_performance.py' every hour on the hour
-*/2 * * * * python3 /utils/update_payment_and_performance.py >> /var/log/cron.log 2>&1
+*/2 * * * * python3 ~/Documents/sigmanaut-mining-pool-ui/utils/update_payment_and_performance.py >> /var/log/cron.log 2>&1
 
 # Run 'update_pool_stats.py' every minute
-*/2 * * * * python3 /utils/update_pool_stats.py >> /var/log/cron.log 2>&1
+*/2 * * * * python3 ~/Documents/sigmanaut-mining-pool-ui/utils/update_pool_stats.py >> /var/log/cron.log 2>&1
 
 # Don't forget to leave an empty line at the end of the file

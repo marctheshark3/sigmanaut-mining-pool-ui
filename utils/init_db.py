@@ -1,4 +1,7 @@
-from utils.api_2_db import DataSyncer
+try:
+    from utils.api_2_db import DataSyncer
+except ModuleNotFoundError:
+    from api_2_db import DataSyncer
 from pandas import Timestamp
 
 

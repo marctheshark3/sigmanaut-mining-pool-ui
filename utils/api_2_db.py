@@ -8,8 +8,11 @@ from hydra.core.global_hydra import GlobalHydra
 import pytz
 import pandas as pd
 
-from utils.db_util import PostgreSQLDatabase
-
+try:
+    from utils.db_util import PostgreSQLDatabase
+except ModuleNotFoundError:
+    from db_util import PostgreSQLDatabase
+ 
 def format_datetime(time_str):
     # List of possible datetime formats to try
     formats = [
@@ -96,7 +99,7 @@ class DataSyncer:
         
         self.data = {'poolEffort': 0}
 
-        self.db = PostgreSQLDatabase('marctheshark', 'password', 'db', 5432, 'mining-db')
+        self.db = PostgreSQLDatabase('marctheshark', 'password', 'localhost', 5432, 'mining-db')
         self.db.connect()
         self.db.get_cursor()
 
@@ -214,11 +217,15 @@ class DataSyncer:
         print('UPDATED BLOCK TABLE SUCCESFULLY')
 
     def update_miner_data(self, timenow, payment=True, live_data=True, performance=True):
-        self.db.delete_data_in_batches('live_worker')
-        self.db.create_table('live_worker', self.live_worker_headers)
+        if live_data:
+            self.db.delete_data_in_batches('live_worker')
+            self.db.create_table('live_worker', self.live_worker_headers)
 
-        self.db.delete_data_in_batches('performance')
-        self.db.create_table('performance', self.live_worker_headers)
+        if performance:
+            self.db.delete_data_in_batches('performance')
+            self.db.create_table('performance', self.live_worker_headers)
+
+        
         _, erg_price = self.price_reader.get()
         miner_data = self.get_api_data('{}/{}'.format(self.base_api, 'miners?pageSize=5000'))
         miner_ls = [sample['miner'] for sample in miner_data]
@@ -255,14 +262,14 @@ class DataSyncer:
                     payment_data['lastPayment'] = 'N/A'
                     payment_data['lastPaymentLink'] = 'Keep Mining!'
                 
-                performance_samples = mining_data.pop('performanceSamples')
+                
                 
                 
                 payment_data['created_at'] = timenow
                 payment_data['miner'] = miner
                 self.db.insert_data('payment', payment_data)
 
-            
+            performance_samples = mining_data.pop('performanceSamples')
             shorten_miner = '{}...{}'.format(miner[:3], miner[-5:])
 
             miner_blocks = block_data[block_data.miner == shorten_miner]
