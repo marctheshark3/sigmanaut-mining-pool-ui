@@ -1,4 +1,10 @@
 #!/bin/bash
+
+echo "Starting cron..."
+cron
+echo "Cron started."
+
+
 # Run the database initialization script
 python3 -m utils.init_db
 

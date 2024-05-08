@@ -1,10 +1,10 @@
 # Run 'update_blocks_and_workers.py' every 2 minutes
-*/2 * * * * python3 /app/utils/update_blocks_and_workers.py >> /var/log/cron.log 2>&1
+*/2 * * * * cd /app && /usr/local/bin/python3 /app/utils/update_blocks_and_workers.py >> /var/log/cron.log 2>&1
 
 # Run 'update_payment_and_performance.py' every 30 minutes
-*/30 * * * * python3 /app/utils/update_payment_and_performance.py >> /var/log/cron.log 2>&1
+*/30 * * * * cd /app && /usr/local/bin/python3 /app/utils/update_payment_and_performance.py >> /var/log/cron.log 2>&1
 
 # Run 'update_pool_stats.py' every 2 minutes
-*/2 * * * * python3 /app/utils/update_pool_stats.py >> /var/log/cron.log 2>&1
+*/2 * * * * cd /app && /usr/local/bin/python3 /app/utils/update_pool_stats.py >> /var/log/cron.log 2>&1
 
 # Don't forget to leave an empty line at the end of the file
