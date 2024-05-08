@@ -115,7 +115,7 @@ class SigmaWalletReader:
                                                             self.data['poolHashrate'] * 1e3, self.latest_block)
         
         self.data['poolTTF'] = self.calculate_time_to_find_block(self.data['networkDifficulty'], self.data['networkHashrate'],
-                                                              self.data['poolHashrate'] * 1e3, self.latest_block)
+                                                              self.data['poolHashrate'] * 1e3)
         ### TOTAL HASH ####
         all_miner_samples = [self.get_miner_samples(miner) for miner in miner_ls]
         
@@ -190,10 +190,10 @@ class SigmaWalletReader:
            
             temp_hash = round(temp.hashrate.sum(), 0)
             effort = self.calculate_mining_effort(self.data['networkDifficulty'], self.data['networkHashrate'], temp_hash, temp_latest)
-            ttf = self.calculate_time_to_find_block(self.data['networkDifficulty'], self.data['networkHashrate'], temp_hash, temp_latest)
+            ttf = self.calculate_time_to_find_block(self.data['networkDifficulty'], self.data['networkHashrate'], temp_hash)
             temp['Last Block Found'] = temp_latest
             temp['Effort'] = [self.calculate_mining_effort(self.data['networkDifficulty'], self.data['networkHashrate'], hash, temp_latest) for hash in temp.hashrate]
-            temp['TTF'] = [self.calculate_time_to_find_block(self.data['networkDifficulty'], self.data['networkHashrate'], hash, temp_latest) for hash in temp.hashrate]
+            temp['TTF'] = [self.calculate_time_to_find_block(self.data['networkDifficulty'], self.data['networkHashrate'], hash) for hash in temp.hashrate]
             work_ls.append(temp)
             total_ls.append([miner, temp_hash, round(temp.sharesPerSecond.sum(), 2), effort, ttf, temp_latest])   
         
@@ -323,7 +323,7 @@ class SigmaWalletReader:
         
         return round(effort, 3)
 
-    def calculate_time_to_find_block(self, network_difficulty, network_hashrate, hashrate, last_block_timestamp):
+    def calculate_time_to_find_block(self, network_difficulty, network_hashrate, hashrate):
         """
         Calculate the time to find a block on Ergo blockchain based on the given timestamp.
         
@@ -337,17 +337,6 @@ class SigmaWalletReader:
         network_difficulty = network_difficulty * 1e15
         network_hashrate = network_hashrate * 1e12
         hashrate = hashrate * 1e6
-    
-        # Parse the last block timestamp
-        time_format = '%Y-%m-%d %H:%M:%S' 
-        last_block_time = datetime.strptime(last_block_timestamp, time_format)
-        last_block_time = last_block_time.replace(tzinfo=pytz.utc)  # Assume the timestamp is in UTC
-        
-        # Get the current time in UTC
-        now = datetime.now(pytz.utc)
-        
-        # Calculate the time difference in seconds
-        time_since_last_block = (now - last_block_time).total_seconds()
         
         # Hashes to find a block at current difficulty
         hashes_to_find_block = network_difficulty  # This is a simplification
