@@ -1,15 +1,13 @@
 import dash
 from dash import html, dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
-from utils.api_reader import SigmaWalletReader, PriceReader
 from pandas import DataFrame
 from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style, bottom_row_style, bottom_image_style, card_color, large_text_color, small_text_color, background_color
 import plotly.graph_objs as go
 import plotly.express as px
+from utils.api_2_db import DataSyncer
 
-from dash import html
-price_reader = PriceReader()
-# sigma_reader = SigmaWalletReader(config_path="../conf")
+db_sync = DataSyncer(config_path="../conf")
 
 debug = False
 
@@ -78,20 +76,16 @@ def create_row_card(image, h2_text, p_text):
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
 def setup_front_page_callbacks(app, reader):
-    reader.update_data()
-
     @app.callback([Output('metric-1', 'children')],
                    [Input('fp-int-4', 'n_intervals')])
 
     def update_first_row(n):
-        reader.update_data()
-        data = reader.data
-        # data = reader.get_front_page_data() # 
-        # _, ergo = price_reader.get(debug=debug)
-        ergo = reader.erg_price
-        # payout_schema = 'Schema: {}'.format(data['payoutScheme'])
-        n_miners = '{}'.format(data['connectedMiners'])
-        hashrate = '{} GH/s'.format(round(data['poolHashrate'], 3))
+        data = db_sync.db.fetch_data('stats')
+        data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
+       
+        ergo = data['price'].item() 
+        n_miners = '{}'.format(data['connectedminers'].item())
+        hashrate = '{} GH/s'.format(data['poolhashrate'].item())
 
         row_1 = dbc.Row(justify='center', align='stretch',
                         children=[create_row_card('assets/boltz.png', hashrate, 'Pool Hashrate'),
@@ -105,31 +99,32 @@ def setup_front_page_callbacks(app, reader):
                    [Input('fp-int-1', 'n_intervals')])
 
     def update_metrics(n):
-        # reader.update_data()
-        data = reader.data
+ 
+        data = db_sync.db.fetch_data('stats')
+        data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
 
         md = 4
         row_2 = dbc.Row(children=[
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumPayment']),
-                            create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'])),
-                            create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'], 3))),
+                            create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumpayment'].item()),
+                            create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'].item())),
+                            create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'].item(), 3))),
                         ])
                     ]),
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkHashrate'], 3))),
-                            create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkDifficulty'], 3))),
-                            create_image_text_block('height.png', 'Block Height:', data['blockHeight']),
+                            create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkhashrate'].item(), 2))),
+                            create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkdifficulty'].item(), 2))),
+                            create_image_text_block('height.png', 'Block Height:', data['blockheight'].item()),
                            ])
                     ]),
     
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('triangle.png', 'Schema:', data['payoutScheme']),
-                            create_image_text_block('ergo.png', 'Blocks Found:', data['blocks']),
-                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['poolEffort'], 3)),
+                            create_image_text_block('triangle.png', 'Schema:', data['payoutscheme'].item()),
+                            create_image_text_block('ergo.png', 'Blocks Found:', data['blocks'].item()),
+                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['pooleffort'].item(), 3)),
                         ])
                     ])])
         return [row_2]
@@ -140,24 +135,26 @@ def setup_front_page_callbacks(app, reader):
     def update_plots(n, value):
         
         if value == 'effort':
-            block_df = reader.block_df
+            block_df = db_sync.db.fetch_data('block')
+            block_df = block_df.sort_values(['time_found'])
+            block_df['rolling_effort'] = block_df['effort'].expanding().mean()
+            block_df['effort'] = block_df['effort'] * 100
             title = 'EFFORT AND DIFFICULTY'
             
-            block_df = block_df.sort_values('Time Found')
-            block_df['effort'] = block_df['effort'] * 100
-            # block_df['Rolling Effort'] = block_df['effort'].expanding().mean()
-            response_df = block_df.melt(id_vars = ['Time Found'], value_vars=['Rolling Effort', 'effort', 'networkDifficulty'])
+            block_df = block_df.sort_values('time_found')
             
-            effort_response_chart = px.line(response_df[response_df['variable'] != 'networkDifficulty'], 
-                                    x='Time Found', 
+            response_df = block_df.melt(id_vars = ['time_found'], value_vars=['rolling_effort', 'effort', 'networkdifficulty'])
+            
+            effort_response_chart = px.line(response_df[response_df['variable'] != 'networkdifficulty'], 
+                                    x='time_found', 
                                     y='value', 
                                     color='variable', 
                                     markers=True)
     
             # Add 'networkDifficulty' on a secondary y-axis
-            effort_response_chart.add_trace(go.Scatter(x=response_df['Time Found'][response_df['variable'] == 'networkDifficulty'], 
-                                                       y=response_df['value'][response_df['variable'] == 'networkDifficulty'],
-                                                       name='networkDifficulty',
+            effort_response_chart.add_trace(go.Scatter(x=response_df['time_found'][response_df['variable'] == 'networkdifficulty'], 
+                                                       y=response_df['value'][response_df['variable'] == 'networkdifficulty'],
+                                                       name='networkdifficulty',
                                                        yaxis='y2',
                                                        marker=dict(color='rgba(255,0,0,0.5)'), # Adjust color accordingly
                                                        mode='lines+markers'))
@@ -177,11 +174,20 @@ def setup_front_page_callbacks(app, reader):
             return effort_response_chart, title
             
         title = 'HASHRATE OVER TIME'
-        total_hashrate_df = reader.get_total_hash_data()
-        total_hashrate_df = total_hashrate_df.sort_values(['Date'])
-        total_hashrate_df['Hashrate'] = total_hashrate_df['Hashrate']
+        
+        performance_df = db_sync.db.fetch_data('performance')
+        performance_df = performance_df[performance_df.worker != 'totals']
+        performance_df['hashrate'] = performance_df['hashrate'] / 1e3
 
-        total_hashrate_plot={'data': [go.Scatter(x=total_hashrate_df['Date'], y=total_hashrate_df['Hashrate'],
+        total_hashrate_df = performance_df.groupby('created').agg({
+            'hashrate': 'sum',                  # Sum of hashrate
+            'shares_per_second': 'sum',         # Sum of shares_per_second
+            'worker': 'nunique',                # Count of unique workers
+            'miner': 'nunique'                  # Count of unique miners
+            }).reset_index()
+        total_hashrate_df = total_hashrate_df.sort_values(['created'])
+
+        total_hashrate_plot={'data': [go.Scatter(x=total_hashrate_df['created'], y=total_hashrate_df['hashrate'],
                                     mode='lines+markers', name='Hashrate Over Time', line={'color': small_text_color})],
                    
                    'layout': go.Layout(xaxis =  {'showgrid': False, 'title': 'Snap Shot Time'},yaxis = {'showgrid': True, 'title': 'GH/s'},        
@@ -200,18 +206,34 @@ def setup_front_page_callbacks(app, reader):
                   Input('dataset-dropdown', 'value')])
 
     def update_content(n, selected_data):   
-        block_df= reader.block_df        
+        
         if selected_data == 'blocks':
-            block_df['Confirmation'] = round(block_df['confirmationProgress'], 2)
-            
-            block_df = block_df.filter(['Time Found', 'blockHeight', 'miner', 'effort [%]', 'reward [erg]', 'Confirmation [%]'])
+            block_df = db_sync.db.fetch_data('block')
+            block_df = block_df.filter(['time_found', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'miner'])
+            block_df = block_df.sort_values(['time_found'], ascending=False)
+            block_df['effort'] = block_df['effort'] * 100            
+
+            block_df = block_df.rename(columns={'effort': 'Effort [%]', 'time_found': 'Time Found',
+                            'blockheight': 'Height', 'miner': 'Miner',
+                            'reward': 'ERG Reward', 'confirmationprogress': 'Confirmation'})
             
             df = block_df
-            df['miner'] = df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
+            df = df[:15]
             title = 'Blocks Data'
+            
         elif selected_data == 'miners':
-            df = reader.get_latest_worker_samples(totals=True)
-            df = df.rename(columns={"Effort": "Current Effort [%]", "Hashrate": "MH/s", 'TTF': 'TTF [Days]'})
+            df = db_sync.db.fetch_data('live_worker')
+            df = df[df.worker == 'totals']
+            df = df.filter(['miner', 'hashrate', 'effort', 'ttf', 'last_block_found'])
+            df['miner'] = ['{}...{}'.format(miner[:3], miner[-5:]) for miner in df.miner]
+            df['hashrate'] = round(df['hashrate'], 2)
+            df = df.sort_values(['effort', 'hashrate'], ascending=False)
+ 
+            df = df.rename(columns={'miner': 'Miner',
+                                    'hashrate': 'MH/s',
+                                    'effort': 'Current Effort [%]',
+                                    'ttf': 'Days to Find',
+                                    'last_block_found': 'Last Block Found'})
             title = 'Current Top Miners'
 
         else:
@@ -227,6 +249,7 @@ def setup_front_page_callbacks(app, reader):
 def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
                            children=[
+                               
                                dcc.Interval(id='fp-int-1', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-2', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-3', interval=60*1000, n_intervals=0),
@@ -238,10 +261,21 @@ def get_layout(reader):
 
                                 # Detailed stats
                                 dbc.Row(id='metric-2', justify='center', style={'padding': '5px'}),
+                                dbc.Row(justify='center', children=[
+                                html.Img(src='https://i.imgur.com/M84CKef.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                                html.Img(src='https://i.imgur.com/XvPvUgp.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                                html.Img(src='https://i.imgur.com/l0xluPE.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                                
+                                html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                                
+                                
+                                ]),
+                            
 
                                # Mining Address Input
                                 dbc.Row(justify='center', children=[
                                     dbc.Col(md=8, children=[
+                                        
                                         dcc.Input(id='mining-address-input', type='text', placeholder='Mining Address', style={
                                             'width': '100%',
                                             'padding': '10px',
@@ -252,7 +286,9 @@ def get_layout(reader):
                                 ]),
 
                                 # Start Mining Button
+                               
                                 dbc.Row(justify='center', children=[
+                                    
                                     html.Button('Start Mining ⛏️', id='start-mining-button', style={
                                         'marginTop': '20px',
                                         'backgroundColor': button_color,

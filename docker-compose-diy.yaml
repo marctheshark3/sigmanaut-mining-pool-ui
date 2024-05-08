@@ -16,16 +16,9 @@ services:
   app:
     build:
       context: .
+      dockerfile: Dockerfile  # Make sure this is the name of your Dockerfile
     volumes:
       - ./:/app
-    ports:
-      - "8050:8050"
-    restart: unless-stopped
-    depends_on:
-      - db
-
-  pool-ui:
-    image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
     ports:
       - "8050:8050"
     restart: unless-stopped

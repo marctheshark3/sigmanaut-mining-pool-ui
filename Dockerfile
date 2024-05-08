@@ -1,14 +1,25 @@
 # Use an official Python runtime as a parent image
-FROM python:3.8-slim
+FROM python:3.9
 
 # Set the working directory in the container
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy the current directory contents into the container at /usr/src/app
-COPY . /usr/src/app
+# Copy the current directory contents into the container
+COPY . /app
 
-# Install any needed packages specified in requirements.txt
-RUN pip install -r requirements.txt
+# Install cron and Python dependencies
+RUN apt-get update && apt-get -y install cron && \
+    pip3 install --no-cache-dir -r /app/requirements.txt
+
+# Setup cron jobs
+COPY utils/crontab_updates /etc/cron.d/crontab_updates
+RUN chmod 0644 /etc/cron.d/crontab_updates && \
+    crontab /etc/cron.d/crontab_updates && \
+    touch /var/log/cron.log
+
+# Make the entrypoint script executable and set it as the entrypoint
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Make port 8050 available to the world outside this container
 EXPOSE 8050
@@ -16,5 +27,5 @@ EXPOSE 8050
 # Define environment variable
 ENV FLASK_APP app.py
 
-# Run the application
-CMD ["gunicorn", "-w", "4", "--timeout", "2000", "-b", "0.0.0.0:8050", "app:server"]
+# Command to run the application and cron jobs
+CMD ["entrypoint.sh"]
