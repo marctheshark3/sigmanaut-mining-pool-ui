@@ -49,18 +49,19 @@ def setup_mining_page_callbacks(app, reader):
         worker_df = db_sync.db.fetch_data('live_worker')
         total_df = worker_df[worker_df.worker == 'totals']
         my_worker_df = total_df[total_df.miner == miner]
-        try:
-             my_total_hash = my_worker_df.hashrate.item()
-        except ValueError:
-            timenow = pd.Timestamp.now()
-            db_sync.update_miner_data(timenow=timenow, payment=False, live_data=True, performance=False)
-            worker_df = db_sync.db.fetch_data('live_worker')
-            total_df = worker_df[worker_df.worker == 'totals']
-            my_worker_df = total_df[total_df.miner == miner]
-            my_total_hash = my_worker_df.hashrate.item()
+        latest_worker = my_worker_df[my_worker_df.created == max(my_worker_df.created)]
+        # try:
+        my_total_hash = latest_worker.hashrate.item()
+        # except ValueError:
+        #     timenow = pd.Timestamp.now()
+        #     db_sync.update_miner_data(timenow=timenow, payment=False, live_data=True, performance=False)
+        #     worker_df = db_sync.db.fetch_data('live_worker')
+        #     total_df = worker_df[worker_df.worker == 'totals']
+        #     my_worker_df = total_df[total_df.miner == miner]
+        #     my_total_hash = my_worker_df.hashrate.item()
 
-        my_effort = my_worker_df.effort.item()
-        my_ttf = my_worker_df.ttf.item()
+        my_effort = latest_worker.effort.item()
+        my_ttf = latest_worker.ttf.item()
 
         data = db_sync.db.fetch_data('stats')
         data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
@@ -172,6 +173,7 @@ def setup_mining_page_callbacks(app, reader):
         wallet = unquote(pathname.lstrip('/'))
         df = db_sync.db.fetch_data('performance')
         my_worker_performance = df[df.miner == wallet]
+        my_worker_performance= my_worker_performance.sort_values('created')
 
         miner_performance_chart = px.line(my_worker_performance, 
               x='created', 
@@ -209,6 +211,7 @@ def setup_mining_page_callbacks(app, reader):
     
         if table == 'workers':
             df = db_sync.db.fetch_data('live_worker')
+            df = df[df.created == max(df.created)]
             
             df = df[df.miner == wallet]
             df  = df[df.worker != 'totals']     
@@ -222,6 +225,7 @@ def setup_mining_page_callbacks(app, reader):
             my_block_df = block_df[block_df.miner == short_wallet]
             df = my_block_df
             print(df.columns)
+            df['effort'] = 100 * df['effort']
             df = df.filter(['time_found', 'blockheight', 'effort', 'reward', 'confirmationprogress'])
             df = df.rename(columns={'time_found': 'Time Found', 'blockheight': 'Height',
                                     'effort': 'Effort [%]', 'confirmationprogress': 'Confirmation [%]'})

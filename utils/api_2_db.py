@@ -99,7 +99,7 @@ class DataSyncer:
         
         self.data = {'poolEffort': 0}
 
-        self.db = PostgreSQLDatabase('marctheshark', 'password', 'localhost', 5432, 'mining-db')
+        self.db = PostgreSQLDatabase('marctheshark', 'password', 'db', 5432, 'mining-db')
         self.db.connect()
         self.db.get_cursor()
 
@@ -131,16 +131,17 @@ class DataSyncer:
         return True
 
     def __delete_table__(self):
-        self.db.delete_data_in_batches('stats', 10)
+        self.db.delete_data_in_batches('stats', 100)
         self.db.delete_data_in_batches('block')
         self.db.delete_data_in_batches('payment')
         self.db.delete_data_in_batches('live_worker')
         self.db.delete_data_in_batches('performance')
         return True     
 
-    def insert_df_rows(self, df, table):
+    def insert_df_rows(self, df, table, columns):
         for index, row in df.iterrows():
-            self.db.insert_data(table, row.to_dict())
+            # self.db.insert_data(table, row.to_dict())
+            self.db.update_or_insert(table, row.to_dict(), columns)
 
     def update_pool_stats(self, timenow):
         '''
@@ -209,20 +210,26 @@ class DataSyncer:
             data['time_found'] = format_datetime(data.pop('created'))
             data['confirmationProgress'] = data['confirmationProgress'] * 100
             data['networkDifficulty'] = round(data['networkDifficulty'], 2)
-            data['effort'] = round(data['effort'], 2)
+            try:
+                data['effort'] = round(data['effort'], 2)
+            except KeyError:
+                data['effort'] = 0.000
             data['reward'] = round(data['reward'], 2)
             data['miner'] = '{}...{}'.format(data['miner'][:3], data['miner'][-5:])
-            self.db.update_or_insert('block', data)
+            try:
+                self.db.update_or_insert('block', data, ['hash'])
+            except KeyError:
+                pass
 
         print('UPDATED BLOCK TABLE SUCCESFULLY')
 
     def update_miner_data(self, timenow, payment=True, live_data=True, performance=True):
         if live_data:
-            self.db.delete_data_in_batches('live_worker')
+            # self.db.delete_data_in_batches('live_worker')
             self.db.create_table('live_worker', self.live_worker_headers)
 
         if performance:
-            self.db.delete_data_in_batches('performance')
+            # self.db.delete_data_in_batches('performance')
             self.db.create_table('performance', self.live_worker_headers)
 
         
@@ -260,10 +267,7 @@ class DataSyncer:
             
                 except TypeError:
                     payment_data['lastPayment'] = 'N/A'
-                    payment_data['lastPaymentLink'] = 'Keep Mining!'
-                
-                
-                
+                    payment_data['lastPaymentLink'] = 'Keep Mining!'              
                 
                 payment_data['created_at'] = timenow
                 payment_data['miner'] = miner
@@ -291,8 +295,8 @@ class DataSyncer:
                 last_block_found = latest
                 
             if performance:
-    
-                self.insert_df_rows(performance_df, 'performance') 
+                # performance_df['insert_time_stamp'] = timenow    
+                self.insert_df_rows(performance_df, 'performance', ['created', 'worker', 'hashrate']) 
 
             if live_data:
         
@@ -309,8 +313,10 @@ class DataSyncer:
                     live_df['ttf'] = [round(self.calculate_time_to_find_block(networkDifficulty, networkHashrate,
                                                                           temp_hash), 2) for temp_hash in live_df.hashrate]
                     live_df['last_block_found'] = last_block_found
-                
-                    self.insert_df_rows(live_df, 'live_worker') 
+                    
+                    # live_df['created_at'] = timenow
+                    self.insert_df_rows(live_df, 'live_worker', ['created', 'worker', 'hashrate'])
+                    
                     
                 except KeyError:
                     live_df = pd.DataFrame()

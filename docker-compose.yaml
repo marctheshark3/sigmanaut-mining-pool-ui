@@ -13,25 +13,16 @@ services:
     ports:
       - "5431:5432"
 
-  cronjob:
+  app:
     build:
       context: .
-      dockerfile: Dockerfile.cron
+      dockerfile: Dockerfile.all  # Make sure this is the name of your Dockerfile
     volumes:
       - ./:/app
-    restart: unless-stopped
-    depends_on:
-      - db
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.UI
     ports:
       - "8050:8050"
     restart: unless-stopped
     depends_on:
-      - cronjob
       - db
 
 volumes:

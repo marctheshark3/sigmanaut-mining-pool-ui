@@ -1,14 +1,14 @@
 # Use an official Python runtime as a parent image
-FROM python:3.8-slim
+FROM python:3.9
 
 # Set the working directory in the container
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # Copy the current directory contents into the container at /usr/src/app
-COPY . /usr/src/app
+COPY . /app
 
 # Install any needed packages specified in requirements.txt
-RUN pip install -r requirements.txt
+RUN pip3 install -r /app/requirements.txt
 
 # Make port 8050 available to the world outside this container
 EXPOSE 8050
@@ -17,4 +17,5 @@ EXPOSE 8050
 ENV FLASK_APP app.py
 
 # Run the application
+CMD ["python3", "-m", "utils.init_db"]
 CMD ["gunicorn", "-w", "4", "--timeout", "2000", "-b", "0.0.0.0:8050", "app:server"]

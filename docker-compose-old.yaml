@@ -1,8 +1,36 @@
-version: '3'
+version: '3.8'
+
 services:
-  pool-ui:
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: mining-db
+      POSTGRES_USER: marctheshark
+      POSTGRES_PASSWORD: password
+    volumes:
+      - mining_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    ports:
+      - "5431:5432"
+
+  app:
     build:
       context: .
+    volumes:
+      - ./:/app
+    ports:
+      - "8050:8050"
+    restart: unless-stopped
+    depends_on:
+      - db
+
+  pool-ui:
     image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
     ports:
       - "8050:8050"
+    restart: unless-stopped
+    depends_on:
+      - db
+
+volumes:
+  mining_data:

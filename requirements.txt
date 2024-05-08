@@ -1,5 +1,6 @@
 hydra-core
 dash
+requests
 pandas
 dash-bootstrap-components
 pycoingecko

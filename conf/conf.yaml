@@ -62,4 +62,4 @@ default_values:
                        'ttf NUMERIC', 'last_block_found VARCHAR(100)']
 
     performance_headers: ['worker VARCHAR(50)', 'hashrate NUMERIC', 'shares_per_second NUMERIC',
-                       'created TIMESTAMP', 'miner VARCHAR(60)']
+                       'created TIMESTAMP', 'miner VARCHAR(60)', 'insert_time_stamp TIMESTAMP']
