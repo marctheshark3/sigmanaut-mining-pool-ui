@@ -10,9 +10,10 @@ Enter you Wallet Address in the input tab when you start up the dashboard
 ## UI Operation
 ```
 # USING LATEST DOCKER IMAGE FROM GIT
+docker compose down # Stops the UI
 docker compose pull # pulls the latest docker image
 docker compose up -d # Runs the UI
-docker compose down # Stops the UI
+
 
 # ALTERNATIVELY YOU CAN BUILD IT YOURSELF
 git pull # ensure you have latest files from git
