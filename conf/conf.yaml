@@ -8,6 +8,7 @@ default_values:
     url: 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
     token_ls: 'https://api.ergo.aap.cornell.edu/api/v1/tokens'
     base_api: 'http://15.204.211.130:4000/api/pools/ErgoSigmanauts'
+    db_name: 'db'
     stats_cols: [
         'fee NUMERIC',  # Numeric type for precision
         'paid NUMERIC',  # Numeric type for decimal values
