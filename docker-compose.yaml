@@ -14,9 +14,7 @@ services:
       - "5431:5432"
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile  # Make sure this is the name of your Dockerfile
+    image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
     volumes:
       - ./:/app
     ports:
