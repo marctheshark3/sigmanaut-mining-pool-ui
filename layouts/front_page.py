@@ -378,14 +378,19 @@ def get_layout(reader):
                                
                                html.H1('CONNECTING TO THE POOL',
                                        style={'color': 'white', 'textAlign': 'center', 'padding': '10px',}),
+                               dcc.Link('Join our Telegram Group!', href='https://t.me/sig_mining',
+                                        style={'font-family': 'Times New Roman, Times, serif',
+                                               'font-weight': 'bold',
+                                               'color': 'white', 'padding': '10px',
+                                               'font-size': '30px', "display": "flex", 
+                                               "justifyContent": "center" }),
 
                                 # Column for the markdown
                                 html.Div(children=[
+                                    
+                                    
                                     dcc.Markdown('''
 
-                                        ## TELEGRAM GROUP
-                                        [Join our Telegram group!](https://t.me/sig_mining)
-                                        
                                         ## Choose A Port
                                         Based on your hashrate and TLS specificity choose the port that is right for you. 
 
