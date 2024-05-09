@@ -4,7 +4,7 @@ Enter you Wallet Address in the input tab when you start up the dashboard
 
 ## UI Operation
 ```
-docker compose pull # pulls the latest docker image
+docker compose build # builds the latest docker image
 docker compose up -d # Runs the UI
 docker compose down # Stops the UI
 ```
