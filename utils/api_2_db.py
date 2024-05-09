@@ -75,7 +75,7 @@ class PriceReader:
             return btc_price, erg_price
             
 class DataSyncer:
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, db_name='db'):
         self.block_reward = 27 #need to calc this from emissions.csv
         self.config_path = config_path
         self.price_reader = PriceReader()
@@ -99,7 +99,7 @@ class DataSyncer:
         
         self.data = {'poolEffort': 0}
 
-        self.db = PostgreSQLDatabase('marctheshark', 'password', 'db', 5432, 'mining-db')
+        self.db = PostgreSQLDatabase('marctheshark', 'password', cfg.default_values.db_name, 5432, 'mining-db')
         self.db.connect()
         self.db.get_cursor()
 
