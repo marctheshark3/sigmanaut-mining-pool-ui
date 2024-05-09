@@ -15,6 +15,9 @@ services:
 
   app:
     image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ./:/app
     ports:
