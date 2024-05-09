@@ -50,15 +50,8 @@ def setup_mining_page_callbacks(app, reader):
         total_df = worker_df[worker_df.worker == 'totals']
         my_worker_df = total_df[total_df.miner == miner]
         latest_worker = my_worker_df[my_worker_df.created == max(my_worker_df.created)]
-        # try:
+        
         my_total_hash = latest_worker.hashrate.item()
-        # except ValueError:
-        #     timenow = pd.Timestamp.now()
-        #     db_sync.update_miner_data(timenow=timenow, payment=False, live_data=True, performance=False)
-        #     worker_df = db_sync.db.fetch_data('live_worker')
-        #     total_df = worker_df[worker_df.worker == 'totals']
-        #     my_worker_df = total_df[total_df.miner == miner]
-        #     my_total_hash = my_worker_df.hashrate.item()
 
         my_effort = latest_worker.effort.item()
         my_ttf = latest_worker.ttf.item()
@@ -165,33 +158,70 @@ def setup_mining_page_callbacks(app, reader):
     
         return [payment_children]
 
-    @app.callback([Output('chart', 'figure'),],
-                  [Input('mp-interval-2', 'n_intervals')],
+    @app.callback([Output('chart', 'figure'),Output('chart-title', 'children'),],
+                  [Input('mp-interval-2', 'n_intervals'),
+                  Input('chart-dropdown', 'value')],
                  [State('url', 'pathname')])
     
-    def update_charts(n_intervals, pathname):
+    def update_charts(n_intervals, chart, pathname):
         wallet = unquote(pathname.lstrip('/'))
-        df = db_sync.db.fetch_data('performance')
-        my_worker_performance = df[df.miner == wallet]
-        my_worker_performance= my_worker_performance.sort_values('created')
 
-        miner_performance_chart = px.line(my_worker_performance, 
-              x='created', 
-              y='hashrate', 
-              color='worker', 
-              labels={'hashrate': 'Hashrate', 'created': 'Time'},
-              markers=True)
+        if chart == 'workers':
+            df = db_sync.db.fetch_data('performance')
+            my_worker_performance = df[df.miner == wallet]
+            my_worker_performance= my_worker_performance.sort_values('created')
+    
+            miner_performance_chart = px.line(my_worker_performance, 
+                  x='created', 
+                  y='hashrate', 
+                  color='worker', 
+                  labels={'hashrate': 'Hashrate', 'created': 'Time'},
+                  markers=True)
+     
+            miner_performance_chart.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                legend_title_text='Miner',
+                legend=dict(font=dict(color='#FFFFFF')),
+                titlefont=dict(color='#FFFFFF'),
+                xaxis=dict(title='Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
+                yaxis=dict(title='Hashrate', color='#FFFFFF')
+            )
+            return [miner_performance_chart, 'WORKER HASHRATE OVER TIME']
 
-        miner_performance_chart.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend_title_text='Miner',
-            legend=dict(font=dict(color='#FFFFFF')),
-            titlefont=dict(color='#FFFFFF'),
-            xaxis=dict(title='Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
-            yaxis=dict(title='Hashrate', color='#FFFFFF')
-        )
-        return [miner_performance_chart]
+        elif chart == 'payments':
+            df = db_sync.db.fetch_data('payment')
+            df = df[df.miner == wallet]
+            dates = df.lastpayment.unique() # get all of the payment dates
+            
+            ls = []
+            for date in dates:
+                temp = df[df.lastpayment == date]
+                temp = temp[temp.created_at == max(temp.created_at)] # filter by the latest payment stamp
+                ls.append(temp)
+            
+            df = pd.concat(ls)
+
+            df = df.sort_values('lastpayment')
+    
+            payment_chart = px.line(df, 
+                  x='lastpayment', 
+                  y='todaypaid', 
+                  # color='todaypaid', 
+                  labels={'todaypaid': 'Paid [ERG]', 'lastpayment': 'Date'},
+                  markers=True)
+    
+            payment_chart.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                # legend_title_text='Miner',
+                legend=dict(font=dict(color='#FFFFFF')),
+                titlefont=dict(color='#FFFFFF'),
+                xaxis=dict(title='Date', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
+                yaxis=dict(title='Paid [ERG]', color='#FFFFFF')
+            )
+            return [payment_chart, 'PAYMENT OVER TIME']
+            
     
 
     
@@ -255,7 +285,38 @@ def get_layout(reader):
                                             dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s3')],)]),
                                             
 
-                               html.H2('Worker Hashrate Over Time', style={'color': 'white', 'textAlign': 'center',}),
+                               # html.H2('Worker Hashrate Over Time', style={'color': 'white', 'textAlign': 'center',}),
+
+                               html.Div(
+                                    [
+                                        html.Div(
+                                            html.H1(
+                                                id='chart-title',
+                                                children='Please select an option',
+                                                style={'fontSize': '24px'}
+                                            ),
+                                            style={'flex': '1'}
+                                        ),
+                                        html.Div(
+                                            dcc.Dropdown(
+                                                id='chart-dropdown',
+                                                options=[
+                                                    {'label': 'Worker Hashrate Over Time', 'value': 'workers'},
+                                                    {'label': 'Payment Over Time', 'value': 'payments'}
+                                                ],
+                                                value='workers',  # Default value
+                                                style={'width': '300px', 'color': 'black'}
+                                            ),
+                                            style={'flex': '1'}
+                                        )
+                                    ],
+                                    style={
+                                        'display': 'flex', 
+                                        'justifyContent': 'space-between', 
+                                        'alignItems': 'center',
+                                        'padding': '10px'
+                                    }
+                                ), 
                                dcc.Graph(id='chart', style={'backgroundColor': card_color, 'padding': '20px'}),
 
                                html.Div(

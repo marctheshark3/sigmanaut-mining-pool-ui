@@ -4,9 +4,14 @@ Enter you Wallet Address in the input tab when you start up the dashboard
 
 ## UI Operation
 ```
-docker compose build # builds the latest docker image
+# USING LATEST DOCKER IMAGE FROM GIT
+docker compose pull # pulls the latest docker image
 docker compose up -d # Runs the UI
 docker compose down # Stops the UI
+
+# ALTERNATIVELY YOU CAN BUILD IT YOURSELF
+git pull # ensure you have latest files from git
+docker compose up --build
 ```
 
 In a web browser you can navigate to: http://localhost:8050/
