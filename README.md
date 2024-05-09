@@ -1,4 +1,9 @@
 # Sigmanauts Mining Pool
+
+## Telegram Group
+[Join our Telegram group!](https://t.me/sig_mining)
+
+
 ## UI Configuration
 Enter you Wallet Address in the input tab when you start up the dashboard
 

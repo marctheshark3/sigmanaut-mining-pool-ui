@@ -382,6 +382,10 @@ def get_layout(reader):
                                 # Column for the markdown
                                 html.Div(children=[
                                     dcc.Markdown('''
+
+                                        ## TELEGRAM GROUP
+                                        [Join our Telegram group!](https://t.me/sig_mining)
+                                        
                                         ## Choose A Port
                                         Based on your hashrate and TLS specificity choose the port that is right for you. 
 
