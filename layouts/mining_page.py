@@ -201,8 +201,12 @@ def setup_mining_page_callbacks(app, reader):
                 ls.append(temp)
             
             df = pd.concat(ls)
+            dates = [date for date in df['lastpayment'] if len(date) > 9]
+            df = df[df['lastpayment'].isin(dates)]
 
-            df = df.sort_values('lastpayment')
+            df = df.sort_values('created_at')
+            
+            # df = df[df.lastpayment != '2024-05-1']
     
             payment_chart = px.line(df, 
                   x='lastpayment', 
@@ -264,6 +268,25 @@ def setup_mining_page_callbacks(app, reader):
         columns = [{"name": i, "id": i} for i in df.columns]
         data = df.to_dict('records')
         return data, title_2
+
+    @app.callback([
+                   Output('mp-banners', 'children'),
+                  ],
+                  [Input('mp-interval-5', 'n_intervals')])
+    def update_banners(n): 
+        df = db_sync.db.fetch_data('block')
+        bf = df[df.time_found == max(df.time_found)]
+        confirmation_number = bf.confirmationprogress.item()
+        flag = False
+        if confirmation_number < 50:
+            flag = True
+
+        if flag:
+            banners = [html.Img(src='assets/block_found.gif', style={'height': 'auto%', 'width': 'auto'})]
+        elif not flag:
+            banners = []
+
+        return [dbc.Row(id='mp-banners', justify='center', children=banners)]
                                 
 
 def get_layout(reader):
@@ -275,6 +298,7 @@ def get_layout(reader):
                                dcc.Interval(id='mp-interval-2', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interval-3', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interval-4', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='mp-interval-5', interval=60*1000, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
                                dbc.Row(id='mp-stats', justify='center',),
@@ -284,8 +308,7 @@ def get_layout(reader):
                                             dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s2')],),
                                             dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s3')],)]),
                                             
-
-                               # html.H2('Worker Hashrate Over Time', style={'color': 'white', 'textAlign': 'center',}),
+                               dbc.Row(id='mp-banners', justify='center'),       
 
                                html.Div(
                                     [
