@@ -120,46 +120,6 @@ class PostgreSQLDatabase:
             finally:
                 cursor.close()
 
-    # def update_or_insert(self, table_name, data):
-    #     """
-    #     Updates or inserts data based on hash and confirmation progress.
-    #     Assumes data is a dictionary containing all necessary columns including hash and confirmationProgress.
-    
-    #     :param table_name: Name of the table to update or insert into.
-    #     :param data: Data dictionary where keys are column names and values are data values.
-    #     """
-    #     hash = data['hash']
-    #     new_confirmation = data['confirmationProgress']
-    #     cursor = self.get_cursor()
-    #     flag = False
-    #     if cursor:
-    #         try:
-    #             # First, try to fetch the existing row with the same hash.
-    #             cursor.execute("SELECT * FROM {} WHERE hash = %s".format(table_name), (hash,))
-    #             existing_row = cursor.fetchone()
-    
-    #             if existing_row:
-    #                 existing_confirmation = existing_row[4]  # Assuming confirmationProgress is the 5th column in the table
-    #                 if new_confirmation > existing_confirmation:
-    #                     # If new confirmation is greater, update the row.
-    #                     columns = ', '.join([f"{key} = %s" for key in data.keys()])
-    #                     values = list(data.values())
-    #                     cursor.execute(f"UPDATE {table_name} SET {columns} WHERE hash = %s", values + [hash])
-    #                     flag = True
-    #             else:
-    #                 # If no existing row, insert new.
-    #                 columns = ', '.join(data.keys())
-    #                 placeholders = ', '.join(['%s'] * len(data))
-    #                 cursor.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", list(data.values()))
-    #                 flag = True
-    
-    #             self.conn.commit()
-    #         except psycopg2.OperationalError as e:
-    #             print(f"Database operation failed: {e}")
-    #         finally:
-    #             cursor.close()
-    #     return flag
-
     def update_or_insert(self, table_name, data, key_columns):
         """
         Updates or inserts data based on specified key columns.
@@ -200,8 +160,6 @@ class PostgreSQLDatabase:
             finally:
                 cursor.close()
         return flag
-
-
 
 
     def fetch_data(self, table_name, columns='*', where=None):

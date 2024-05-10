@@ -224,6 +224,7 @@ def setup_front_page_callbacks(app, reader):
         elif selected_data == 'miners':
             df = db_sync.db.fetch_data('live_worker')
             df = df[df.worker == 'totals']
+            df = df[df.created == max(df.created)]
             df = df.filter(['miner', 'hashrate', 'effort', 'ttf', 'last_block_found'])
             df['miner'] = ['{}...{}'.format(miner[:3], miner[-5:]) for miner in df.miner]
             df['hashrate'] = round(df['hashrate'], 2)
@@ -245,7 +246,31 @@ def setup_front_page_callbacks(app, reader):
         
         return table_data, title
 
+    @app.callback([
+                   Output('banners', 'children'),
+                  ],
+                  [Input('fp-int-4', 'n_intervals')])
 
+    def update_banners(n): 
+        df = db_sync.db.fetch_data('block')
+        bf = df[df.time_found == max(df.time_found)]
+        confirmation_number = bf.confirmationprogress.item()
+        flag = False
+        if confirmation_number < 50:
+            flag = True
+
+        if flag:
+            banners = [html.Img(src='assets/block_found.gif', style={'height': 'auto%', 'width': 'auto'}),
+                      html.Img(src='assets/block_found.gif', style={'height': 'auto%', 'width': 'auto'})]
+        elif not flag:
+            banners = [
+                        html.Img(src='https://i.imgur.com/M84CKef.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                        html.Img(src='https://i.imgur.com/XvPvUgp.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                        html.Img(src='https://i.imgur.com/l0xluPE.jpg', style={'height': 'auto%', 'width': 'auto'}),
+                        html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),]
+
+        return [dbc.Row(id='banners', justify='center', children=banners)]
+        
 def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
                            children=[
@@ -254,6 +279,7 @@ def get_layout(reader):
                                dcc.Interval(id='fp-int-2', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-3', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-4', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='fp-int-5', interval=60*1000, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': large_text_color, 'textAlign': 'center',}),                                   
                                  # Metrics overview row
@@ -261,16 +287,7 @@ def get_layout(reader):
 
                                 # Detailed stats
                                 dbc.Row(id='metric-2', justify='center', style={'padding': '5px'}),
-                                dbc.Row(justify='center', children=[
-                                html.Img(src='https://i.imgur.com/M84CKef.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                                html.Img(src='https://i.imgur.com/XvPvUgp.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                                html.Img(src='https://i.imgur.com/l0xluPE.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                                
-                                html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                                
-                                
-                                ]),
-                            
+                                dbc.Row(id='banners', justify='center'),      
 
                                # Mining Address Input
                                 dbc.Row(justify='center', children=[
