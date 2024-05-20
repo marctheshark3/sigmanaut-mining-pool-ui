@@ -99,7 +99,7 @@ class DataSyncer:
         
         self.data = {'poolEffort': 0}
 
-        self.db = PostgreSQLDatabase('marctheshark', 'password', cfg.default_values.db_name, 5432, 'mining-db')
+        self.db = PostgreSQLDatabase('marctheshark', 'password', db_name, 5432, 'mining-db')
         self.db.connect()
         self.db.get_cursor()
 
