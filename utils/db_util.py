@@ -1,6 +1,9 @@
 import psycopg2
 import pandas as pd
 import time 
+from psycopg2 import sql
+import os
+
 class PostgreSQLDatabase:
     def __init__(self, username, password, host, port, database_name):
         self.username = username
@@ -10,6 +13,7 @@ class PostgreSQLDatabase:
         self.database_name = database_name
         self.conn = None
 
+
     def connect(self):
         try:
             self.conn = psycopg2.connect(
@@ -17,11 +21,34 @@ class PostgreSQLDatabase:
                 port=self.port,
                 user=self.username,
                 password=self.password,
-                dbname=self.database_name
-            )
+                dbname=self.database_name)
+    
         except psycopg2.OperationalError as e:
             print(f"Connection failed: {e}")
             self.conn = None
+
+    def create_database(self, new_db_name):
+        # Connect to the default 'postgres' database to create a new database
+        default_conn = psycopg2.connect(
+            host=self.host,
+            port=self.port,
+            user=self.username,
+            password=self.password,
+            dbname=new_db_name
+        )
+        default_conn.autocommit = True  # Enable autocommit mode
+        cursor = default_conn.cursor()
+    
+        try:
+            # Create the new database
+            cursor.execute(sql.SQL("CREATE DATABASE {};").format(sql.Identifier(new_db_name)))
+            print(f"Database {new_db_name} created successfully.")
+        except psycopg2.OperationalError as e:
+            print(f"Database creation failed: {e}")
+        finally:
+            cursor.close()
+            default_conn.close()
+
 
     def get_cursor(self):
         if self.conn is not None:
@@ -48,10 +75,13 @@ class PostgreSQLDatabase:
                 query = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(columns)})"
                 cursor.execute(query)
                 self.conn.commit()
+                flag = True
             except psycopg2.OperationalError as e:
                 print(f"Table creation failed: {e}")
+                flag = False
             finally:
                 cursor.close()
+        return True
 
     def delete_table(self, table_name):
         cursor = self.get_cursor()
@@ -66,6 +96,55 @@ class PostgreSQLDatabase:
             finally:
                 cursor.close()
 
+    def change_db_owner(self, db_name, new_owner):
+        # Connect to the default 'postgres' database to change ownership
+        default_conn = psycopg2.connect(
+            host=self.host,
+            port=self.port,
+            user=self.username,
+            password=self.password,
+            dbname='postgres'
+        )
+        default_conn.autocommit = True  # Enable autocommit mode
+        cursor = default_conn.cursor()
+    
+        try:
+            # Change the owner of the database
+            cursor.execute(sql.SQL("ALTER DATABASE {} OWNER TO {};").format(sql.Identifier(db_name), sql.Identifier(new_owner)))
+            print(f"Ownership of database {db_name} changed to {new_owner} successfully.")
+        except psycopg2.OperationalError as e:
+            print(f"Changing ownership failed: {e}")
+        finally:
+            cursor.close()
+            default_conn.close()
+
+
+    def delete_db(self):
+        # Connect to the default 'postgres' database to be able to drop the target database
+        default_conn = psycopg2.connect(
+            host=self.host,
+            port=self.port,
+            user=self.username,
+            password=self.password,
+            dbname=self.database_name
+        )
+        default_conn.autocommit = True  # Enable autocommit mode
+        cursor = default_conn.cursor()
+    
+        try:
+            # Drop the existing database if it exists
+            cursor.execute(sql.SQL("DROP DATABASE IF EXISTS {};").format(sql.Identifier(self.database_name)))
+            print(f"Database {db_name} deleted successfully.")
+        except psycopg2.errors.InsufficientPrivilege as e:
+            print(f"Insufficient privileges to delete database {self.database_name}: {e}")
+        except psycopg2.OperationalError as e:
+            print(f"Database deletion failed: {e}")
+        finally:
+            cursor.close()
+            default_conn.close()
+
+            
+
     def delete_data_in_batches(self, table_name, batch_size=10000):
         cursor = self.get_cursor()
         if cursor:
@@ -74,7 +153,9 @@ class PostgreSQLDatabase:
                 cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
                 total_rows = cursor.fetchone()[0]
                 num_batches = (total_rows + batch_size - 1) // batch_size  # Calculate how many batches are needed
-
+                print(num_batches, table_name)
+                if num_batches == 0:
+                    num_batches=1
                 for batch in range(num_batches):
                     # Use ROW_NUMBER() to select a range of rows within the current batch
                     delete_query = f"""
@@ -93,6 +174,7 @@ class PostgreSQLDatabase:
 
                     # Avoid overloading the database with a small delay
                     time.sleep(1)
+                # self.delete_table(table_name)
 
             except psycopg2.OperationalError as e:
                 print(f"Batch deletion failed: {e}")
@@ -151,7 +233,10 @@ class PostgreSQLDatabase:
                     # Insert a new row if it doesn't exist.
                     columns = ', '.join(data.keys())
                     placeholders = ', '.join(['%s'] * len(data))
-                    cursor.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", list(data.values()))
+                    try:
+                        cursor.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", list(data.values()))
+                    except Exception as e:
+                        print(e, table_name, columns, list(data.values()))
                     flag = True
     
                 self.conn.commit()

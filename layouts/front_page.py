@@ -270,6 +270,34 @@ def setup_front_page_callbacks(app, reader):
                         html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),]
 
         return [dbc.Row(id='banners', justify='center', children=banners)]
+    
+    @app.callback([
+                   Output('swap_info', 'children'),
+                  ],
+                  [Input('fp-int-6', 'n_intervals')])
+    def swap_info(n):
+        rsn_data = db_sync.get_api_data('https://my.ergoport.dev/cgi-bin/sigmining/rsn_payments.pl?a=9fYvQMsMN3NNaw33cAFnRdyHy1DpxtxfADvGqUV3ocLptw4HpcP')
+        
+        item = dbc.Row(justify='center', children=[
+                               dbc.Col(style={'padding': '10px'}, children=[
+                                    dbc.Card(style=bottom_row_style, children=[
+                                        html.H4('Swapping Addresses', style={'color': large_text_color, 'textAlign': 'center',}),    
+                                        create_image_text_block('rosen-logo.png', 'RSN:', rsn_data['address']),
+                                    ]),]),
+
+                                dbc.Col(style={'padding': '10px'}, children=[
+                                    dbc.Card(style=bottom_row_style, children=[
+                                        html.H4('Total Paid', style={'color': large_text_color, 'textAlign': 'center',}),    
+                                        create_image_text_block('coins.png', 'RSN:', rsn_data['total_rsn_paid']),
+                                    ]),]),
+
+                               # dbc.Col(style={'padding': '10px'}, children=[
+                               #  dbc.Card(style=bottom_row_style, children=[
+                               #      html.H4('Miners Swapping', style={'color': large_text_color, 'textAlign': 'center',}),    
+                               #      create_image_text_block('triangle.png', 'RSN:', '3'),
+                               #  ]),]),
+                                   ])
+        return [item]
         
 def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
@@ -280,6 +308,7 @@ def get_layout(reader):
                                dcc.Interval(id='fp-int-3', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-4', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='fp-int-5', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='fp-int-6', interval=60*1000, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': large_text_color, 'textAlign': 'center',}),                                   
                                  # Metrics overview row
@@ -318,6 +347,50 @@ def get_layout(reader):
                                         'width': '97.5%',
                                     })
                                 ]),
+                               html.H1('Swap Rewards or Set Minimum Payout', style={'color': large_text_color, 'textAlign': 'center',}),
+                               dbc.Row(id='swap_info', justify='center'),      
+                               # dbc.Row(justify='center', children=[
+                               # dbc.Col(style={'padding': '10px'}, children=[
+                               #      dbc.Card(style=bottom_row_style, children=[
+                               #          html.H4('Swapping Addresses', style={'color': large_text_color, 'textAlign': 'center',}),    
+                               #          create_image_text_block('rosen-logo.png', 'RSN:', '9hxk8tPN8RsbbeCYChBKJmBjNSEqcNcJW68gHJBBYnmAfDfZW9g'),
+                               #      ]),]),
+
+                               #  dbc.Col(style={'padding': '10px'}, children=[
+                               #      dbc.Card(style=bottom_row_style, children=[
+                               #          html.H4('Total Paid', style={'color': large_text_color, 'textAlign': 'center',}),    
+                               #          create_image_text_block('coins.png', 'RSN:', '0'),
+                               #      ]),]),
+
+                               # dbc.Col(style={'padding': '10px'}, children=[
+                               #  dbc.Card(style=bottom_row_style, children=[
+                               #      html.H4('Miners Swapping', style={'color': large_text_color, 'textAlign': 'center',}),    
+                               #      create_image_text_block('triangle.png', 'RSN:', '0'),
+                               #  ]),]),
+                               #     ]),
+                                   
+                               dbc.Col(style={'padding': '10px'}, children=[
+                                dbc.Card(style=bottom_row_style, children=[
+                                    dcc.Markdown(''' 
+                                    #### How it works - Reward Swap
+                                    1. Rewards are sent to the token address. Our backend tracks your participation for each block and minimum payout
+                                    2. When your minimum payout threshold is met, your proportion of rewards is then swapped for the token, and sent to your wallet
+
+                                    #### How it works - Minimum Payout
+                                    1. Backend reads your worker name and if in the format described below your min payout is set to that value
+
+                                    #### Configuration:
+                                    1. Change the address your rigs mine to the token of your choice
+                                    2. Change your worker name to the following format: <your-mining-address>.<minimum-payout>.<worker-name>
+                                    
+                                    ### Dev Fees
+                                    There is a X% applied before the swap as a fee to pay the devs of this pool''')
+                                    
+                                ]),]),
+
+                               
+                # ]),
+                    # ]),
 
                                html.Div(
                                     [

@@ -1,5 +1,8 @@
 # Sigmanauts Mining Pool
 
+# TODO
+Need to add a flag to if a someone is mining to rsn with the same worker name or same mining address because they would/could still have shares from the orignal setup and will take to the next block for it to transfer
+
 ## Telegram Group
 [Join our Telegram group!](https://t.me/sig_mining)
 

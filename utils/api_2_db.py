@@ -7,6 +7,8 @@ from datetime import datetime
 from hydra.core.global_hydra import GlobalHydra
 import pytz
 import pandas as pd
+from dateutil import parser
+
 
 try:
     from utils.db_util import PostgreSQLDatabase
@@ -75,7 +77,7 @@ class PriceReader:
             return btc_price, erg_price
             
 class DataSyncer:
-    def __init__(self, config_path: str, db_name='db'):
+    def __init__(self, config_path: str):
         self.block_reward = 27 #need to calc this from emissions.csv
         self.config_path = config_path
         self.price_reader = PriceReader()
@@ -90,6 +92,7 @@ class DataSyncer:
         self.token_id = cfg.user_defined.token_id
         self.token_ls = cfg.default_values.token_ls
         self.base_api = cfg.default_values.base_api
+        self.new_base_api = cfg.default_values.new_base_api
         self.stats_headers = cfg.default_values.stats_cols
         self.block_headers = cfg.default_values.block_cols
         self.payment_headers = cfg.default_values.payment_headers
@@ -98,10 +101,12 @@ class DataSyncer:
         self.miner_sample_df = DataFrame(columns=['created'])
         
         self.data = {'poolEffort': 0}
-
-        self.db = PostgreSQLDatabase('marctheshark', 'password', db_name, 5432, 'mining-db')
+        print('Connecting to DB instance')
+        self.db = PostgreSQLDatabase('postgres', 'password', cfg.default_values.hostname, 5432, 'sigma-mining-db')
+        
         self.db.connect()
         self.db.get_cursor()
+        print('connected')
 
     def get_api_data(self, api_url):
         try:
@@ -131,11 +136,12 @@ class DataSyncer:
         return True
 
     def __delete_table__(self):
-        self.db.delete_data_in_batches('stats', 100)
+        self.db.delete_data_in_batches('stats', 1000)
         self.db.delete_data_in_batches('block')
-        self.db.delete_data_in_batches('payment')
+        
         self.db.delete_data_in_batches('live_worker')
         self.db.delete_data_in_batches('performance')
+        self.db.delete_data_in_batches('payment')
         return True     
 
     def insert_df_rows(self, df, table, columns):
@@ -148,18 +154,17 @@ class DataSyncer:
         The purpose of this method is to grab all the relevant stats of the pool and network 
         '''
         stats = self.get_api_data(self.base_api)['pool']
-        # last_block_found = str(format_datetime(stats['lastPoolBlockTime']))
         last_block_found = stats['lastPoolBlockTime']
         format_string = '%Y-%m-%dT%H:%M:%S.%fZ'
         date_time_obj = datetime.strptime(last_block_found, format_string)
-        last_block_found = date_time_obj.strftime('%Y-%m-%d %H:%M:%S')
+        # last_block_found = date_time_obj.strftime('%Y-%m-%d %H:%M:%S')
+        last_block_found = date_time_obj.strftime('%Y-%m-%d %H:%M:%S.%f')
         
         self.data = {'fee': stats['poolFeePercent'],
                      'paid': stats['totalPaid'],
                      'blocks': stats['totalBlocks'],
                      'last_block_found': last_block_found,
                      }
-
 
         payment_data = stats['paymentProcessing'] # dict
         pool_stats = stats['poolStats'] # dict
@@ -203,18 +208,21 @@ class DataSyncer:
 
         Will need to add Rolling Effort in the df in the page itself vs db
         '''
-        url = '{}/{}'.format(self.base_api, 'blocks?pageSize=5000')
+        url = '{}/{}'.format(self.new_base_api, 'blocks.pl?a=200')
         block_data = self.get_api_data(url)
         for data in block_data:
             # data['rolling_effort'] = data['effort'].expanding().mean()
-            data['time_found'] = format_datetime(data.pop('created'))
-            data['confirmationProgress'] = data['confirmationProgress'] * 100
-            data['networkDifficulty'] = round(data['networkDifficulty'], 2)
+            # data['time_found'] = data.pop('created')
+            # last_block_time = parser.parse(last_block_timestamp)
+            # print(data.pop('created')[:-6])
+            data['time_found'] = parser.parse(data.pop('created')[:-4])
+            data['confirmationProgress'] = float(data['confirmationProgress']) * 100
+            data['networkDifficulty'] = round(float(data['networkDifficulty']), 2)
             try:
-                data['effort'] = round(data['effort'], 2)
+                data['effort'] = round(float(data['effort']), 2)
             except KeyError:
                 data['effort'] = 0.000
-            data['reward'] = round(data['reward'], 2)
+            data['reward'] = round(float(data['reward']), 2)
             data['miner'] = '{}...{}'.format(data['miner'][:3], data['miner'][-5:])
             try:
                 self.db.update_or_insert('block', data, ['hash'])
@@ -234,28 +242,34 @@ class DataSyncer:
 
         
         _, erg_price = self.price_reader.get()
-        miner_data = self.get_api_data('{}/{}'.format(self.base_api, 'miners?pageSize=5000'))
+        miner_data = self.get_api_data('{}/{}'.format(self.new_base_api, 'miners.pl')) # miners.pl?a=100
         miner_ls = [sample['miner'] for sample in miner_data]
         
         # time_now = pd.Timestamp.now()
         stats = self.db.fetch_data('stats')
-        print(stats.columns)
         stats = stats[stats.insert_time_stamp == max(stats.insert_time_stamp)]
         
         block_data = self.db.fetch_data('block')
         networkHashrate = stats['networkhashrate'].item() # use logic to get the lastest not just the first index
         networkDifficulty = stats['networkdifficulty'].item()
         for miner in miner_ls:
+            # print(miner)
             url = '{}/{}/{}'.format(self.base_api, 'miners', miner)
-            mining_data = self.get_api_data(url)        
+            mining_data = self.get_api_data(url)      
+
+            url = '{}/{}/{}'.format(self.new_base_api, 'miners', miner)
+            rsn_mining_data = self.get_api_data(url)  
 
             if payment:
                 payment_data = {k: v for k, v in mining_data.items() if k not in ['performance', 'performanceSamples']}
+                # rsn_payment_data = {k: v for k, v in rsn_mining_data.items() if k not in ['performance', 'performanceSamples']}
+
                 payment_data['Schema'] = 'PPLNS'
                 payment_data['Price'] = erg_price
                 payment_data['totalPaid'] = round(payment_data['totalPaid'], 2)
                 payment_data['pendingShares'] = round(payment_data['pendingShares'], 2)
                 payment_data['pendingBalance'] = round(payment_data['pendingBalance'], 2)
+                # payment_data['rsn_swap'] = 
               
                 try:
                     payment_data['lastPayment'] = mining_data['lastPayment'][:-17]
@@ -271,7 +285,9 @@ class DataSyncer:
                 
                 payment_data['created_at'] = timenow
                 payment_data['miner'] = miner
+                # print(payment_data)
                 self.db.insert_data('payment', payment_data)
+                # print('done insertion')
 
             performance_samples = mining_data.pop('performanceSamples')
             shorten_miner = '{}...{}'.format(miner[:3], miner[-5:])
@@ -295,7 +311,8 @@ class DataSyncer:
                 last_block_found = latest
                 
             if performance:
-                # performance_df['insert_time_stamp'] = timenow    
+                # performance_df['insert_time_stamp'] = timenow   
+                # print('erf', performance_df)
                 self.insert_df_rows(performance_df, 'performance', ['created', 'worker', 'hashrate']) 
 
             if live_data:
@@ -315,6 +332,7 @@ class DataSyncer:
                     live_df['last_block_found'] = last_block_found
                     
                     # live_df['created_at'] = timenow
+                    # print('live', live_df)
                     self.insert_df_rows(live_df, 'live_worker', ['created', 'worker', 'hashrate'])
                     
                     
@@ -337,15 +355,18 @@ class DataSyncer:
         :param last_block_timestamp: Timestamp of the last block found in ISO 8601 format.
         :return: The estimated mining effort for the pool.
         """
-
+    
         network_difficulty = network_difficulty * 1e15
-        network_hashratev = network_hashrate * 1e12
+        network_hashrate = network_hashrate * 1e12
         hashrate = hashrate * 1e6
         
         # Parse the last block timestamp
-        time_format = '%Y-%m-%d %H:%M:%S' 
-        last_block_time = datetime.strptime(last_block_timestamp, time_format)
-        last_block_time = last_block_time.replace(tzinfo=pytz.utc)  # Assume the timestamp is in UTC
+        try:
+            last_block_timestamp = format_datetime(last_block_timestamp)
+        except ValueError:
+            pass
+        time_format = '%Y-%m-%d %H:%M:%S.%f'  # Updated to include fractional seconds
+        last_block_time = datetime.strptime(last_block_timestamp, time_format).replace(tzinfo=pytz.utc)
         
         # Get the current time in UTC
         now = datetime.now(pytz.utc)
@@ -354,13 +375,13 @@ class DataSyncer:
         time_since_last_block = (now - last_block_time).total_seconds()
         
         # Hashes to find a block at current difficulty
-        hashes_to_find_block = network_difficulty# This is a simplification
+        hashes_to_find_block = network_difficulty  # This is a simplification
         
         # Total hashes by the network in the time since last block
         total_network_hashes = network_hashrate * time_since_last_block
         
         # Pool's share of the total network hashes
-        pool_share_of_hashes = (hashrate / network_hashrate ) * total_network_hashes
+        pool_share_of_hashes = (hashrate / network_hashrate) * total_network_hashes
         
         # Effort is the pool's share of hashes divided by the number of hashes to find a block
         effort = pool_share_of_hashes / hashes_to_find_block * 100

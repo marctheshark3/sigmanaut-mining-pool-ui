@@ -4,9 +4,9 @@ services:
   db:
     image: postgres:latest
     environment:
-      POSTGRES_DB: mining-db
-      POSTGRES_USER: marctheshark
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sigma-mining-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password  # Ensure this matches the password your app is using
     volumes:
       - mining_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -18,6 +18,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=password  # Ensure this matches the POSTGRES_PASSWORD
+      - DATABASE_NAME=sigma-mining-db
     volumes:
       - ./:/app
     ports:
