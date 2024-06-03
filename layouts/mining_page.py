@@ -74,12 +74,19 @@ def setup_mining_page_callbacks(app, reader):
         worker_df = db_sync.db.fetch_data('live_worker')
         total_df = worker_df[worker_df.worker == 'totals']
         my_worker_df = total_df[total_df.miner == miner]
-        latest_worker = my_worker_df[my_worker_df.created == max(my_worker_df.created)]
-        
-        my_total_hash = latest_worker.hashrate.item()
+        try:
+            latest_worker = my_worker_df[my_worker_df.created == max(my_worker_df.created)]
+            my_total_hash = latest_worker.hashrate.item()
 
-        my_effort = latest_worker.effort.item()
-        my_ttf = latest_worker.ttf.item()
+            my_effort = latest_worker.effort.item()
+            my_ttf = latest_worker.ttf.item()
+        except ValueError:
+            my_total_hash = 'NA'
+            my_effort = 'NA'
+            my_ttf = 'NA'
+            
+        
+        
 
         data = db_sync.db.fetch_data('stats')
         data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
