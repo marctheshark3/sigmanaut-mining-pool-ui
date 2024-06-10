@@ -83,6 +83,7 @@ def setup_front_page_callbacks(app, reader):
     def mint_nft(n_clicks):
         if n_clicks > 0:
             return 'http://localhost:3000/mintNFT'
+        return 'http://0.0.0.0:8050/'
         
     @app.callback([Output('metric-1', 'children')],
                    [Input('fp-int-4', 'n_intervals')])
@@ -390,7 +391,14 @@ def get_layout(reader):
                                     }
                                 ),
                        
-
+                        html.H1('Mint NFT'),
+                        html.Button('Mint NFT', id='mint-button', n_clicks=0),
+                        html.Script('''
+                            document.getElementById("mint-button").onclick = function() {
+                                window.open("http://localhost:3000/mintNFT", "_blank");
+                            };
+                        '''),
+                                                   
                        dash_table.DataTable(id='table',
                                             style_table={'overflowX': 'auto'},
                                             style_cell={'height': 'auto', 'minWidth': '180px',
@@ -399,10 +407,6 @@ def get_layout(reader):
                                                         'padding': '10px',},
                                             style_header=table_style,
                                             style_data=table_style,),
-                               dcc.Location(id='url', refresh=True),  # Component to handle URL redirection
-                                html.H1('Mint NFT'),
-                                html.Button('Mint NFT', id='mint-button', n_clicks=0),
-
                                
                                html.H1('CONNECTING TO THE POOL',
                                        style={'color': 'white', 'textAlign': 'center', 'padding': '10px',}),

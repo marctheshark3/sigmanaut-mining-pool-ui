@@ -8,6 +8,8 @@ from pandas import Timestamp
 def init_db():
     print('intializing DB')
     db_sync = DataSyncer(config_path="../conf")
+    # db_sync = db_sync.db.create_database('sigma-db')
+    # db_sync.db.delete_db()    
     timenow = Timestamp.now()
     # db_sync.__delete_table__()
     db_sync.__create_table__()

@@ -41,6 +41,28 @@ class PostgreSQLDatabase:
         size = cursor.fetchone()[0]
         return size
 
+    def create_database(self, new_db_name):
+        # Connect to the default 'postgres' database to create a new database
+        default_conn = psycopg2.connect(
+            host=self.host,
+            port=self.port,
+            user=self.username,
+            password=self.password,
+            dbname=new_db_name
+        )
+        default_conn.autocommit = True  # Enable autocommit mode
+        cursor = default_conn.cursor()
+    
+        try:
+            # Create the new database
+            cursor.execute(sql.SQL("CREATE DATABASE {};").format(sql.Identifier(new_db_name)))
+            print(f"Database {new_db_name} created successfully.")
+        except psycopg2.OperationalError as e:
+            print(f"Database creation failed: {e}")
+        finally:
+            cursor.close()
+            default_conn.close()
+
     def create_table(self, table_name, columns):
         cursor = self.get_cursor()
         if cursor:
@@ -52,6 +74,30 @@ class PostgreSQLDatabase:
                 print(f"Table creation failed: {e}")
             finally:
                 cursor.close()
+
+    def delete_db(self):
+        # Connect to the default 'postgres' database to be able to drop the target database
+        default_conn = psycopg2.connect(
+            host=self.host,
+            port=self.port,
+            user=self.username,
+            password=self.password,
+            dbname=self.database_name
+        )
+        default_conn.autocommit = True  # Enable autocommit mode
+        cursor = default_conn.cursor()
+    
+        try:
+            # Drop the existing database if it exists
+            cursor.execute(sql.SQL("DROP DATABASE IF EXISTS {};").format(sql.Identifier(self.database_name)))
+            print(f"Database {db_name} deleted successfully.")
+        except psycopg2.errors.InsufficientPrivilege as e:
+            print(f"Insufficient privileges to delete database {self.database_name}: {e}")
+        except psycopg2.OperationalError as e:
+            print(f"Database deletion failed: {e}")
+        finally:
+            cursor.close()
+            default_conn.close()
 
     def delete_table(self, table_name):
         cursor = self.get_cursor()
