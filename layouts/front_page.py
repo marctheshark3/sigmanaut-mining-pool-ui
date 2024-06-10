@@ -76,6 +76,14 @@ def create_row_card(image, h2_text, p_text):
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
 def setup_front_page_callbacks(app, reader):
+    @app.callback(
+        Output('url', 'href'),
+        [Input('mint-button', 'n_clicks')]
+    )
+    def mint_nft(n_clicks):
+        if n_clicks > 0:
+            return 'http://localhost:3000/mintNFT'
+        
     @app.callback([Output('metric-1', 'children')],
                    [Input('fp-int-4', 'n_intervals')])
 
@@ -391,6 +399,9 @@ def get_layout(reader):
                                                         'padding': '10px',},
                                             style_header=table_style,
                                             style_data=table_style,),
+                               dcc.Location(id='url', refresh=True),  # Component to handle URL redirection
+                                html.H1('Mint NFT'),
+                                html.Button('Mint NFT', id='mint-button', n_clicks=0),
 
                                
                                html.H1('CONNECTING TO THE POOL',
