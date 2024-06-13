@@ -58,9 +58,9 @@ default_values:
                     'created_at TIMESTAMP',
                     'miner VARCHAR(100)']
 
-    live_worker_headers: ['worker VARCHAR(50)', 'hashrate NUMERIC', 'shares_per_second NUMERIC',
-                       'created TIMESTAMP', 'miner VARCHAR(100)', 'effort NUMERIC',
+    live_worker_headers: ['worker VARCHAR(225)', 'hashrate NUMERIC', 'shares_per_second NUMERIC',
+                       'created TIMESTAMP', 'miner VARCHAR(225)', 'effort NUMERIC',
                        'ttf NUMERIC', 'last_block_found VARCHAR(100)']
 
-    performance_headers: ['worker VARCHAR(50)', 'hashrate NUMERIC', 'shares_per_second NUMERIC',
-                       'created TIMESTAMP', 'miner VARCHAR(60)', 'insert_time_stamp TIMESTAMP']
+    performance_headers: ['worker VARCHAR(225)', 'hashrate NUMERIC', 'shares_per_second NUMERIC',
+                       'created TIMESTAMP', 'miner VARCHAR(225)', 'insert_time_stamp TIMESTAMP']

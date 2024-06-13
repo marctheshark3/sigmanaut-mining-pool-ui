@@ -14,6 +14,16 @@ from flask_session import Session
 
 from utils.api_2_db import DataSyncer
 
+def create_token_dropdown(dropdown_id, label, options, default_value):
+    return html.Div([
+        html.Label(label),
+        dcc.Dropdown(
+            id=dropdown_id,
+            options=[{'label': str(option), 'value': option} for option in options],
+            value=default_value
+        )
+    ])
+
 db_sync = DataSyncer(config_path="../conf")
 
 debug = False
@@ -32,6 +42,21 @@ color_discrete_map = {
 }
 
 def setup_mining_page_callbacks(app, reader):
+    @app.callback(
+        Output('output-container', 'children'),
+        Input('mint-nft-button', 'n_clicks'),
+        Input('min-payout-input', 'value'),
+        Input('rsbtc-input', 'value'), State('url', 'pathname')
+    )
+    def update_output(n_clicks, min_payout, rsbtc_value, pathname):
+        if n_clicks > 0 and min_payout is not None and rsbtc_value is not None:
+            miner = unquote(pathname.lstrip('/'))
+            selected_values = f'Selected minimum payout is: {min_payout}, Selected rsBTC is: {rsbtc_value}, Minter: {miner}'
+            with open('selected_values.txt', 'w') as f:
+                f.write(selected_values)
+            return selected_values
+        return 'Enter values and press submit'
+        
     @app.callback([Output('mp-stats', 'children'),],
                   [Input('mp-interval-4', 'n')],
                   [State('url', 'pathname')])
@@ -49,12 +74,19 @@ def setup_mining_page_callbacks(app, reader):
         worker_df = db_sync.db.fetch_data('live_worker')
         total_df = worker_df[worker_df.worker == 'totals']
         my_worker_df = total_df[total_df.miner == miner]
-        latest_worker = my_worker_df[my_worker_df.created == max(my_worker_df.created)]
-        
-        my_total_hash = latest_worker.hashrate.item()
+        try:
+            latest_worker = my_worker_df[my_worker_df.created == max(my_worker_df.created)]
+            my_total_hash = latest_worker.hashrate.item()
 
-        my_effort = latest_worker.effort.item()
-        my_ttf = latest_worker.ttf.item()
+            my_effort = latest_worker.effort.item()
+            my_ttf = latest_worker.ttf.item()
+        except ValueError:
+            my_total_hash = 'NA'
+            my_effort = 'NA'
+            my_ttf = 'NA'
+            
+        
+        
 
         data = db_sync.db.fetch_data('stats')
         data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
@@ -98,7 +130,7 @@ def setup_mining_page_callbacks(app, reader):
         stats = dbc.Row(justify='center', children=[pool_stats, your_stats])
         return [stats]
 
-    @app.callback([ Output('s1', 'children'), Output('s2', 'children'),],
+    @app.callback([ Output('s1', 'children'), Output('s2', 'children'), Output('s4', 'children'), Output('s5', 'children'), Output('s6', 'children'),],
                   [Input('mp-interval-1', 'n')],
                   [State('url', 'pathname')])
 
@@ -117,12 +149,31 @@ def setup_mining_page_callbacks(app, reader):
              'lastpayment': 'coins.png',
              'price': 'ergo.png',
              'schema': 'ergo.png',
-            }
+            } 
         
         payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key].item()), image=payment_images[key]) for key in payment_images.keys() if key != 'lastPaymentLink']
-
+ 
         
-        return payment_children[:3], payment_children[3:]
+        total_swap_children = [create_image_text_block(text='Total Swap: 66.45 RSN', image='rosen-logo.png'),
+                         # create_image_text_block(text='Total Swap: 0 rsAda', image='ergo.png'),
+                         # create_image_text_block(text='Total Swap: 0 RSN', image='ergo.png'),
+                         # create_image_text_block(text='Total Swap: 0 SigUSD', image='ergo.png'),
+                        ]
+
+        participation_swap_children = [create_image_text_block(text='Participation : 62.5%', image='rosen-logo.png')]
+        miner_data = db_sync.get_api_data('https://my.ergoport.dev/cgi-bin/sigmining/miner_specific.pl?a={}'.format(wallet))
+        workers = miner_data['performance']['workers']
+        w = []
+        for worker in workers.keys():
+            if workers[worker]['rosen'] == 'rsn':
+                w.append(worker)
+
+
+        workers_swapping = []
+        for worker in w:
+            workers_swapping.append(create_image_text_block(text=worker, image='rosen-logo.png'))
+        
+        return payment_children[:3], payment_children[3:], total_swap_children, participation_swap_children, workers_swapping
    
     @app.callback([
                  
@@ -287,6 +338,22 @@ def setup_mining_page_callbacks(app, reader):
             banners = []
 
         return [dbc.Row(id='mp-banners', justify='center', children=banners)]
+
+    @app.callback([
+                   Output('swap-warning', 'children'),
+                  ],
+                  [Input('mp-interval-6', 'n_intervals')])
+    def update_swap_warning(n): 
+        flag = False
+        if flag: 
+            text = 'USER WARNING ⚠️: It looks like you want to swap your mining rewards for another token and are using the same worker name. Please either use another erg address or change the worker name'
+            # item = [html.H4(text)]
+            item = [dbc.Alert(text, color="danger", className="text-center",
+        )]
+        else:
+            item = []
+        
+        return [dbc.Row(id='swap-warning', justify='center', children=item)]
                                 
 
 def get_layout(reader):
@@ -299,6 +366,8 @@ def get_layout(reader):
                                dcc.Interval(id='mp-interval-3', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interval-4', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interval-5', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='mp-interval-6', interval=60*1000, n_intervals=0),
+                               
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
                                dbc.Row(id='mp-stats', justify='center',),
@@ -306,9 +375,16 @@ def get_layout(reader):
                                dbc.Row(justify='center', style={'padding': '20px'}, children=[
                                             dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s1')],),
                                             dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s2')],),
-                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s3')],)]),
+                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s3')],),
+                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s4')],),
+                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s5')],),
+                                   dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s6')],),
+                               ]),
                                             
-                               dbc.Row(id='mp-banners', justify='center'),       
+                               dbc.Row(id='mp-banners', justify='center'), 
+                               # dbc.Row(justify='center', style={'padding': '20px'}, children=[
+                               #              dbc.Col(style={'padding': '7px'}, children=[dbc.Card(id='swap-warning')],)]),
+                               dbc.Row(id='swap-warning', justify='center'), 
 
                                html.Div(
                                     [
@@ -384,6 +460,8 @@ def get_layout(reader):
                                             style_data=table_style,
 
                                            ),
+                               # html.utput-container', style={'margin-top': '20px'}),
+                               
                            ]),], style={'backgroundColor': card_color})  # This sets the background color for the whole page
 
 if __name__ == '__main__':

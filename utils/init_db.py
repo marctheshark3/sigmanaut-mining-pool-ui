@@ -20,6 +20,5 @@ def init_db():
     db_sync.update_miner_data(timenow)
     print('complete')
     
-
 if __name__ == '__main__':
     init_db()
