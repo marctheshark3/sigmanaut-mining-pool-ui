@@ -14,6 +14,7 @@ import {
 import { ColorModeSwitcher } from "./ColorModeSwitcher"
 
 import Create from './components/Create';
+import BurnTokens from './components/BurnTokens';
 
 export const App = () => (
   
@@ -23,13 +24,20 @@ export const App = () => (
           <ColorModeSwitcher justifySelf="flex-end" />
           <Tabs>
             <TabList>
-              <Tab> Mint Sigmanaut Mining Pool Config NFT</Tab>
+              {/* <Tab> Mint Sigmanaut Mining Pool Config NFT</Tab> */}
+                <Tab> Create Miner ID</Tab>
+                <Tab> Burn Miner ID</Tab>
+                
         
             </TabList>
             <TabPanels>
             
               <TabPanel>
                 <Create />
+              </TabPanel>
+
+                <TabPanel>
+                <BurnTokens />
               </TabPanel>
              
             </TabPanels>

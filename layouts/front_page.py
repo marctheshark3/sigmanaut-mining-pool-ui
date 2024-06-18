@@ -6,7 +6,7 @@ from utils.dash_utils import metric_row_style, image_style, create_row_card, car
 import plotly.graph_objs as go
 import plotly.express as px
 from utils.api_2_db import DataSyncer
-
+import uuid
 db_sync = DataSyncer(config_path="../conf")
 
 debug = False
@@ -81,9 +81,8 @@ def setup_front_page_callbacks(app, reader):
         Input('generate-url-button', 'n_clicks'),
     )
     def generate_link(n_clicks):
-        # if n_clicks is None:
-        #     return ''
-        custom_part = 'sigma-NFT-minter'
+        id =  uuid.uuid4()
+        custom_part = 'sigma-NFT-minter-{}'.format(id)
         custom_url = f'http://0.0.0.0:3000/{custom_part}'
         return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
             

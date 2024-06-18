@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
-import { 
+import React, { useState, useEffect } from 'react';
+import Papa from 'papaparse';
+import {
     Alert,
     AlertIcon,
     Button,
     FormControl,
     FormLabel,
-    Input,
-    Link,
     NumberInputField,
     NumberInput,
     NumberInputStepper,
@@ -14,61 +13,88 @@ import {
     NumberDecrementStepper,
     Stack,
     VStack,
+    Select,
+    Link, // Import Link from Chakra UI
 } from '@chakra-ui/react';
 import { OutputBuilder, TransactionBuilder } from "@fleet-sdk/core";
 import Title from '../components/Title';
 
 declare global {
-  interface Window {
-    ergoConnector: any;
-  }
+    interface Window {
+        ergoConnector: any;
+    }
 }
 declare var ergo: any;
 var connected: any;
 
+interface Token {
+    'Token Name': string;
+}
+
+interface SelectedToken {
+    token: string;
+    value: number;
+}
+
 function Create() {
-    const [minimumPayout, setminimumPayout] = useState(0);
-    const [erg_ratio, set_erg_ratio] = useState(0);
-    const [rsn_ratio, set_rsn_ratio] = useState(0);
-    const [created, setCreated] = useState(false);
-    const [tx, setTx] = useState('...');
-    const [error, setError] = useState('');
+    const [minimumPayout, setMinimumPayout] = useState<number>(0.01);
+    const [created, setCreated] = useState<boolean>(false);
+    const [tx, setTx] = useState<string>('...');
+    const [error, setError] = useState<string>('');
+    const [tokens, setTokens] = useState<Token[]>([]);
+    const [selectedTokens, setSelectedTokens] = useState<SelectedToken[]>([{ token: '', value: 0 }]);
 
-    const handle_erg_ratioChange = (valueAsString: string, valueAsNumber: number) => {
-        set_erg_ratio(valueAsNumber);
+    useEffect(() => {
+        // Load the CSV file from the public directory
+        fetch('/supported-tokens.csv')
+            .then(response => response.text())
+            .then(data => {
+                Papa.parse<Token>(data, {
+                    header: true,
+                    complete: (results) => {
+                        setTokens(results.data);
+                    },
+                });
+            });
+    }, []);
+
+    const handleMinimumPayoutChange = (valueAsString: string, valueAsNumber: number) => {
+        setMinimumPayout(valueAsNumber);
     };
 
-    const handle_rsn_ratioChange = (valueAsString: string, valueAsNumber: number) => {
-        set_rsn_ratio(valueAsNumber);
+    const handleTokenChange = (index: number, field: keyof SelectedToken, value: string | number) => {
+        const newSelectedTokens = [...selectedTokens];
+        newSelectedTokens[index][field] = value as never;
+        setSelectedTokens(newSelectedTokens);
     };
 
-    const handleminimumPayoutChange = (valueAsString: string, valueAsNumber: number) => {
-        setminimumPayout(valueAsNumber);
+    const handleAddToken = () => {
+        setSelectedTokens([...selectedTokens, { token: '', value: 0 }]);
     };
 
     const handleSubmit = () => {
-        if (erg_ratio + rsn_ratio !== 100) {
-            setError('Ergo ratio and RSN ratio must add up to 100.');
+        const totalValue = selectedTokens.reduce((sum, token) => sum + token.value, 0);
+        if (totalValue !== 100) {
+            setError('The sum of all token values must add up to 100.');
             return;
         } else {
             setError('');
-            create_token(minimumPayout, erg_ratio, rsn_ratio);
+            create_token(minimumPayout, selectedTokens);
         }
     };
 
-    async function create_token(minimumPayout: any, erg_ratio: any, rsn_ratio: any): Promise<void> { 
-        connected = await window.ergoConnector.nautilus.connect(); 
+    async function create_token(minimumPayout: number, selectedTokens: SelectedToken[]): Promise<void> {
+        connected = await window.ergoConnector.nautilus.connect();
         if (connected) {
             const address = await ergo.get_change_address();
             const height = await ergo.get_current_height();
-            const nft_name = 'Sigmanaut Mining Pool Configuration NFT - Season 0';
+            const nftName = 'Sigmanaut Mining Pool Configuration NFT - Season 0';
 
             const dictionary = {
                 address: address,
-                erg: erg_ratio,
-                rsn: rsn_ratio,
                 minimumPayout: minimumPayout,
-                description: 'This is a test token minted with Fleet SDK for the sigmanaut mining pool'
+                tokens: selectedTokens,
+                text: 'This is a test token minted with Fleet SDK for the sigmanaut mining pool'
             };
             const dictionaryString = JSON.stringify(dictionary);
 
@@ -76,9 +102,9 @@ function Create() {
                 .from(await ergo.get_utxos())
                 .to(
                     new OutputBuilder("1000000", address)
-                    .mintToken({ 
+                    .mintToken({
                         amount: "1",
-                        name: nft_name,
+                        name: nftName,
                         decimals: 0,
                         description: dictionaryString
                     })
@@ -96,35 +122,49 @@ function Create() {
 
     return (
         <>
-            <Title title='Mint token'/>
+            <Title title='Mint token' />
             <FormControl>
                 <Stack spacing={3}>
-                    <FormLabel>Ergo Ratio %</FormLabel>
-                    <NumberInput min={1} value={erg_ratio} onChange={handle_erg_ratioChange}>
-                        <NumberInputField />
-                        <NumberInputStepper>
-                            <NumberIncrementStepper />
-                            <NumberDecrementStepper />
-                        </NumberInputStepper>
-                    </NumberInput>
-
-                    <FormLabel>RSN Ratio %</FormLabel>
-                    <NumberInput min={1} value={rsn_ratio} onChange={handle_rsn_ratioChange}>
-                        <NumberInputField />
-                        <NumberInputStepper>
-                            <NumberIncrementStepper />
-                            <NumberDecrementStepper />
-                        </NumberInputStepper>
-                    </NumberInput>
 
                     <FormLabel>Minimum Payout</FormLabel>
-                    <NumberInput min={0} value={minimumPayout} onChange={handleminimumPayoutChange}>
+                    <NumberInput min={0} value={minimumPayout} onChange={handleMinimumPayoutChange} precision={2} step={0.01}>
                         <NumberInputField />
                         <NumberInputStepper>
                             <NumberIncrementStepper />
                             <NumberDecrementStepper />
                         </NumberInputStepper>
                     </NumberInput>
+
+                    {selectedTokens.map((selectedToken, index) => (
+                        <div key={index}>
+                            <FormLabel>Select Token</FormLabel>
+                            <Select
+                                placeholder='Select token'
+                                value={selectedToken.token}
+                                onChange={(e) => handleTokenChange(index, 'token', e.target.value)}
+                            >
+                                {tokens.map((token, i) => (
+                                    <option key={i} value={token['Token Name']}>
+                                        {token['Token Name']}
+                                    </option>
+                                ))}
+                            </Select>
+                            <FormLabel>Enter Value</FormLabel>
+                            <NumberInput
+                                min={0}
+                                value={selectedToken.value}
+                                onChange={(valueAsString, valueAsNumber) => handleTokenChange(index, 'value', valueAsNumber)}
+                            >
+                                <NumberInputField />
+                                <NumberInputStepper>
+                                    <NumberIncrementStepper />
+                                    <NumberDecrementStepper />
+                                </NumberInputStepper>
+                            </NumberInput>
+                        </div>
+                    ))}
+
+                    <Button onClick={handleAddToken}>Add Token</Button>
 
                     {error && (
                         <Alert status='error' variant='solid'>
@@ -133,7 +173,7 @@ function Create() {
                         </Alert>
                     )}
 
-                    <Button colorScheme='teal' variant='outline' onClick={handleSubmit}> 
+                    <Button colorScheme='teal' variant='outline' onClick={handleSubmit}>
                         Mint NFT
                     </Button>
 
@@ -143,7 +183,7 @@ function Create() {
                                 <AlertIcon />
                                 Token successfully created!
                             </Alert>
-                            <Link href={`https://explorer.ergoplatform.com/en/transactions/${tx}`} isExternal>
+                            <Link href={`https://ergexplorer.com/transactions/${tx}`} isExternal>
                                 {tx}
                             </Link>
                         </VStack>
