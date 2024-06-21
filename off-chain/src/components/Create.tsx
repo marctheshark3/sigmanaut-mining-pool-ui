@@ -46,7 +46,7 @@ function Create() {
 
     useEffect(() => {
         // Load the CSV file from the public directory
-        fetch('/supported-tokens.csv')
+        fetch('https://raw.githubusercontent.com/marctheshark3/Mining-Reward-Tokens/main/supported-tokens.csv')
             .then(response => response.text())
             .then(data => {
                 Papa.parse<Token>(data, {
@@ -88,13 +88,16 @@ function Create() {
         if (connected) {
             const address = await ergo.get_change_address();
             const height = await ergo.get_current_height();
-            const nftName = 'Sigmanaut Mining Pool Configuration NFT - Season 0';
+            const nftName = 'Sigmanaut Mining Pool Miner ID - Season 0';
 
             const dictionary = {
                 address: address,
+                height: height,
                 minimumPayout: minimumPayout,
                 tokens: selectedTokens,
-                text: 'This is a test token minted with Fleet SDK for the sigmanaut mining pool'
+                season: 0,
+                type: 'Miner ID',
+                fan_club: 'QX'
             };
             const dictionaryString = JSON.stringify(dictionary);
 

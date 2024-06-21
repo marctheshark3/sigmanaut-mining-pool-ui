@@ -112,7 +112,7 @@ function BurnTokens() {
                                 Tokens burned successfully!
                             </Alert>
 
-                            <Link href={`https://explorer.ergoplatform.com/en/transactions/${tx}`} isExternal>
+                            <Link href={`https://ergexplorer.com/transactions/${tx}`} isExternal>
                                 {tx}
                             </Link>
                         </VStack>

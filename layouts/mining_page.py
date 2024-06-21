@@ -13,6 +13,7 @@ from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
 
 from utils.api_2_db import DataSyncer
+from utils.find_miner_id import ReadTokens
 
 def create_token_dropdown(dropdown_id, label, options, default_value):
     return html.Div([
@@ -42,6 +43,33 @@ color_discrete_map = {
 }
 
 def setup_mining_page_callbacks(app, reader):
+
+    @app.callback([Output('miner-id', 'children'),],
+                  [Input('mp-interval-7', 'n')],
+                  [State('url', 'pathname')])
+    
+    def update_miner_id(n, pathname):
+        miner = unquote(pathname.lstrip('/'))
+        print(miner)
+
+        # url = 'https://api.ergo.aap.cornell.edu/api/v1/boxes/byAddress/'   # maybe we arent adding the mienr here when we need to be
+        url = 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
+        find_tokens = ReadTokens(url)
+        miner_id = find_tokens.get_latest_miner_id(miner)
+        print(miner_id)
+        payout_text = 'Minimum Payout: {}'.format(miner_id['minimumPayout'])
+        tokens = miner_id['tokens']
+
+        div = []
+        for token in tokens:
+            temp_text = '{}: {}%'.format(token['token'], token['value'])
+            # img = '{}.png'.format(token['token'].lower())
+            img = 'ergo.png'
+            div.append(create_image_text_block(text=temp_text, image=img))
+        div.append(create_image_text_block(text=payout_text, image='min-payout.png'))
+        return [dbc.Row(id='miner-id', justify='center', children=div)]
+
+        
     @app.callback(
         Output('output-container', 'children'),
         Input('mint-nft-button', 'n_clicks'),
@@ -367,6 +395,7 @@ def get_layout(reader):
                                dcc.Interval(id='mp-interval-4', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interval-5', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interval-6', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='mp-interval-7', interval=60*1000, n_intervals=0),
                                
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
@@ -382,9 +411,9 @@ def get_layout(reader):
                                ]),
                                             
                                dbc.Row(id='mp-banners', justify='center'), 
-                               # dbc.Row(justify='center', style={'padding': '20px'}, children=[
-                               #              dbc.Col(style={'padding': '7px'}, children=[dbc.Card(id='swap-warning')],)]),
+                         
                                dbc.Row(id='swap-warning', justify='center'), 
+                               dbc.Row(id='miner-id', justify='center'),
 
                                html.Div(
                                     [
