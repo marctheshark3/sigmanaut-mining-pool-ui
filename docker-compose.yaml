@@ -1,20 +1,32 @@
 version: '3.8'
-
+ 
 services:
-  db:
+  database:
     image: postgres:latest
     environment:
-      POSTGRES_DB: mining-db
+      POSTGRES_DB: mining_db
       POSTGRES_USER: marctheshark
       POSTGRES_PASSWORD: password
     volumes:
-      - mining_data:/var/lib/postgresql/data
+      - mining_db:/var/lib/postgresql/data
     restart: unless-stopped
     ports:
       - "5431:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marctheshark -d mining_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
+    # image: neuralyogi/sigmanaut-mining-pool-ui:v1.0
     image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
+    environment:
+      POSTGRES_DB: mining_db
+      POSTGRES_USER: marctheshark
+      POSTGRES_PASSWORD: password
+      POSTGRES_HOST: database
+      PGDATA: /data/postgres
     build:
       context: .
       dockerfile: Dockerfile
@@ -24,7 +36,9 @@ services:
       - "8050:8050"
     restart: unless-stopped
     depends_on:
-      - db
+      database:
+        condition: service_healthy
+
 
 volumes:
-  mining_data:
+  mining_db:
