@@ -19,7 +19,8 @@ services:
       retries: 5
 
   app:
-    image: neuralyogi/sigmanaut-mining-pool-ui:v1.0
+    # image: neuralyogi/sigmanaut-mining-pool-ui:v1.0
+    image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
     environment:
       POSTGRES_DB: mining_db
       POSTGRES_USER: marctheshark
