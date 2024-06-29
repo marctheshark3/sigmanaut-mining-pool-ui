@@ -1,13 +1,15 @@
 import psycopg2
 import pandas as pd
 import time 
+import os 
+
 class PostgreSQLDatabase:
     def __init__(self, username, password, host, port, database_name):
-        self.username = username
-        self.password = password
-        self.host = host
+        self.username = os.environ['POSTGRES_USER']
+        self.password = os.environ['POSTGRES_PASSWORD']
+        self.host = os.environ['POSTGRES_HOST']
         self.port = port
-        self.database_name = database_name
+        self.database_name = os.environ['POSTGRES_DB']
         self.conn = None
 
     def connect(self):
