@@ -17,7 +17,7 @@ import {
     VStack,
 } from '@chakra-ui/react'
 
-import { OutputBuilder, TransactionBuilder } from "@fleet-sdk/core";
+import {TransactionBuilder } from "@fleet-sdk/core";
 
 import Title from '../components/Title';
 

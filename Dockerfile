@@ -1,12 +1,11 @@
 # Use an official Python runtime as a parent image
 FROM python:3.9
 
-# Set the working directory in the container
-WORKDIR /app
-
 # Copy the current directory contents into the container
 COPY . /app
 
+# Set the working directory in the container
+WORKDIR /app
 # Install cron and Python dependencies
 RUN apt-get update && apt-get -y install cron && \
     pip3 install --no-cache-dir -r /app/requirements.txt

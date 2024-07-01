@@ -26,5 +26,17 @@ services:
     depends_on:
       - db
 
+  off-chain:
+    build:
+      context: ./off-chain
+      dockerfile: Dockerfile
+    volumes:
+      - ./off-chain:/app
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - db
+
 volumes:
   mining_data:
