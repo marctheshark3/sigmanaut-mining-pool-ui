@@ -1,0 +1,10 @@
+# Switch to the postgres system user
+sudo -i -u postgres
+
+# Access the PostgreSQL command line
+psql
+
+# Within the PostgreSQL command line, reset the password for the postgres user
+\password postgres
+
+# Enter and confirm the new password when prompted

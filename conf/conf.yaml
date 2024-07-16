@@ -8,7 +8,7 @@ default_values:
     url: 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
     token_ls: 'https://api.ergo.aap.cornell.edu/api/v1/tokens'
     base_api: 'http://15.204.211.130:4000/api/pools/ErgoSigmanauts'
-    db_name: 'db'
+    db_name: 'localhost'
     stats_cols: [
         'fee NUMERIC',  # Numeric type for precision
         'paid NUMERIC',  # Numeric type for decimal values
@@ -56,7 +56,7 @@ default_values:
                     'lastPaymentLink TEXT',
                     'participation NUMERIC',
                     'created_at TIMESTAMP',
-                    'miner VARCHAR(100)']
+                    'miner VARCHAR(255)']
 
     live_worker_headers: ['worker VARCHAR(225)', 'hashrate NUMERIC', 'shares_per_second NUMERIC',
                        'created TIMESTAMP', 'miner VARCHAR(225)', 'effort NUMERIC',

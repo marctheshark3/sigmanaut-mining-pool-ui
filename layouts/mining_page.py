@@ -44,30 +44,34 @@ color_discrete_map = {
 
 def setup_mining_page_callbacks(app, reader):
 
-    @app.callback([Output('miner-id', 'children'),],
+    @app.callback([Output('s4', 'children'), Output('s5', 'children'), Output('s6', 'children'),],
                   [Input('mp-interval-7', 'n')],
                   [State('url', 'pathname')])
     
     def update_miner_id(n, pathname):
         miner = unquote(pathname.lstrip('/'))
-        print(miner)
-
-        # url = 'https://api.ergo.aap.cornell.edu/api/v1/boxes/byAddress/'   # maybe we arent adding the mienr here when we need to be
-        url = 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
-        find_tokens = ReadTokens(url)
-        miner_id = find_tokens.get_latest_miner_id(miner)
+    
+        find_tokens = ReadTokens()
+        token = find_tokens.get_latest_miner_id(miner)
+        miner_id = find_tokens.get_token_description(token['tokenId'])
         print(miner_id)
+        
         payout_text = 'Minimum Payout: {}'.format(miner_id['minimumPayout'])
         tokens = miner_id['tokens']
+        header = html.H1('Miner ID Parameters', style={'color': 'white', 'textAlign': 'center',})
 
-        div = []
+        tokens_swap = [create_image_text_block(text=payout_text, image='min-payout.png')]
         for token in tokens:
             temp_text = '{}: {}%'.format(token['token'], token['value'])
-            # img = '{}.png'.format(token['token'].lower())
             img = 'ergo.png'
-            div.append(create_image_text_block(text=temp_text, image=img))
-        div.append(create_image_text_block(text=payout_text, image='min-payout.png'))
-        return [dbc.Row(id='miner-id', justify='center', children=div)]
+            tokens_swap.append(create_image_text_block(text=temp_text, image=img))
+        
+        bins = [[] for _ in range(3)]
+        for i, func in enumerate(tokens_swap):
+            min_bin = min(bins, key=len)
+            min_bin.append(func)
+            
+        return bins[0], bins[1], bins[2]
 
         
     @app.callback(
@@ -112,9 +116,6 @@ def setup_mining_page_callbacks(app, reader):
             my_total_hash = 'NA'
             my_effort = 'NA'
             my_ttf = 'NA'
-            
-        
-        
 
         data = db_sync.db.fetch_data('stats')
         data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
@@ -158,7 +159,7 @@ def setup_mining_page_callbacks(app, reader):
         stats = dbc.Row(justify='center', children=[pool_stats, your_stats])
         return [stats]
 
-    @app.callback([ Output('s1', 'children'), Output('s2', 'children'), Output('s4', 'children'), Output('s5', 'children'), Output('s6', 'children'),],
+    @app.callback([ Output('s1', 'children'), Output('s2', 'children')],
                   [Input('mp-interval-1', 'n')],
                   [State('url', 'pathname')])
 
@@ -180,28 +181,8 @@ def setup_mining_page_callbacks(app, reader):
             } 
         
         payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key].item()), image=payment_images[key]) for key in payment_images.keys() if key != 'lastPaymentLink']
- 
         
-        total_swap_children = [create_image_text_block(text='Total Swap: 66.45 RSN', image='rosen-logo.png'),
-                         # create_image_text_block(text='Total Swap: 0 rsAda', image='ergo.png'),
-                         # create_image_text_block(text='Total Swap: 0 RSN', image='ergo.png'),
-                         # create_image_text_block(text='Total Swap: 0 SigUSD', image='ergo.png'),
-                        ]
-
-        participation_swap_children = [create_image_text_block(text='Participation : 62.5%', image='rosen-logo.png')]
-        miner_data = db_sync.get_api_data('https://my.ergoport.dev/cgi-bin/sigmining/miner_specific.pl?a={}'.format(wallet))
-        workers = miner_data['performance']['workers']
-        w = []
-        for worker in workers.keys():
-            if workers[worker]['rosen'] == 'rsn':
-                w.append(worker)
-
-
-        workers_swapping = []
-        for worker in w:
-            workers_swapping.append(create_image_text_block(text=worker, image='rosen-logo.png'))
-        
-        return payment_children[:3], payment_children[3:], total_swap_children, participation_swap_children, workers_swapping
+        return payment_children[:3], payment_children[3:] #, bins[0], bins[1], bins[2]
    
     @app.callback([
                  
@@ -284,9 +265,7 @@ def setup_mining_page_callbacks(app, reader):
             df = df[df['lastpayment'].isin(dates)]
 
             df = df.sort_values('created_at')
-            
-            # df = df[df.lastpayment != '2024-05-1']
-    
+                
             payment_chart = px.line(df, 
                   x='lastpayment', 
                   y='todaypaid', 
@@ -413,7 +392,7 @@ def get_layout(reader):
                                dbc.Row(id='mp-banners', justify='center'), 
                          
                                dbc.Row(id='swap-warning', justify='center'), 
-                               dbc.Row(id='miner-id', justify='center'),
+                               # dbc.Row(id='miner-id', justify='center'),
 
                                html.Div(
                                     [
@@ -478,7 +457,6 @@ def get_layout(reader):
                                     }
                                 ),           
                                
-                       # html.Div(children=[html.H2('Block Statistics'), 
                        dash_table.DataTable(id='table-2',
                                             style_table={'overflowX': 'auto'},
                                             style_cell={'height': 'auto', 'minWidth': '180px',

@@ -308,7 +308,8 @@ def setup_front_page_callbacks(app, reader):
                                #      create_image_text_block('triangle.png', 'RSN:', '3'),
                                #  ]),]),
                                    ])
-        return [item]
+        # return [item]
+        return []
         
 def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
@@ -358,27 +359,26 @@ def get_layout(reader):
                                         'width': '97.5%',
                                     })
                                 ]),
-                               html.H1('Swap Rewards or Set Minimum Payout', style={'color': large_text_color, 'textAlign': 'center',}),
-                               dbc.Row(id='swap_info', justify='center'),
+                               html.H1('MINER ID', style={'color': large_text_color, 'textAlign': 'center',}),
+                               # dbc.Row(id='swap_info', justify='center'),
 
                                dbc.Col(style={'padding': '10px'}, children=[
                                 dbc.Card(style=bottom_row_style, children=[
                                     dcc.Markdown(''' 
-                                    #### How it works - Reward Swap
-                                    1. Rewards are sent to the token address. Our backend tracks your participation for each block and minimum payout
-                                    2. When your minimum payout threshold is met, your proportion of rewards is then swapped for the token, and sent to your wallet
+                                    #### How it works - Reward Token Swap
+                                    1. Mint Miner ID NFT - Choose the ratio of tokens you would like to have as well as minimum payout
+                                    2. Once minted you will see your parameters in your mining dashboard
+                                    3. When your minimum payout is reached, price data is checked on spectrum to calculate how much of the token(s) you recieve based on the given tokens ratio in the miner ID. 
 
-                                    #### How it works - Minimum Payout
-                                    1. Backend reads your worker name and if in the format described below your min payout is set to that value
-
-                                    #### Configuration:
-                                    1. Change the address your rigs mine to the token of your choice
-                                    2. Change your worker name to the following format: <your-mining-address>.<minimum-payout>.<worker-name>
+                                    #### Changing your miner ID 
+                                    1. If you want to change your miner ID it is recommended to burn your current ID but is not necessary. Our system will check for the latest miner ID. 
+                                    2. Mint the NFT as you have done so before.
                                     
                                     ### Dev Fees
-                                    There is a X% applied before the swap as a fee to pay the devs of this pool''')
+                                    There is a 3 ERG applied to mint the Miner ID token''')
                                     
                                 ]),]),
+                               
                                html.H1('Mint Miner Config NFT'),
                                html.Div(id='generate-url-button'),
                                html.Div(id='link-container'),

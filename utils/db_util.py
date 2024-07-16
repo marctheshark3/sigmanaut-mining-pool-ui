@@ -1,6 +1,8 @@
 import psycopg2
+from psycopg2 import sql
 import pandas as pd
-import time 
+import time
+
 class PostgreSQLDatabase:
     def __init__(self, username, password, host, port, database_name):
         self.username = username
@@ -35,24 +37,25 @@ class PostgreSQLDatabase:
     def get_db_size(self):
         query = f"SELECT pg_size_pretty(pg_database_size('{self.database_name}'));"
         cursor = self.get_cursor()
-        cursor.execute(query)
-    
-        # Fetch the result
-        size = cursor.fetchone()[0]
-        return size
+        if cursor:
+            cursor.execute(query)
+            size = cursor.fetchone()[0]
+            cursor.close()
+            return size
+        return None
 
-    def create_database(self, new_db_name):
+    def create_database(self, new_db_name, superuser, superuser_password):
         # Connect to the default 'postgres' database to create a new database
         default_conn = psycopg2.connect(
             host=self.host,
             port=self.port,
-            user=self.username,
-            password=self.password,
-            dbname=new_db_name
+            user=superuser,
+            password=superuser_password,
+            dbname='postgres'  # Connect to the default 'postgres' database
         )
         default_conn.autocommit = True  # Enable autocommit mode
         cursor = default_conn.cursor()
-    
+
         try:
             # Create the new database
             cursor.execute(sql.SQL("CREATE DATABASE {};").format(sql.Identifier(new_db_name)))
@@ -75,22 +78,28 @@ class PostgreSQLDatabase:
             finally:
                 cursor.close()
 
-    def delete_db(self):
-        # Connect to the default 'postgres' database to be able to drop the target database
+    def delete_db(self, superuser, superuser_password):
         default_conn = psycopg2.connect(
             host=self.host,
             port=self.port,
-            user=self.username,
-            password=self.password,
-            dbname=self.database_name
+            user=superuser,
+            password=superuser_password,
+            dbname='postgres'  # Connect to the default 'postgres' database
         )
-        default_conn.autocommit = True  # Enable autocommit mode
+        default_conn.autocommit = True
         cursor = default_conn.cursor()
     
         try:
-            # Drop the existing database if it exists
+            # Terminate active connections to the database
+            cursor.execute(sql.SQL("""
+                SELECT pg_terminate_backend(pid)
+                FROM pg_stat_activity
+                WHERE datname = %s AND pid <> pg_backend_pid();
+            """), [self.database_name])
+    
+            # Drop the database
             cursor.execute(sql.SQL("DROP DATABASE IF EXISTS {};").format(sql.Identifier(self.database_name)))
-            print(f"Database {db_name} deleted successfully.")
+            print(f"Database {self.database_name} deleted successfully.")
         except psycopg2.errors.InsufficientPrivilege as e:
             print(f"Insufficient privileges to delete database {self.database_name}: {e}")
         except psycopg2.OperationalError as e:
@@ -116,13 +125,11 @@ class PostgreSQLDatabase:
         cursor = self.get_cursor()
         if cursor:
             try:
-                # First, determine the total number of rows in the table
                 cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
                 total_rows = cursor.fetchone()[0]
-                num_batches = (total_rows + batch_size - 1) // batch_size  # Calculate how many batches are needed
+                num_batches = (total_rows + batch_size - 1) // batch_size
 
                 for batch in range(num_batches):
-                    # Use ROW_NUMBER() to select a range of rows within the current batch
                     delete_query = f"""
                     DELETE FROM {table_name}
                     WHERE ctid IN (
@@ -136,16 +143,12 @@ class PostgreSQLDatabase:
                     cursor.execute(delete_query)
                     self.conn.commit()
                     print(f"Batch {batch + 1}/{num_batches}: Deleted up to {batch_size} rows from {table_name}")
-
-                    # Avoid overloading the database with a small delay
                     time.sleep(1)
-
             except psycopg2.OperationalError as e:
                 print(f"Batch deletion failed: {e}")
                 self.conn.rollback()
             finally:
                 cursor.close()
-
 
     def insert_data(self, table_name, data):
         cursor = self.get_cursor()
@@ -153,70 +156,41 @@ class PostgreSQLDatabase:
             try:
                 columns = list(data.keys())
                 values = list(data.values())
-                placeholders = ', '.join(['%s'] * len(values))  # Create placeholders for parameterized query
+                placeholders = ', '.join(['%s'] * len(values))
                 query = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
                 cursor.execute(query, values)
                 self.conn.commit()
             except psycopg2.OperationalError as e:
                 print(f"Insertion failed: {e}")
-
-            except Exception as e:
-                print('EXCEPTION', e)
-                pass
             finally:
                 cursor.close()
 
     def update_or_insert(self, table_name, data, key_columns):
-        """
-        Updates or inserts data based on specified key columns.
-        Assumes data is a dictionary containing all necessary columns.
-    
-        :param table_name: Name of the table to update or insert into.
-        :param data: Data dictionary where keys are column names and values are data values.
-        :param key_columns: A list of column names to use as keys for identifying existing records.
-        """
         cursor = self.get_cursor()
-        flag = False
         if cursor:
             try:
-                # Construct WHERE clause based on key columns
                 where_clause = ' AND '.join([f"{col} = %s" for col in key_columns])
                 key_values = [data[col] for col in key_columns]
     
-                # First, try to fetch the existing row with the same keys.
                 cursor.execute(f"SELECT * FROM {table_name} WHERE {where_clause}", key_values)
                 existing_row = cursor.fetchone()
     
                 if existing_row:
-                    # Update the row if it exists.
                     columns = ', '.join([f"{key} = %s" for key in data.keys() if key not in key_columns])
                     values = [data[key] for key in data.keys() if key not in key_columns]
                     cursor.execute(f"UPDATE {table_name} SET {columns} WHERE {where_clause}", values + key_values)
-                    flag = True
                 else:
-                    # Insert a new row if it doesn't exist.
                     columns = ', '.join(data.keys())
                     placeholders = ', '.join(['%s'] * len(data))
                     cursor.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", list(data.values()))
-                    flag = True
     
                 self.conn.commit()
             except psycopg2.OperationalError as e:
                 print(f"Database operation failed: {e}")
             finally:
                 cursor.close()
-        return flag
-
 
     def fetch_data(self, table_name, columns='*', where=None):
-        """
-        Fetches data from the specified table.
-    
-        :param table_name: Name of the table to fetch data from.
-        :param columns: Columns to fetch, defaults to '*'.
-        :param where: Optional WHERE clause to filter results.
-        :return: A list of tuples containing the data fetched, or an empty list if no data.
-        """
         cursor = self.get_cursor()
         if cursor:
             try:
@@ -224,13 +198,11 @@ class PostgreSQLDatabase:
                 if where:
                     query += f" WHERE {where}"
                 return pd.read_sql_query(query, self.conn)
-         
             except psycopg2.OperationalError as e:
                 print(f"Data fetch failed: {e}")
             finally:
                 cursor.close()
         return pd.DataFrame()
-
 
     def close(self):
         if self.conn:
@@ -238,7 +210,19 @@ class PostgreSQLDatabase:
 
 # Example usage
 if __name__ == '__main__':
-    database = PostgreSQLDatabase('marctheshark', 'password', 'localhost', 5432, 'sigmanaut-mining')
+    database = PostgreSQLDatabase('marctheshark', 'password', 'localhost', 5432, 'mining-db')
     database.connect()
-    database.cursor()
-    database.insert_data('your_table_name', ['column1', 'column2'], ('value1', 'value2'))
+
+    # Example operations
+    print(database.get_db_size())
+    # database.create_table('your_table_name', ['column1 TEXT', 'column2 TEXT'])
+    # database.insert_data('your_table_name', {'column1': 'value1', 'column2': 'value2'})
+    # data = database.fetch_data('your_table_name')
+    # print(data)
+
+    # Delete database with superuser credentials
+    superuser = 'postgres'  # Default superuser
+    superuser_password = 'password'  # The new password you set
+    database.delete_db(superuser, superuser_password)
+
+    database.close()
