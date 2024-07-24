@@ -1,0 +1,45 @@
+
+# Colors
+background_color: 'white' # '#526D82'
+secondary_color: 'white' # '#27374D'
+large_text_color: 'white' # '#9DB2BF' 
+small_text_color: 'white' # '#DDE6ED'
+
+# ICONS
+## Mining Page
+shares: 'min_payout.png'
+balance: 'triangle.png'
+total_paid: 'ergo.png'
+last_payment: 'coins.png'
+price: 'ergo.png'
+schema: 'ergo.png'
+participation: 'percentage.png'
+paid_today: 'ergo.png'
+payment_link: 'ergo.png'
+minimum_payout: 'min_payout.png'
+
+## Front Page
+pool_fee: 'percentage.png'
+pool_hashrate: 'boltz.png'
+pool_effort: 'ergo.png'
+num_blocks_found: 'ergo.png'
+
+miners_online: 'smileys.png'
+
+network_hashrate: 'bolt.png'
+network_difficulty: 'gauge.png'
+block_height: 'height.png'
+
+# TOKENS
+ergo: 'ergo.png'
+sigusd: 'ergo.png'
+rosen: 'rosen.png'
+comet: 'ergo.png'
+cyberverse: 'ergo.png'
+rsBTC: 'ergo.png'
+rsADA: 'ergo.png'
+bobber: 'ergo.png'
+love: 'ergo.png'
+
+# Banners
+block_found: 'block_found.gif'

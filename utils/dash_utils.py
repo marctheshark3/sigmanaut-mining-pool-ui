@@ -5,6 +5,47 @@ import pandas as pd
 import plotly.express as px
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
+import hashlib
+from utils.get_yaml_content import get_yaml_content 
+
+url ='https://raw.githubusercontent.com/marctheshark3/ergo-fan-clubs/main/pool/conf.yaml'
+config, hash = get_yaml_content(url) 
+
+def set_theme(url):
+    data, hash = get_yaml_content(url)
+
+    card_color = config['secondary_color'] # '#27374D'
+    background_color = config['background_color'] #'#526D82'
+    large_text_color = config['large_text_color'] # '#9DB2BF' 
+    small_text_color = config['small_text_color'] # '#DDE6ED'
+
+    print('set theme', card_color, background_color)
+
+    top_card_style = {'backgroundColor': card_color, 'color': small_text_color, 'padding': '20px',}
+    
+    card_style = {'border': '1px solid {}'.format('#292929'), 'backgroundColor': card_color, 'color': 'white',
+                  'padding': '15x', 'textAlign': 'center', 'justifyContent': 'center'}
+    
+    table_style = {'backgroundColor': card_color, 'color': large_text_color,
+                   'fontWeight': 'bold', 'textAlign': 'center', 'border': '1px solid black',}
+    
+    top_row_style = {'backgroundColor': card_color,
+                     'color': 'white',
+                     'display': 'flex',
+                     'padding': '20px',
+                     'height': 'auto',
+                     'justifyContent': 'flex-start',}
+    
+    bottom_row_style = {
+                        'backgroundColor': card_color,
+                        'color': 'white',
+                        'padding': '20x',
+                        'display': 'flex',
+                        'alignItems': 'left',
+                        'justifyContent': 'left',
+                        'fontSize': '14px',
+                    }
+    return hash, [card_color, background_color, top_card_style, card_style, table_style, top_row_style, bottom_row_style]
 
 dark_theme_table_style = {} #{'overflowX': 'auto', 'padding': '10px'}
 
@@ -12,23 +53,17 @@ dark_theme_style_header = {'backgroundColor': '#222', 'color': '#FFFFFF', 'fontW
 
 dark_theme_style_cell = {'backgroundColor': '#333', 'color': '#FFFFFF', 'textAlign': 'left', 'padding': '10px',}
 
-
-
 container_style = {'flex': 1, 'margin': '10px', 'padding': '10px', 'border': 'none', 'borderRadius': '5px', 'background': '#1e1e1e'}
-card_color = '#27374D'
-background_color = '#526D82'
-large_text_color = '#9DB2BF' 
-small_text_color = '#DDE6ED'
+
+card_color = config['secondary_color'] # '#27374D'
+background_color = config['background_color'] #'#526D82'
+large_text_color = config['large_text_color'] # '#9DB2BF' 
+small_text_color = config['small_text_color'] # '#DDE6ED'
+
 top_card_style = {
     'backgroundColor': card_color,
     'color': small_text_color,
-    # 'margin': '10px',
-    'padding': '20px',
-    # 'justifyContent': 'center',
-    # 'height': '350px',
-    # 'textAlign': 'center',
-    # 'border': '1px solid {}'.format(small_text_color),
-    
+    'padding': '20px',  
 }
 
 card_style = {
@@ -78,21 +113,13 @@ bottom_row_style = {
     'justifyContent': 'left',
     'fontSize': '14px',
 }
+
 image_style = {'height': '46px', 'justifyContent': 'center',}
 bottom_image_style = {'height': '40px', 'justifyContent': 'center',}
 top_image_style = {'height': '80px', 'justifyContent': 'center',}
 image_card_style={
     'margin': '10px','textAlign': 'center',
     'padding': '20px',}
-# def create_row_card(h2_text, p_text, image=None):
-#     if image:
-#         children = html.Img(src=image, style=image_style)
-#     else:
-#         children = []
-#     children.append(html.H2(h2_text, style={'color': '#FFA500'}))
-#     children.append(html.P(p_text))
-
-#     return dbc.Col(dbc.Card(style=card_style, children=[children]), style={'marginRight': 'auto', 'marginLeft': 'auto'})
 
 def create_row_card(h2_text, p_text, image=None):
     return dbc.Col(dbc.Card(style=top_card_style, children=[

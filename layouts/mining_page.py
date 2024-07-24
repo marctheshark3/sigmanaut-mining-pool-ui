@@ -1,4 +1,7 @@
-from utils.dash_utils import image_style, create_pie_chart, create_bar_chart, create_table_component, create_row_card, create_image_text_block, card_style, image_card_style, bottom_row_style, card_color, background_color, large_text_color, small_text_color, bottom_image_style, top_row_style, table_style
+from utils.dash_utils import image_style, create_pie_chart, create_bar_chart, create_table_component, create_row_card, create_image_text_block, large_text_color, small_text_color, bottom_image_style
+
+# card_color, background_color, top_card_style, card_style, table_style, top_row_style, bottom_row_style
+# from utils.dash_utils import set_theme
 from dash import Dash, html, dash_table, dcc, callback_context
 from dash.exceptions import PreventUpdate
 from urllib.parse import unquote
@@ -14,6 +17,10 @@ from flask_session import Session
 
 from utils.api_2_db import DataSyncer
 from utils.find_miner_id import ReadTokens
+
+# intitialize theme settings
+# url ='https://raw.githubusercontent.com/marctheshark3/ergo-fan-clubs/main/pool/conf.yaml'
+# current_hash, theme_config = set_theme(url) 
 
 def create_token_dropdown(dropdown_id, label, options, default_value):
     return html.Div([
@@ -90,11 +97,17 @@ def setup_mining_page_callbacks(app, reader):
         return 'Enter values and press submit'
         
     @app.callback([Output('mp-stats', 'children'),],
-                  [Input('mp-interval-4', 'n')],
+                  [Input('mp-interval-4', 'n'), Input('theme-store', 'data')],
                   [State('url', 'pathname')])
 
-    def update_front_row(n, pathname):
+    def update_front_row(n, theme, pathname):
+        print('---------------------', theme[:2])
+        card_color, background_color, top_card_style, card_style, table_style, top_row_style, bottom_row_style = theme
 
+        # url ='https://raw.githubusercontent.com/marctheshark3/ergo-fan-clubs/main/pool/conf.yaml'
+
+        # new_hash, theme = set_theme(url)
+        card_color, background_color, top_card_style, card_style, table_style, top_row_style, bottom_row_style = theme
         miner = unquote(pathname.lstrip('/'))
         wallet = miner
 
@@ -184,13 +197,12 @@ def setup_mining_page_callbacks(app, reader):
         
         return payment_children[:3], payment_children[3:] #, bins[0], bins[1], bins[2]
    
-    @app.callback([
-                 
-                    Output('s3', 'children'),],
+    @app.callback([Output('s3', 'children'),],
                   [Input('mp-interval-1', 'n')],
                   [State('url', 'pathname')])
 
     def update_outside(n, pathname):
+       
         miner = unquote(pathname.lstrip('/')) 
 
         ### PAYMENT STATS ###
@@ -202,13 +214,13 @@ def setup_mining_page_callbacks(app, reader):
 
         my_payment['Participation [%]']= my_payment['participation'].item()
 
-        payment_images ={'Participation [%]': 'smileys.png',
+        payment_images ={'Participation [%]': 'smileys.png', 
                          'todaypaid': 'ergo.png',
                          'lastpaymentlink': 'ergo.png',
                         }
         
         payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key].item()), image=payment_images[key]) for key in payment_images.keys() if key != 'lastpaymentlink']
-        link = html.Div(style=bottom_row_style, children=[
+        link = html.Div( children=[
                         html.Img(src='assets/{}'.format('ergo.png'), style=bottom_image_style),
                         html.Span(dcc.Link('Last Payment Link', href=my_payment['lastpaymentlink'].item(), target='_blank'), style={'padding': '10px'})])
         
@@ -285,8 +297,6 @@ def setup_mining_page_callbacks(app, reader):
             return [payment_chart, 'PAYMENT OVER TIME']
             
     
-
-    
     @app.callback([Output('table-2', 'data'),
                 Output('table-title', 'children'),],
                   [Input('mp-interval-3', 'n_intervals'),
@@ -361,10 +371,32 @@ def setup_mining_page_callbacks(app, reader):
             item = []
         
         return [dbc.Row(id='swap-warning', justify='center', children=item)]
-                                
 
-def get_layout(reader):
+
+    # @app.callback(
+    # Output('theme-store', 'data'),
+    # Input('theme-interval', 'n_intervals'),
+    # State('theme-store', 'data')
+    # )
+    # def update_theme(n_intervals, stored_theme):
+    #     global current_hash
+    #     url ='https://raw.githubusercontent.com/marctheshark3/ergo-fan-clubs/main/pool/conf.yaml'
+
+    #     new_hash, new_theme_config = set_theme(url)
+    #     # if new_hash != current_hash:
+    #     #     current_hash = new_hash
+    #     return new_theme_config
+    #     # return stored_theme
+    
+                                    
+
+def get_layout(reader, theme_data):
     md=4
+    # url ='https://raw.githubusercontent.com/marctheshark3/ergo-fan-clubs/main/pool/conf.yaml'
+    # hash, theme = set_theme(url)
+    
+    card_color, background_color, top_card_style, card_style, table_style, top_row_style, bottom_row_style = theme_data
+    
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '15px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px'},
                            children=[
                                
@@ -375,7 +407,7 @@ def get_layout(reader):
                                dcc.Interval(id='mp-interval-5', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interval-6', interval=60*1000, n_intervals=0),
                                dcc.Interval(id='mp-interval-7', interval=60*1000, n_intervals=0),
-                               
+                                   
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
                                dbc.Row(id='mp-stats', justify='center',),

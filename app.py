@@ -10,6 +10,11 @@ from layouts.mining_page import setup_mining_page_callbacks
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
+from utils.dash_utils import set_theme
+
+# Initialize theme settings
+url = 'https://raw.githubusercontent.com/marctheshark3/ergo-fan-clubs/main/pool/conf.yaml'
+current_hash, theme_config = set_theme(url) 
 
 # Initialize Flask app
 server = Flask(__name__)
@@ -37,20 +42,39 @@ app = Dash(__name__, url_base_pathname='/', server=server, external_stylesheets=
 server = app.server 
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
-    html.Div(id='page-content')
+    html.Div(id='page-content'),
+    dcc.Interval(id='theme-interval', interval=60*1000, n_intervals=0),  # Check every minute
+    dcc.Store(id='theme-store', data=theme_config)  # Store theme settings
+    
 ])
 
-@app.callback(Output('page-content', 'children'),
-              [Input('url', 'pathname')])
-def display_page(pathname):
+@app.callback(
+    Output('theme-store', 'data'),
+    Input('theme-interval', 'n_intervals'),
+    State('theme-store', 'data')
+)
+def update_theme(n_intervals, stored_theme):
+    global current_hash
+    url ='https://raw.githubusercontent.com/marctheshark3/ergo-fan-clubs/main/pool/conf.yaml'
+    new_hash, new_theme_config = set_theme(url)
+    if new_hash != current_hash:
+        current_hash = new_hash
+        print(f"Theme updated: {new_theme_config}")
+        return new_theme_config
+    return stored_theme
+
+
+@app.callback(
+    Output('page-content', 'children'),
+    [Input('url', 'pathname'), Input('theme-store', 'data')]
+)
+def display_page(pathname, theme_data):
     if pathname and pathname != "/":
-        # Decode the mining address from the URL
         mining_address = unquote(pathname.lstrip('/'))
-        # Use the mining address to generate the page content
-        # This is where you might call a function to get the layout based on the mining address
-        return mining_page.get_layout(reader)
+        return mining_page.get_layout(reader, theme_data)
     else:
         return front_page.get_layout(reader)
+
 
 # Define callback to update page content or handle business logic
 @app.callback(
