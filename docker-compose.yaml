@@ -19,7 +19,6 @@ services:
       retries: 5
 
   app:
-    # image: neuralyogi/sigmanaut-mining-pool-ui:v1.0
     image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
     environment:
       POSTGRES_DB: mining_db
@@ -32,13 +31,21 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./:/app
-    ports:
-      - "8050:8050"
+    expose:
+      - "8050"
     restart: unless-stopped
     depends_on:
       database:
         condition: service_healthy
 
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
 
 volumes:
   mining_db:
