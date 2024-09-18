@@ -9,6 +9,10 @@ from utils.shark_api import ApiReader
 import pandas as pd
 from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
 
+
+from utils.get_erg_prices import PriceReader
+
+priceapi = PriceReader()
 sharkapi = ApiReader(config_path="../conf")
 
 debug = False
@@ -85,7 +89,7 @@ def setup_front_page_callbacks(app, reader):
         data = sharkapi.get_pool_stats()
         
         data['poolhashrate'] = round(data['poolhashrate'] / 1e9, 2)
-        data['price'] = 'TBD'
+        data['price'] = round(priceapi.get()[1], 3)
         ergo = data['price'] #.item() 
         
         n_miners = '{}'.format(data['connectedminers'])
@@ -104,14 +108,19 @@ def setup_front_page_callbacks(app, reader):
 
     def update_metrics(n):
         data = sharkapi.get_pool_stats()
+        block_data = sharkapi.get_block_stats()
+        block_df = pd.DataFrame(block_data)
+        latest_block_time = max(block_df.created)
+        
  
         data['minimumpayment'] = 0.5
         data['fee'] = 0.9
         data['paid'] = sharkapi.get_payment_stats()
         data['payoutscheme'] = 'PPLNS'
-        data['pooleffort'] = -1
+        data['pooleffort'] = calculate_mining_effort(data['networkdifficulty'], data['networkhashrate'],
+                                         data['poolhashrate'], latest_block_time)
         
-        blocks_found = len(sharkapi.get_block_stats())
+        blocks_found = len(block_data)
         data['blocks'] = blocks_found
         
         md = 4
@@ -225,9 +234,9 @@ def setup_front_page_callbacks(app, reader):
                 return  [], title
             print(block_df.columns)
 
-            block_df = block_df.filter(['created', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'address'])
+            block_df = block_df.filter(['created', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'miner'])
 
-            block_df['address'] = ['{}..{}'.format(address[:3], address[-3:]) for address in block_df['address']]
+            block_df['miner'] = ['{}..{}'.format(address[:3], address[-3:]) for address in block_df['miner']]
             
             block_df = block_df.sort_values(['created'], ascending=False)
             block_df['effort'] = round(block_df['effort'] * 100, 2)       
@@ -237,7 +246,7 @@ def setup_front_page_callbacks(app, reader):
  
 
             block_df = block_df.rename(columns={'effort': 'Effort [%]', 'created': 'Time Found',
-                            'blockheight': 'Height', 'address': 'Miner',
+                            'blockheight': 'Height', 'miner': 'Miner',
                             'reward': 'ERG Reward', 'confirmationprogress': 'Confirmation'})
             
             df = block_df
@@ -255,7 +264,7 @@ def setup_front_page_callbacks(app, reader):
             df['Days to Find'] = [calculate_time_to_find_block(pool_data['networkdifficulty'], pool_data['networkhashrate'], row.hashrate) for _, row in df.iterrows()]
             df = df.sort_values(['effort', 'hashrate'], ascending=False)
             df['address'] = ['{}..{}'.format(address[:3], address[-3:]) for address in df['address']]
-            df['hashrate'] = df['hashrate'] / 1e6
+            df['hashrate'] = round(df['hashrate'] / 1e6, 2)
             df['last_block_found'] = [data[:10] if data else None for data in df['last_block_found']]
             df = df.drop(columns=['lastStatTime', 'sharesPerSecond'])
  
@@ -264,6 +273,8 @@ def setup_front_page_callbacks(app, reader):
                                     # 'sharesperSecond': 'Shares/s',
                                     'effort': 'Current Effort [%]',
                                     'last_block_found': 'Last Block Found'})
+
+            df = df[:15]
             
             title = 'Current Top Miners'
 
@@ -304,11 +315,11 @@ def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
                            children=[
                                
-                               dcc.Interval(id='fp-int-1', interval=60*1000, n_intervals=0),
-                               dcc.Interval(id='fp-int-2', interval=60*1000, n_intervals=0),
-                               dcc.Interval(id='fp-int-3', interval=60*1000, n_intervals=0),
-                               dcc.Interval(id='fp-int-4', interval=60*1000, n_intervals=0),
-                               dcc.Interval(id='fp-int-5', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='fp-int-1', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='fp-int-2', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='fp-int-3', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='fp-int-4', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='fp-int-5', interval=60*1000*5, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': large_text_color, 'textAlign': 'center',}),                                   
                                  # Metrics overview row
@@ -397,7 +408,7 @@ def get_layout(reader):
                                                     {'label': 'Block-Stats', 'value': 'blocks'},
                                                     {'label': 'Top-Miners', 'value': 'miners'}
                                                 ],
-                                                value='miners',  # Default value
+                                                value='blocks',  # Default value
                                                 style={'width': '300px', 'color': 'black'}
                                             ),
                                             style={'flex': '1'}

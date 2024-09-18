@@ -13,9 +13,11 @@ from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
 
 from utils.shark_api import ApiReader
+from utils.get_erg_prices import PriceReader
 from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
 from datetime import datetime
 sharkapi = ApiReader(config_path="../conf")
+priceapi = PriceReader()
 
 debug = False
 server = Flask(__name__)
@@ -46,33 +48,12 @@ def setup_mining_page_callbacks(app, reader):
             short_wallet = '{}...{}'.format(wallet[:3], wallet[-5:])
         else:
             short_wallet = wallet
-
-        # worker_df = db_sync.db.fetch_data('live_worker')
-        # total_df = worker_df[worker_df.worker == 'totals']
-        # my_worker_df = total_df[total_df.miner == miner]
-        # latest_worker = my_worker_df[my_worker_df.created == max(my_worker_df.created)]
         
-        # my_total_hash = latest_worker.hashrate.item()
-
-        # my_effort = latest_worker.effort.item()
-        # my_ttf = latest_worker.ttf.item()
-
-        # data = db_sync.db.fetch_data('stats')
-        # data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
-        
-        
-        # block_df = reader.block_df
-        # block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
-        # block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == wallet)
-        # my_blocks = block_df[block_df.my_wallet == True]
-        
-        pool_data = sharkapi.get_pool_stats()
-        
-
         block_data = sharkapi.get_block_stats()
         block_df = pd.DataFrame(block_data)
+        pool_data = sharkapi.get_pool_stats()
         try:
-            recent_block = min(block_df['created'])
+            recent_block = max(block_df['created'])
             pool_effort = calculate_mining_effort(pool_data['networkdifficulty'], pool_data['networkhashrate'],
                                          pool_data['poolhashrate'], recent_block)
         except Exception as e:
@@ -131,17 +112,18 @@ def setup_mining_page_callbacks(app, reader):
         miner_data = sharkapi.get_miner_stats(wallet)
 
         total_paid = miner_data['total_paid']
-        miner_data['pendingshares'] = ''
-        miner_data['price'] = ''
+        miner_data['pendingshares'] = 'TBD'
+        miner_data['price [$]'] = round(priceapi.get()[1], 3)
         miner_data['schema'] = 'PPLNS'
-        miner_data['last_payment'] = miner_data['last_payment']['date']
+        miner_data['last_payment'] = miner_data['last_payment']['date'][:10]
+        miner_data['total_paid'] = round(miner_data['total_paid'], 3)
 
         payment_images ={
             'pendingshares': 'min-payout.png',
              'balance': 'triangle.png',
              'total_paid': 'ergo.png',
              'last_payment': 'coins.png',
-             'price': 'ergo.png',
+             'price [$]': 'ergo.png',
              'schema': 'ergo.png',
             }
         
@@ -163,7 +145,7 @@ def setup_mining_page_callbacks(app, reader):
 
         miner_data['Participation [%]'] = -1
         miner_data['tx_link'] = miner_data['last_payment']['tx_link']
-
+        miner_data['paid_today'] = round(miner_data['paid_today'], 2)
         images ={'Participation [%]': 'smileys.png',
                          'paid_today': 'ergo.png',
                          'tx_link': 'ergo.png',
@@ -205,23 +187,27 @@ def setup_mining_page_callbacks(app, reader):
             df = pd.DataFrame(rows)
 
             df.sort_index(inplace=True)
-    
-            miner_performance_chart = px.line(df, 
-                  x='created', 
-                  y='hashrate', 
-                  color='worker', 
-                  labels={'hashrate': 'Mh/s', 'created': 'Time'},
-                  markers=True)
-     
-            miner_performance_chart.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                legend_title_text='Miner',
-                legend=dict(font=dict(color='#FFFFFF')),
-                titlefont=dict(color='#FFFFFF'),
-                xaxis=dict(title='Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
-                yaxis=dict(title='Hashrate', color='#FFFFFF')
-            )
+            # if not df:
+            #     df = pd.DataFrame(columns=['created', 'hashrate', 'worker'])
+            try:
+                miner_performance_chart = px.line(df, 
+                      x='created', 
+                      y='hashrate', 
+                      color='worker', 
+                      labels={'hashrate': 'Mh/s', 'created': 'Time'},
+                      markers=True)
+         
+                miner_performance_chart.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    legend_title_text='Miner',
+                    legend=dict(font=dict(color='#FFFFFF')),
+                    titlefont=dict(color='#FFFFFF'),
+                    xaxis=dict(title='Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
+                    yaxis=dict(title='Hashrate', color='#FFFFFF')
+                )
+            except ValueError:
+                return [{}, 'NO RECENT HASH']
             return [miner_performance_chart, 'WORKER HASHRATE OVER TIME']
 
         elif chart == 'payments':
@@ -284,7 +270,7 @@ def setup_mining_page_callbacks(app, reader):
 
             df['ttf'] = [calculate_time_to_find_block(pool_data['networkdifficulty'], pool_data['networkhashrate'],
                                      hash) for hash in df.hashrate]
-            df['hashrate'] = df['hashrate'] / 1e6
+            df['hashrate'] = round(df['hashrate'] / 1e6, 2)
             df = df.rename(columns={"effort": "Current Effort [%]", "hashrate": "MH/s", 'ttf': 'TTF [Days]'})
             
             title_2 = 'WORKER DATA'
@@ -296,11 +282,8 @@ def setup_mining_page_callbacks(app, reader):
 
             if df.empty:
                 return [], title_2
-            # block_df = db_sync.db.fetch_data('block')
-            # my_block_df = block_df[block_df.miner == short_wallet]
-            # df = my_block_df
-            # print(df.columns)
-            df['effort'] = 100 * df['effort']
+           
+            df['effort'] = round(100 * df['effort'], 2)
             df = df.filter(['created', 'blockheight', 'effort', 'reward', 'confirmationprogress'])
             df = df.rename(columns={'created': 'Time Found', 'blockheight': 'Height',
                                     'effort': 'Effort [%]', 'confirmationprogress': 'Confirmation [%]'})
@@ -336,11 +319,11 @@ def get_layout(reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '15px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px'},
                            children=[
                                
-                               dcc.Interval(id='mp-interval-1', interval=60*1000, n_intervals=0),
-                               dcc.Interval(id='mp-interval-2', interval=60*1000, n_intervals=0),
-                               dcc.Interval(id='mp-interval-3', interval=60*1000, n_intervals=0),
-                               dcc.Interval(id='mp-interval-4', interval=60*1000, n_intervals=0),
-                               dcc.Interval(id='mp-interval-5', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='mp-interval-1', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='mp-interval-2', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='mp-interval-3', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='mp-interval-4', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='mp-interval-5', interval=60*1000*5, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
                                dbc.Row(id='mp-stats', justify='center',),

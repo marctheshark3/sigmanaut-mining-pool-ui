@@ -39,7 +39,7 @@ def calculate_mining_effort(network_difficulty, network_hashrate, hashrate, last
     # Effort is the pool's share of hashes divided by the number of hashes to find a block
     effort = pool_share_of_hashes / hashes_to_find_block * 100
     
-    return round(effort, 3)
+    return round(effort, 2)
 
 def calculate_time_to_find_block(network_difficulty, network_hashrate, hashrate):
     """
@@ -63,4 +63,4 @@ def calculate_time_to_find_block(network_difficulty, network_hashrate, hashrate)
     except ZeroDivisionError:
         time_to_find_block = float('inf')
     
-    return round(time_to_find_block / 3600 / 24, 3)
+    return round(time_to_find_block / 3600 / 24, 2)
