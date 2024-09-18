@@ -5,11 +5,9 @@ from pandas import DataFrame
 from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style, bottom_row_style, bottom_image_style, card_color, large_text_color, small_text_color, background_color
 import plotly.graph_objs as go
 import plotly.express as px
-from utils.shark_api import ApiReader
-import pandas as pd
-from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
+from utils.api_2_db import DataSyncer
 
-sharkapi = ApiReader(config_path="../conf")
+db_sync = DataSyncer(config_path="../conf")
 
 debug = False
 
@@ -82,14 +80,12 @@ def setup_front_page_callbacks(app, reader):
                    [Input('fp-int-4', 'n_intervals')])
 
     def update_first_row(n):
-        data = sharkapi.get_pool_stats()
-        
-        data['poolhashrate'] = round(data['poolhashrate'] / 1e9, 2)
-        data['price'] = 'TBD'
-        ergo = data['price'] #.item() 
-        
-        n_miners = '{}'.format(data['connectedminers'])
-        hashrate = '{} GH/s'.format(data['poolhashrate'])
+        data = db_sync.db.fetch_data('stats')
+        data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
+       
+        ergo = data['price'].item() 
+        n_miners = '{}'.format(data['connectedminers'].item())
+        hashrate = '{} GH/s'.format(data['poolhashrate'].item())
 
         row_1 = dbc.Row(justify='center', align='stretch',
                         children=[create_row_card('assets/boltz.png', hashrate, 'Pool Hashrate'),
@@ -103,39 +99,32 @@ def setup_front_page_callbacks(app, reader):
                    [Input('fp-int-1', 'n_intervals')])
 
     def update_metrics(n):
-        data = sharkapi.get_pool_stats()
  
-        data['minimumpayment'] = 0.5
-        data['fee'] = 0.9
-        data['paid'] = sharkapi.get_payment_stats()
-        data['payoutscheme'] = 'PPLNS'
-        data['pooleffort'] = -1
-        
-        blocks_found = len(sharkapi.get_block_stats())
-        data['blocks'] = blocks_found
-        
+        data = db_sync.db.fetch_data('stats')
+        data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
+
         md = 4
         row_2 = dbc.Row(children=[
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumpayment']),
-                            create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'])),
-                            create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'], 3))),
+                            create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumpayment'].item()),
+                            create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'].item())),
+                            create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'].item(), 3))),
                         ])
                     ]),
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkhashrate'] / 1e12, 2))),
-                            create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkdifficulty'] / 1e15, 2))),
-                            create_image_text_block('height.png', 'Block Height:', data['blockheight']),
+                            create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkhashrate'].item(), 2))),
+                            create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkdifficulty'].item(), 2))),
+                            create_image_text_block('height.png', 'Block Height:', data['blockheight'].item()),
                            ])
                     ]),
     
                     dbc.Col(md=md, style={'padding': '10px'}, children=[
                         dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('triangle.png', 'Schema:', data['payoutscheme']),
-                            create_image_text_block('ergo.png', 'Blocks Found:', data['blocks']),
-                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['pooleffort'], 3)),
+                            create_image_text_block('triangle.png', 'Schema:', data['payoutscheme'].item()),
+                            create_image_text_block('ergo.png', 'Blocks Found:', data['blocks'].item()),
+                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['pooleffort'].item(), 3)),
                         ])
                     ])])
         return [row_2]
@@ -146,16 +135,14 @@ def setup_front_page_callbacks(app, reader):
     def update_plots(n, value):
         
         if value == 'effort':
-            block_data = sharkapi.get_block_stats()
-            block_df = pd.DataFrame(block_data)
-                        
+            block_df = db_sync.db.fetch_data('block')
+            block_df = block_df.sort_values(['time_found'])
             block_df['rolling_effort'] = block_df['effort'].expanding().mean()
             block_df['effort'] = block_df['effort'] * 100
             title = 'EFFORT AND DIFFICULTY'
             
-            
-            block_df = block_df.rename(columns={'created': 'time_found'})
             block_df = block_df.sort_values('time_found')
+            
             response_df = block_df.melt(id_vars = ['time_found'], value_vars=['rolling_effort', 'effort', 'networkdifficulty'])
             
             effort_response_chart = px.line(response_df[response_df['variable'] != 'networkdifficulty'], 
@@ -187,15 +174,20 @@ def setup_front_page_callbacks(app, reader):
             return effort_response_chart, title
             
         title = 'HASHRATE OVER TIME'
-        data = sharkapi.get_total_hash_stats()
-        performance_df = pd.DataFrame(data)
-        performance_df = performance_df.rename(columns={'timestamp': 'Time',
-                                                       'total_hashrate': 'hashrate'})
+        
+        performance_df = db_sync.db.fetch_data('performance')
+        performance_df = performance_df[performance_df.worker != 'totals']
+        performance_df['hashrate'] = performance_df['hashrate'] / 1e3
 
-        performance_df['hashrate'] = performance_df['hashrate'] / 1e9
-        performance_df = performance_df.sort_values(['Time'])
+        total_hashrate_df = performance_df.groupby('created').agg({
+            'hashrate': 'sum',                  # Sum of hashrate
+            'shares_per_second': 'sum',         # Sum of shares_per_second
+            'worker': 'nunique',                # Count of unique workers
+            'miner': 'nunique'                  # Count of unique miners
+            }).reset_index()
+        total_hashrate_df = total_hashrate_df.sort_values(['created'])
 
-        total_hashrate_plot={'data': [go.Scatter(x=performance_df['Time'], y=performance_df['hashrate'],
+        total_hashrate_plot={'data': [go.Scatter(x=total_hashrate_df['created'], y=total_hashrate_df['hashrate'],
                                     mode='lines+markers', name='Hashrate Over Time', line={'color': small_text_color})],
                    
                    'layout': go.Layout(xaxis =  {'showgrid': False, 'title': 'Snap Shot Time'},yaxis = {'showgrid': True, 'title': 'GH/s'},        
@@ -216,55 +208,33 @@ def setup_front_page_callbacks(app, reader):
     def update_content(n, selected_data):   
         
         if selected_data == 'blocks':
-            title = 'Blocks Data'
-            data = sharkapi.get_block_stats()
-            block_df = pd.DataFrame(data)
+            block_df = db_sync.db.fetch_data('block')
+            block_df = block_df.filter(['time_found', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'miner'])
+            block_df = block_df.sort_values(['time_found'], ascending=False)
+            block_df['effort'] = block_df['effort'] * 100            
 
-            if block_df.empty:
-                df = DataFrame()  # Empty dataframe as a fallback
-                return  [], title
-            print(block_df.columns)
-
-            block_df = block_df.filter(['created', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'address'])
-
-            block_df['address'] = ['{}..{}'.format(address[:3], address[-3:]) for address in block_df['address']]
-            
-            block_df = block_df.sort_values(['created'], ascending=False)
-            block_df['effort'] = round(block_df['effort'] * 100, 2)       
-            block_df['reward'] = round(block_df['reward'], 2)
-            block_df['confirmationprogress'] = round(block_df['confirmationprogress'], 2)
-            block_df['created'] = [data[:10] for data in block_df['created']]
- 
-
-            block_df = block_df.rename(columns={'effort': 'Effort [%]', 'created': 'Time Found',
-                            'blockheight': 'Height', 'address': 'Miner',
+            block_df = block_df.rename(columns={'effort': 'Effort [%]', 'time_found': 'Time Found',
+                            'blockheight': 'Height', 'miner': 'Miner',
                             'reward': 'ERG Reward', 'confirmationprogress': 'Confirmation'})
             
             df = block_df
             df = df[:15]
-            
+            title = 'Blocks Data'
             
         elif selected_data == 'miners':
-
-            pool_data = sharkapi.get_pool_stats()
-            data = sharkapi.get_live_miner_data()
-            df = pd.DataFrame(data)
-            df['effort'] = [calculate_mining_effort(pool_data['networkdifficulty'], pool_data['networkhashrate'],
-                                         row.hashrate, row.last_block_found) for _, row in df.iterrows()]
-
-            df['Days to Find'] = [calculate_time_to_find_block(pool_data['networkdifficulty'], pool_data['networkhashrate'], row.hashrate) for _, row in df.iterrows()]
+            df = db_sync.db.fetch_data('live_worker')
+            df = df[df.worker == 'totals']
+            df = df[df.created == max(df.created)]
+            df = df.filter(['miner', 'hashrate', 'effort', 'ttf', 'last_block_found'])
+            df['miner'] = ['{}...{}'.format(miner[:3], miner[-5:]) for miner in df.miner]
+            df['hashrate'] = round(df['hashrate'], 2)
             df = df.sort_values(['effort', 'hashrate'], ascending=False)
-            df['address'] = ['{}..{}'.format(address[:3], address[-3:]) for address in df['address']]
-            df['hashrate'] = df['hashrate'] / 1e6
-            df['last_block_found'] = [data[:10] if data else None for data in df['last_block_found']]
-            df = df.drop(columns=['lastStatTime', 'sharesPerSecond'])
  
-            df = df.rename(columns={'address': 'Miner',
+            df = df.rename(columns={'miner': 'Miner',
                                     'hashrate': 'MH/s',
-                                    # 'sharesperSecond': 'Shares/s',
                                     'effort': 'Current Effort [%]',
+                                    'ttf': 'Days to Find',
                                     'last_block_found': 'Last Block Found'})
-            
             title = 'Current Top Miners'
 
         else:
@@ -282,8 +252,9 @@ def setup_front_page_callbacks(app, reader):
                   [Input('fp-int-4', 'n_intervals')])
 
     def update_banners(n): 
-
-        confirmation_number = 100
+        df = db_sync.db.fetch_data('block')
+        bf = df[df.time_found == max(df.time_found)]
+        confirmation_number = bf.confirmationprogress.item()
         flag = False
         if confirmation_number < 50:
             flag = True
@@ -397,7 +368,7 @@ def get_layout(reader):
                                                     {'label': 'Block-Stats', 'value': 'blocks'},
                                                     {'label': 'Top-Miners', 'value': 'miners'}
                                                 ],
-                                                value='miners',  # Default value
+                                                value='blocks',  # Default value
                                                 style={'width': '300px', 'color': 'black'}
                                             ),
                                             style={'flex': '1'}
@@ -422,68 +393,66 @@ def get_layout(reader):
                                             style_data=table_style,),
 
                                
-                               # html.H1('CONNECTING TO THE POOL',
-                               #         style={'color': 'white', 'textAlign': 'center', 'padding': '10px',}),
-                               # dcc.Link('Join our Telegram Group!', href='https://t.me/sig_mining',
-                               #          style={'font-family': 'Times New Roman, Times, serif',
-                               #                 'font-weight': 'bold',
-                               #                 'color': 'white', 'padding': '10px',
-                               #                 'font-size': '30px', "display": "flex", 
-                               #                 "justifyContent": "center" }),
+                               html.H1('CONNECTING TO THE POOL',
+                                       style={'color': 'white', 'textAlign': 'center', 'padding': '10px',}),
+                               dcc.Link('Join our Telegram Group!', href='https://t.me/sig_mining',
+                                        style={'font-family': 'Times New Roman, Times, serif',
+                                               'font-weight': 'bold',
+                                               'color': 'white', 'padding': '10px',
+                                               'font-size': '30px', "display": "flex", 
+                                               "justifyContent": "center" }),
 
                                 # Column for the markdown
-                                # html.Div(children=[
+                                html.Div(children=[
                                     
                                     
-                                #     dcc.Markdown('''
+                                    dcc.Markdown('''
 
-                                #         ## Choose A Port
-                                #         Based on your hashrate and TLS specificity choose the port that is right for you. 
+                                        ## Choose A Port
+                                        Based on your hashrate and TLS specificity choose the port that is right for you. 
 
-                                #         - Port 3052 - Lower than 10GH/s - No TLS
-                                #         - Port 3053 - Higher than 10GH/s - No TLS
-                                #         - Port 3054 - Lower than 10GH/s - TLS
-                                #         - Port 3055 - Higher than 10GH/s - TLS
+                                        - Port 3052 - Lower than 10GH/s - No TLS
+                                        - Port 3053 - Higher than 10GH/s - No TLS
+                                        - Port 3054 - Lower than 10GH/s - TLS
+                                        - Port 3055 - Higher than 10GH/s - TLS
 
-                                #         ### Connecting to the Pool
-                                #         The pools url is 15.204.211.130
+                                        ### Connecting to the Pool
+                                        The pools url is 15.204.211.130
 
-                                #         So if you want TLS and under 10GH/s the port you would choose is 3054 and so on
+                                        So if you want TLS and under 10GH/s the port you would choose is 3054 and so on
 
-                                #         #### HIVEOS
-                                #         1. Set "Pool URL" to 15.204.211.130:3054 
+                                        #### HIVEOS
+                                        1. Set "Pool URL" to 15.204.211.130:3054 
 
-                                #         #### MMPOS
-                                #         1. Modify an existing or create a new pool in Management
-                                #         2. In Hostname enter the URL: 15.204.211.130
-                                #         3. Port: 3054
+                                        #### MMPOS
+                                        1. Modify an existing or create a new pool in Management
+                                        2. In Hostname enter the URL: 15.204.211.130
+                                        3. Port: 3054
 
-                                #         #### Linux or Windows
-                                #         1. Edit the .sh file for the specific miner, in this case lolminer
-                                #         2. In the pool argument enter the full url with port of choice
-                                #         ```
-                                #         POOL=15.204.211.130:3054
-                                #         WALLET=<your_wallet_address>.QX-Fan-Club
-                                #         ./lolMiner --algo AUTOLYKOS2 --pool $POOL --user $WALLET $@
-                                #         while [ $? -eq 42 ]; do
-                                #         sleep 10s
-                                #         ./lolMiner --algo AUTOLYKOS2 --pool $POOL --user $WALLET $@
-                                #         done
-                                #         ```
+                                        #### Linux or Windows
+                                        1. Edit the .sh file for the specific miner, in this case lolminer
+                                        2. In the pool argument enter the full url with port of choice
+                                        ```
+                                        POOL=15.204.211.130:3054
+                                        WALLET=<your_wallet_address>.QX-Fan-Club
+                                        ./lolMiner --algo AUTOLYKOS2 --pool $POOL --user $WALLET $@
+                                        while [ $? -eq 42 ]; do
+                                        sleep 10s
+                                        ./lolMiner --algo AUTOLYKOS2 --pool $POOL --user $WALLET $@
+                                        done
+                                        ```
 
-                                #         ## Updating the Dashboard from git
-                                #         ```
-                                #         docker compose pull # pulls the latest docker image
-                                #         docker compose up -d # Runs the UI
-                                #         docker compose down # Stops the UI
-                                #         ```
+                                        ## Updating the Dashboard from git
+                                        ```
+                                        docker compose pull # pulls the latest docker image
+                                        docker compose up -d # Runs the UI
+                                        docker compose down # Stops the UI
+                                        ```
 
-                                #         Shout out to Vipor.Net for the dashboard inspiration! 
-                                #         ''')
-                                # ],
-                                #          style={'backgroundColor': background_color, 'color': 'white', 'padding': '20px', 'code': {'color': card_color}})
-                           
-                           ])],
+                                        Shout out to Vipor.Net for the dashboard inspiration! 
+                                        ''')
+                                ],
+                                         style={'backgroundColor': background_color, 'color': 'white', 'padding': '20px', 'code': {'color': card_color}})])],
     style={'backgroundColor': card_color}  # This sets the background color for the whole page
 )
 

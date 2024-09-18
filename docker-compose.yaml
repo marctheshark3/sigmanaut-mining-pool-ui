@@ -1,31 +1,31 @@
 version: '3.8'
 
 services:
-  database:
-    image: postgres:latest
-    environment:
-      POSTGRES_DB: mining_db
-      POSTGRES_USER: marctheshark
-      POSTGRES_PASSWORD: password
-    volumes:
-      - mining_db:/var/lib/postgresql/data
-    restart: unless-stopped
-    ports:
-      - "5431:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U marctheshark -d mining_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # database:
+  #   image: postgres:latest
+  #   environment:
+  #     POSTGRES_DB: mining_db
+  #     POSTGRES_USER: marctheshark
+  #     POSTGRES_PASSWORD: password
+  #   volumes:
+  #     - mining_db:/var/lib/postgresql/data
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5431:5432"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U marctheshark -d mining_db"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
   app:
     image: ghcr.io/marctheshark3/sigmanaut-mining-pool-ui:main
-    environment:
-      POSTGRES_DB: mining_db
-      POSTGRES_USER: marctheshark
-      POSTGRES_PASSWORD: password
-      POSTGRES_HOST: database
-      PGDATA: /data/postgres
+    # environment:
+    #   POSTGRES_DB: mining_db
+    #   POSTGRES_USER: marctheshark
+    #   POSTGRES_PASSWORD: password
+    #   POSTGRES_HOST: database
+    #   PGDATA: /data/postgres
     build:
       context: .
       dockerfile: Dockerfile
@@ -34,20 +34,7 @@ services:
     ports:
       - "8050:8050"
     restart: unless-stopped
-    depends_on:
-      database:
-        condition: service_healthy
+    # depends_on:
+    #   database:
+    #     condition: service_healthy
 
-  nginx:
-    image: nginx:latest
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - app
-    restart: unless-stopped
-
-volumes:
-  mining_db:
