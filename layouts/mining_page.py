@@ -115,7 +115,10 @@ def setup_mining_page_callbacks(app, sharkapi):
         miner_data['pendingshares'] = 'TBD'
         miner_data['price [$]'] = round(priceapi.get()[1], 3)
         miner_data['schema'] = 'PPLNS'
-        miner_data['last_payment'] = miner_data['last_payment']['date'][:10]
+        try:
+            miner_data['last_payment'] = miner_data['last_payment']['date'][:10]
+        except Exception:
+            miner_data['last_payment'] = 'Keep Mining!'
         miner_data['total_paid'] = round(miner_data['total_paid'], 3)
 
         payment_images ={

@@ -88,12 +88,12 @@ def setup_front_page_callbacks(app, sharkapi):
     def update_first_row(n):
         data = sharkapi.get_pool_stats()
         
-        data['poolhashrate'] = round(data['poolhashrate'] / 1e9, 2)
+        data['hashrate'] = round(data['poolhashrate'] / 1e9, 2)
         data['price'] = round(priceapi.get()[1], 3)
         ergo = data['price'] #.item() 
         
         n_miners = '{}'.format(data['connectedminers'])
-        hashrate = '{} GH/s'.format(data['poolhashrate'])
+        hashrate = '{} GH/s'.format(data['hashrate'])
 
         row_1 = dbc.Row(justify='center', align='stretch',
                         children=[create_row_card('assets/boltz.png', hashrate, 'Pool Hashrate'),
@@ -110,15 +110,19 @@ def setup_front_page_callbacks(app, sharkapi):
         data = sharkapi.get_pool_stats()
         block_data = sharkapi.get_block_stats()
         block_df = pd.DataFrame(block_data)
-        latest_block_time = max(block_df.created)
+        try:
+            latest_block_time = max(block_df.created)
+            data['pooleffort'] = calculate_mining_effort(data['networkdifficulty'], data['networkhashrate'],
+                                         data['poolhashrate'], latest_block_time)
+        except Exception:
+            data['pooleffort'] = 0
         
  
         data['minimumpayment'] = 0.5
         data['fee'] = 0.9
         data['paid'] = sharkapi.get_payment_stats()
         data['payoutscheme'] = 'PPLNS'
-        data['pooleffort'] = calculate_mining_effort(data['networkdifficulty'], data['networkhashrate'],
-                                         data['poolhashrate'], latest_block_time)
+        
         
         blocks_found = len(block_data)
         data['blocks'] = blocks_found

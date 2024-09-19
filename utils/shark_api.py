@@ -56,7 +56,7 @@ class DataManager:
     def get_pool_stats(self):
         url = f'{self.api}/miningcore/poolstats'
         pool_data = self.get_api_data(url)
-        return pool_data[-1] if pool_data else None
+        return pool_data[-1] # if pool_data else None
 
     def get_shares(self):
         url = f'{self.api}/miningcore/shares'
