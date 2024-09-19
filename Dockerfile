@@ -8,14 +8,13 @@ WORKDIR /app
 COPY . /app
 
 # Install cron and Python dependencies
-RUN apt-get update && apt-get -y install cron && \
-    pip3 install --no-cache-dir -r /app/requirements.txt
+RUN pip3 install -r /app/requirements.txt
 
 # Setup cron jobs
-COPY utils/crontab_updates /etc/cron.d/crontab_updates
-RUN chmod 0644 /etc/cron.d/crontab_updates && \
-    crontab /etc/cron.d/crontab_updates && \
-    touch /var/log/cron.log
+# COPY utils/crontab_updates /etc/cron.d/crontab_updates
+# RUN chmod 0644 /etc/cron.d/crontab_updates && \
+#     crontab /etc/cron.d/crontab_updates && \
+#     touch /var/log/cron.log
 
 # Make the entrypoint script executable and set it as the entrypoint
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
