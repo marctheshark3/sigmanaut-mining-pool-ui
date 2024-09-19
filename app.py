@@ -26,8 +26,8 @@ def load_user(user_id):
     user.id = user_id
 
 data_manager = DataManager('../conf')
-data_manager.update_data()
-# data_manager.start_update_loop(update_interval=5 * 60)  # Update every 5 minutes
+# data_manager.update_data()
+data_manager.start_update_loop(update_interval=5 * 60)  # Update every 5 minutes
 
 reader = ApiReader(data_manager)
 
