@@ -197,11 +197,15 @@ def setup_front_page_callbacks(app, reader):
             
         title = 'HASHRATE OVER TIME'
         data = sharkapi.get_total_hash_stats()
+        print(data, 'data')
         performance_df = pd.DataFrame(data)
+        
         performance_df = performance_df.rename(columns={'timestamp': 'Time',
                                                        'total_hashrate': 'hashrate'})
-
+        print(performance_df.columns, 'performance')
         performance_df['hashrate'] = performance_df['hashrate'] / 1e9
+
+        
         performance_df = performance_df.sort_values(['Time'])
 
         total_hashrate_plot={'data': [go.Scatter(x=performance_df['Time'], y=performance_df['hashrate'],
