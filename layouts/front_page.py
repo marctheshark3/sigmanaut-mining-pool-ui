@@ -13,7 +13,7 @@ from utils.calculate import calculate_mining_effort, calculate_time_to_find_bloc
 from utils.get_erg_prices import PriceReader
 
 priceapi = PriceReader()
-sharkapi = ApiReader(config_path="../conf")
+# sharkapi = ApiReader(config_path="../conf")
 
 debug = False
 
@@ -81,7 +81,7 @@ def create_row_card(image, h2_text, p_text):
         html.H2(h2_text, style={'color': large_text_color}),
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
-def setup_front_page_callbacks(app, reader):
+def setup_front_page_callbacks(app, sharkapi):
     @app.callback([Output('metric-1', 'children')],
                    [Input('fp-int-4', 'n_intervals')])
 
@@ -197,12 +197,10 @@ def setup_front_page_callbacks(app, reader):
             
         title = 'HASHRATE OVER TIME'
         data = sharkapi.get_total_hash_stats()
-        print(data, 'data')
         performance_df = pd.DataFrame(data)
         
         performance_df = performance_df.rename(columns={'timestamp': 'Time',
                                                        'total_hashrate': 'hashrate'})
-        print(performance_df.columns, 'performance')
         performance_df['hashrate'] = performance_df['hashrate'] / 1e9
 
         
@@ -236,7 +234,6 @@ def setup_front_page_callbacks(app, reader):
             if block_df.empty:
                 df = DataFrame()  # Empty dataframe as a fallback
                 return  [], title
-            print(block_df.columns)
 
             block_df = block_df.filter(['created', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'miner'])
 
@@ -315,7 +312,7 @@ def setup_front_page_callbacks(app, reader):
 
         return [dbc.Row(id='banners', justify='center', children=banners)]
         
-def get_layout(reader):
+def get_layout(sharkapi):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
                            children=[
                                

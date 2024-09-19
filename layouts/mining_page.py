@@ -16,7 +16,7 @@ from utils.shark_api import ApiReader
 from utils.get_erg_prices import PriceReader
 from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
 from datetime import datetime
-sharkapi = ApiReader(config_path="../conf")
+# sharkapi = ApiReader(config_path="../conf")
 priceapi = PriceReader()
 
 debug = False
@@ -34,7 +34,7 @@ color_discrete_map = {
     'networkDifficulty': large_text_color 
 }
 
-def setup_mining_page_callbacks(app, reader):
+def setup_mining_page_callbacks(app, sharkapi):
     @app.callback([Output('mp-stats', 'children'),],
                   [Input('mp-interval-4', 'n')],
                   [State('url', 'pathname')])
@@ -314,7 +314,7 @@ def setup_mining_page_callbacks(app, reader):
         return [dbc.Row(id='mp-banners', justify='center', children=banners)]
                                 
 
-def get_layout(reader):
+def get_layout(sharkapi):
     md=4
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '15px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px'},
                            children=[
@@ -411,9 +411,9 @@ def get_layout(reader):
                                            ),
                            ]),], style={'backgroundColor': card_color})  # This sets the background color for the whole page
 
-if __name__ == '__main__':
-    reader = SigmaWalletReader('../conf')
-    app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-    app.layout = get_layout(reader)
-    setup_front_page_callbacks(app, reader)
-    app.run_server(debug=True)
+# if __name__ == '__main__':
+#     reader = SigmaWalletReader('../conf')
+#     app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+#     app.layout = get_layout(reader)
+#     setup_front_page_callbacks(app, reader)
+#     app.run_server(debug=True)
