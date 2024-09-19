@@ -12,16 +12,13 @@ from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
 
-from utils.shark_api import ApiReader
-from utils.get_erg_prices import PriceReader
-from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
-from datetime import datetime
-# sharkapi = ApiReader(config_path="../conf")
-priceapi = PriceReader()
+from utils.api_2_db import DataSyncer
+
+db_sync = DataSyncer(config_path="../conf")
 
 debug = False
 server = Flask(__name__)
-server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key
+server.config['SECRET_KEY'] = 'your_super_secret_key'  # Change this to a random secret key # DO WE NEED THIS?
 server.config['SESSION_TYPE'] = 'filesystem'  # Example: filesystem-based session storage
 
 button_color = large_text_color
@@ -34,7 +31,7 @@ color_discrete_map = {
     'networkDifficulty': large_text_color 
 }
 
-def setup_mining_page_callbacks(app, sharkapi):
+def setup_mining_page_callbacks(app, reader):
     @app.callback([Output('mp-stats', 'children'),],
                   [Input('mp-interval-4', 'n')],
                   [State('url', 'pathname')])
@@ -48,37 +45,35 @@ def setup_mining_page_callbacks(app, sharkapi):
             short_wallet = '{}...{}'.format(wallet[:3], wallet[-5:])
         else:
             short_wallet = wallet
+
+        worker_df = db_sync.db.fetch_data('live_worker')
+        total_df = worker_df[worker_df.worker == 'totals']
+        my_worker_df = total_df[total_df.miner == miner]
+        latest_worker = my_worker_df[my_worker_df.created == max(my_worker_df.created)]
         
-        block_data = sharkapi.get_block_stats()
-        block_df = pd.DataFrame(block_data)
-        pool_data = sharkapi.get_pool_stats()
-        try:
-            recent_block = max(block_df['created'])
-            pool_effort = calculate_mining_effort(pool_data['networkdifficulty'], pool_data['networkhashrate'],
-                                         pool_data['poolhashrate'], recent_block)
-        except Exception as e:
-            pool_effort = 0
+        my_total_hash = latest_worker.hashrate.item()
 
-        pool_ttf = calculate_time_to_find_block(pool_data['networkdifficulty'], pool_data['networkhashrate'], pool_data['poolhashrate'])
-        pool_hash = round(pool_data['poolhashrate'] / 1e9, 2)
+        my_effort = latest_worker.effort.item()
+        my_ttf = latest_worker.ttf.item()
 
-        my_data = sharkapi.get_miner_stats(wallet)
-        my_hash = round(my_data['current_hashrate'] / 1e6, 2)
-        my_recent_block = my_data['last_block_found']['timestamp']
+        data = db_sync.db.fetch_data('stats')
+        data = data[data.insert_time_stamp == max(data.insert_time_stamp)]
         
-        my_effort = calculate_mining_effort(pool_data['networkdifficulty'], pool_data['networkhashrate'],
-                                         my_hash * 1e6, my_recent_block)
+        
+        block_df = reader.block_df
+        block_df['miner'] = block_df['miner'].apply(lambda x: f"{x[:5]}...{x[-5:]}" if len(x) > 10 else x)
+        block_df['my_wallet'] = block_df['miner'].apply(lambda address: address == wallet)
+        my_blocks = block_df[block_df.my_wallet == True]
 
-        my_ttf = calculate_time_to_find_block(pool_data['networkdifficulty'], pool_data['networkhashrate'], my_hash * 1e6)
-    
+
         ### GATHERING POOL AND YOUR HASH TTF AND EFFORT ###
-        pool_effort_text = '{}%'.format(pool_effort)
-        pool_ttf_text = '{} Days'.format(pool_ttf)
-        pool_hash_text = '{} GH/s'.format(pool_hash)
+        pool_effort_text = '{}%'.format(data['pooleffort'].item())
+        pool_ttf_text = '{} Days'.format(data['poolttf'].item())
+        pool_hash_text = '{} GH/s'.format(data['poolhashrate'].item())
         
         your_effort_text = '{}%'.format(my_effort)
         your_ttf_text = '{} Days'.format(my_ttf)
-        your_hash_text = '{} MH/s'.format(my_hash)
+        your_hash_text = '{} MH/s'.format(my_total_hash)
 
         ### CARDS FOR THE ABOVE METRICS
         pool_stats = dbc.Col(dbc.Card(style=top_row_style, children=[
@@ -109,25 +104,22 @@ def setup_mining_page_callbacks(app, sharkapi):
 
     def update_middle(n, pathname):
         wallet = unquote(pathname.lstrip('/'))
-        miner_data = sharkapi.get_miner_stats(wallet)
 
-        total_paid = miner_data['total_paid']
-        miner_data['pendingshares'] = 'TBD'
-        miner_data['price [$]'] = round(priceapi.get()[1], 3)
-        miner_data['schema'] = 'PPLNS'
-        miner_data['last_payment'] = miner_data['last_payment']['date'][:10]
-        miner_data['total_paid'] = round(miner_data['total_paid'], 3)
+        ### PAYMENT STATS ###
+        payment = db_sync.db.fetch_data('payment')
+        payment = payment[payment.created_at == max(payment.created_at)]
+        my_payment = payment[payment.miner == wallet]
 
         payment_images ={
             'pendingshares': 'min-payout.png',
-             'balance': 'triangle.png',
-             'total_paid': 'ergo.png',
-             'last_payment': 'coins.png',
-             'price [$]': 'ergo.png',
+             'pendingbalance': 'triangle.png',
+             'totalpaid': 'ergo.png',
+             'lastpayment': 'coins.png',
+             'price': 'ergo.png',
              'schema': 'ergo.png',
             }
         
-        payment_children = [create_image_text_block(text='{}: {}'.format(key, miner_data[key]), image=payment_images[key]) for key in payment_images.keys() if key != 'lastPaymentLink']
+        payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key].item()), image=payment_images[key]) for key in payment_images.keys() if key != 'lastPaymentLink']
 
         
         return payment_children[:3], payment_children[3:]
@@ -141,23 +133,26 @@ def setup_mining_page_callbacks(app, sharkapi):
     def update_outside(n, pathname):
         miner = unquote(pathname.lstrip('/')) 
 
-        miner_data = sharkapi.get_miner_stats(miner)
+        ### PAYMENT STATS ###
+        payment = db_sync.db.fetch_data('payment')
+        payment = payment[payment.created_at == max(payment.created_at)]
+        total = payment.pendingshares.sum()
+        payment['participation'] = [round(shares / total * 100, 2) for shares in payment.pendingshares] 
+        my_payment = payment[payment.miner == miner]
 
-        miner_data['Participation [%]'] = -1
-        miner_data['tx_link'] = miner_data['last_payment']['tx_link']
-        miner_data['paid_today'] = round(miner_data['paid_today'], 2)
-        images ={'Participation [%]': 'smileys.png',
-                         'paid_today': 'ergo.png',
-                         'tx_link': 'ergo.png',
+        my_payment['Participation [%]']= my_payment['participation'].item()
+
+        payment_images ={'Participation [%]': 'smileys.png',
+                         'todaypaid': 'ergo.png',
+                         'lastpaymentlink': 'ergo.png',
                         }
         
-        payment_children = [create_image_text_block(text='{}: {}'.format(key, miner_data[key]), image=images[key]) for key in images.keys() if key != 'tx_link']
-        if miner_data['tx_link']:
-            link = html.Div(style=bottom_row_style, children=[
-                            html.Img(src='assets/{}'.format('ergo.png'), style=bottom_image_style),
-                            html.Span(dcc.Link('Last Payment Link', href=miner_data['tx_link'], target='_blank'), style={'padding': '10px'})])
-            
-            payment_children.append(link)
+        payment_children = [create_image_text_block(text='{}: {}'.format(key, my_payment[key].item()), image=payment_images[key]) for key in payment_images.keys() if key != 'lastpaymentlink']
+        link = html.Div(style=bottom_row_style, children=[
+                        html.Img(src='assets/{}'.format('ergo.png'), style=bottom_image_style),
+                        html.Span(dcc.Link('Last Payment Link', href=my_payment['lastpaymentlink'].item(), target='_blank'), style={'padding': '10px'})])
+        
+        payment_children.append(link)
 
         md = 4
     
@@ -172,64 +167,58 @@ def setup_mining_page_callbacks(app, sharkapi):
         wallet = unquote(pathname.lstrip('/'))
 
         if chart == 'workers':
-            workers_data = sharkapi.get_miner_workers(wallet)
-            rows = []
-            for worker, data in workers_data.items():
-                for entry in data:
-                    rows.append({
-                        'worker': worker,
-                        'created': datetime.fromisoformat(entry['created'].replace('Z', '+00:00')),
-                        'hashrate': entry['hashrate'] / 1e6,
-                        'sharesPerSecond': entry['sharesPerSecond']
-                    })
-        
-            # Create the DataFrame
-            df = pd.DataFrame(rows)
-
-            df.sort_index(inplace=True)
-            # if not df:
-            #     df = pd.DataFrame(columns=['created', 'hashrate', 'worker'])
-            try:
-                miner_performance_chart = px.line(df, 
-                      x='created', 
-                      y='hashrate', 
-                      color='worker', 
-                      labels={'hashrate': 'Mh/s', 'created': 'Time'},
-                      markers=True)
-         
-                miner_performance_chart.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    legend_title_text='Miner',
-                    legend=dict(font=dict(color='#FFFFFF')),
-                    titlefont=dict(color='#FFFFFF'),
-                    xaxis=dict(title='Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
-                    yaxis=dict(title='Hashrate', color='#FFFFFF')
-                )
-            except ValueError:
-                return [{}, 'NO RECENT HASH']
+            df = db_sync.db.fetch_data('performance')
+            my_worker_performance = df[df.miner == wallet]
+            my_worker_performance= my_worker_performance.sort_values('created')
+    
+            miner_performance_chart = px.line(my_worker_performance, 
+                  x='created', 
+                  y='hashrate', 
+                  color='worker', 
+                  labels={'hashrate': 'Hashrate', 'created': 'Time'},
+                  markers=True)
+     
+            miner_performance_chart.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                legend_title_text='Miner',
+                legend=dict(font=dict(color='#FFFFFF')),
+                titlefont=dict(color='#FFFFFF'),
+                xaxis=dict(title='Time', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
+                yaxis=dict(title='Hashrate', color='#FFFFFF')
+            )
             return [miner_performance_chart, 'WORKER HASHRATE OVER TIME']
 
         elif chart == 'payments':
-            workers_data = sharkapi.get_miner_payment_stats(wallet)
-            df = pd.DataFrame(workers_data)
-  
-            try:
-                df = df.sort_values('created')
-            except Exception as e:
-                # return [[None], 'PAYMENT OVER TIME']
-                df = pd.DataFrame(columns=['created', 'amount'])
+            df = db_sync.db.fetch_data('payment')
+            df = df[df.miner == wallet]
+            dates = df.lastpayment.unique() # get all of the payment dates
             
+            ls = []
+            for date in dates:
+                temp = df[df.lastpayment == date]
+                temp = temp[temp.created_at == max(temp.created_at)] # filter by the latest payment stamp
+                ls.append(temp)
+            
+            df = pd.concat(ls)
+            dates = [date for date in df['lastpayment'] if len(date) > 9]
+            df = df[df['lastpayment'].isin(dates)]
+
+            df = df.sort_values('created_at')
+            
+            # df = df[df.lastpayment != '2024-05-1']
     
             payment_chart = px.line(df, 
-                  x='created', 
-                  y='amount', 
-                  labels={'amount': 'Paid [ERG]', 'created': 'Date'},
+                  x='lastpayment', 
+                  y='todaypaid', 
+                  # color='todaypaid', 
+                  labels={'todaypaid': 'Paid [ERG]', 'lastpayment': 'Date'},
                   markers=True)
     
             payment_chart.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
+                # legend_title_text='Miner',
                 legend=dict(font=dict(color='#FFFFFF')),
                 titlefont=dict(color='#FFFFFF'),
                 xaxis=dict(title='Date', color='#FFFFFF',showgrid=False, showline=False, zeroline=False),
@@ -255,39 +244,26 @@ def setup_mining_page_callbacks(app, sharkapi):
             short_wallet = wallet
     
         if table == 'workers':
-            workers_data = sharkapi.get_miner_stats(wallet)
-            pool_data = sharkapi.get_pool_stats()
-            df = pd.DataFrame(workers_data['workers'])
-
-            try:
-                last_block_found = workers_data['last_block_found']['timestamp']
-                df['effort'] =  [calculate_mining_effort(pool_data['networkdifficulty'], pool_data['networkhashrate'],
-                                         hash, last_block_found) for hash in df.hashrate]
-                
-            except Exception as e:
-                print(e, 'EXCEPTION')
-                df['effort'] = 'TBD'
-
-            df['ttf'] = [calculate_time_to_find_block(pool_data['networkdifficulty'], pool_data['networkhashrate'],
-                                     hash) for hash in df.hashrate]
-            df['hashrate'] = round(df['hashrate'] / 1e6, 2)
+            df = db_sync.db.fetch_data('live_worker')
+            df = df[df.created == max(df.created)]
+            
+            df = df[df.miner == wallet]
+            df  = df[df.worker != 'totals']     
+            df = df.filter(['worker', 'hashrate', 'sharesPerSecond', 'effort', 'ttf'])
             df = df.rename(columns={"effort": "Current Effort [%]", "hashrate": "MH/s", 'ttf': 'TTF [Days]'})
             
             title_2 = 'WORKER DATA'
 
         elif table == 'blocks':
-            title_2 = 'Your Blocks Found'
-            data = sharkapi.get_my_blocks(wallet)
-            df = pd.DataFrame(data)
-
-            if df.empty:
-                return [], title_2
-           
-            df['effort'] = round(100 * df['effort'], 2)
-            df = df.filter(['created', 'blockheight', 'effort', 'reward', 'confirmationprogress'])
-            df = df.rename(columns={'created': 'Time Found', 'blockheight': 'Height',
+            block_df = db_sync.db.fetch_data('block')
+            my_block_df = block_df[block_df.miner == short_wallet]
+            df = my_block_df
+            print(df.columns)
+            df['effort'] = 100 * df['effort']
+            df = df.filter(['time_found', 'blockheight', 'effort', 'reward', 'confirmationprogress'])
+            df = df.rename(columns={'time_found': 'Time Found', 'blockheight': 'Height',
                                     'effort': 'Effort [%]', 'confirmationprogress': 'Confirmation [%]'})
-            
+            title_2 = 'Your Blocks Found'
             
         columns = [{"name": i, "id": i} for i in df.columns]
         data = df.to_dict('records')
@@ -298,10 +274,9 @@ def setup_mining_page_callbacks(app, sharkapi):
                   ],
                   [Input('mp-interval-5', 'n_intervals')])
     def update_banners(n): 
-        # df = db_sync.db.fetch_data('block')
-        # bf = df[df.time_found == max(df.time_found)]
-        # confirmation_number = bf.confirmationprogress.item()
-        confirmation_number = 100
+        df = db_sync.db.fetch_data('block')
+        bf = df[df.time_found == max(df.time_found)]
+        confirmation_number = bf.confirmationprogress.item()
         flag = False
         if confirmation_number < 50:
             flag = True
@@ -314,16 +289,16 @@ def setup_mining_page_callbacks(app, sharkapi):
         return [dbc.Row(id='mp-banners', justify='center', children=banners)]
                                 
 
-def get_layout(sharkapi):
+def get_layout(reader):
     md=4
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '15px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px'},
                            children=[
                                
-                               dcc.Interval(id='mp-interval-1', interval=60*1000*5, n_intervals=0),
-                               dcc.Interval(id='mp-interval-2', interval=60*1000*5, n_intervals=0),
-                               dcc.Interval(id='mp-interval-3', interval=60*1000*5, n_intervals=0),
-                               dcc.Interval(id='mp-interval-4', interval=60*1000*5, n_intervals=0),
-                               dcc.Interval(id='mp-interval-5', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='mp-interval-1', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='mp-interval-2', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='mp-interval-3', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='mp-interval-4', interval=60*1000, n_intervals=0),
+                               dcc.Interval(id='mp-interval-5', interval=60*1000, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
                                dbc.Row(id='mp-stats', justify='center',),
@@ -384,7 +359,7 @@ def get_layout(sharkapi):
                                                     {'label': 'Your Worker Data', 'value': 'workers'},
                                                     {'label': 'Your Block Data', 'value': 'blocks'}
                                                 ],
-                                                value='workers',  # Default value
+                                                value='blocks',  # Default value
                                                 style={'width': '300px', 'color': 'black'}
                                             ),
                                             style={'flex': '1'}
@@ -411,9 +386,9 @@ def get_layout(sharkapi):
                                            ),
                            ]),], style={'backgroundColor': card_color})  # This sets the background color for the whole page
 
-# if __name__ == '__main__':
-#     reader = SigmaWalletReader('../conf')
-#     app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-#     app.layout = get_layout(reader)
-#     setup_front_page_callbacks(app, reader)
-#     app.run_server(debug=True)
+if __name__ == '__main__':
+    reader = SigmaWalletReader('../conf')
+    app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+    app.layout = get_layout(reader)
+    setup_front_page_callbacks(app, reader)
+    app.run_server(debug=True)
