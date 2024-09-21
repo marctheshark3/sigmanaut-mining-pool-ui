@@ -9,12 +9,20 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install
+RUN npm install react-scripts@5.0.1 -g
 RUN npm i @fleet-sdk/core
+
 # Copy the rest of the application code to the working directory
 COPY . .
+
+# Build the React app
+RUN npm run build
 
 # Expose port 3000
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"]
+# Install serve to run the built app
+RUN npm install -g serve
+
+# Start the application using serve, listening on all interfaces
+CMD ["serve", "-s", "build", "-l", "tcp://0.0.0.0:3000"]
