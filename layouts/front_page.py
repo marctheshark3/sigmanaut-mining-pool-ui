@@ -8,7 +8,7 @@ import plotly.express as px
 from utils.shark_api import ApiReader
 import pandas as pd
 from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
-
+import uuid
 
 from utils.get_erg_prices import PriceReader
 
@@ -82,6 +82,16 @@ def create_row_card(image, h2_text, p_text):
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
 def setup_front_page_callbacks(app, sharkapi):
+    @app.callback(
+        Output('link-container', 'children'),
+        Input('generate-url-button', 'n_clicks'),
+    )
+    def generate_link(n_clicks):
+        id =  uuid.uuid4()
+        custom_part = 'sigma-NFT-minter-{}'.format(id)
+        custom_url = f'http://0.0.0.0:3000/{custom_part}'
+        return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
+        
     @app.callback([Output('metric-1', 'children')],
                    [Input('fp-int-4', 'n_intervals')])
 
@@ -90,7 +100,7 @@ def setup_front_page_callbacks(app, sharkapi):
         
         data['hashrate'] = round(data['poolhashrate'] / 1e9, 2)
         data['price'] = round(priceapi.get()[1], 3)
-        ergo = data['price'] #.item() 
+        ergo = data['price']
         
         n_miners = '{}'.format(data['connectedminers'])
         hashrate = '{} GH/s'.format(data['hashrate'])
@@ -363,7 +373,7 @@ def get_layout(sharkapi):
                                         'width': '97.5%',
                                     })
                                 ]),
-
+                                                              
                                html.Div(
                                     [
                                         html.Div(
@@ -436,6 +446,29 @@ def get_layout(sharkapi):
                                                         'padding': '10px',},
                                             style_header=table_style,
                                             style_data=table_style,),
+
+                               # html.H1('MINER ID', style={'color': large_text_color, 'textAlign': 'center',}),
+                               html.H1('Mint Miner Config NFT', style={'textAlign': 'center',}),
+                               html.Div(id='generate-url-button'),
+                               html.Div(id='link-container'),
+                               dbc.Col(style={'padding': '10px'}, children=[
+                                dbc.Card(style=bottom_row_style, children=[
+                                    dcc.Markdown(''' 
+                                    #### How it works - Reward Token Swap
+                                    1. Mint Miner ID NFT - Choose the ratio of tokens you would like to have as well as minimum payout
+                                    2. Once minted you will see your parameters in your mining dashboard
+                                    3. When your minimum payout is reached, price data is checked on spectrum to calculate how much of the token(s) you recieve based on the given tokens ratio in the miner ID. 
+
+                                    #### Changing your miner ID 
+                                    1. If you want to change your miner ID it is recommended to burn your current ID but is not necessary. Our system will check for the latest miner ID. 
+                                    2. Mint the NFT as you have done so before.
+                                    
+                                    ### Dev Fees
+                                    There is a 3 ERG applied to mint the Miner ID token''')
+                                    
+                                ]),]),
+                               
+                               
 
                                
                                # html.H1('CONNECTING TO THE POOL',

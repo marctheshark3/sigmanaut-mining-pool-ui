@@ -11,7 +11,7 @@ import plotly.graph_objs as go
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
-
+from utils.find_miner_id import ReadTokens
 from utils.shark_api import ApiReader
 from utils.get_erg_prices import PriceReader
 from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
@@ -35,6 +35,39 @@ color_discrete_map = {
 }
 
 def setup_mining_page_callbacks(app, sharkapi):
+
+    @app.callback([Output('s4', 'children'), Output('s5', 'children'), Output('s6', 'children'),],
+                  [Input('mp-interval-7', 'n')],
+                  [State('url', 'pathname')])
+    
+    def update_miner_id(n, pathname):
+        print('GETTING IDs')
+        miner = unquote(pathname.lstrip('/'))
+        bins = [[] for _ in range(3)]
+        find_tokens = ReadTokens()
+        token = find_tokens.get_latest_miner_id(miner)
+        if token == None:
+            return bins
+        miner_id = find_tokens.get_token_description(token['tokenId'])
+        print(miner_id)
+        
+        payout_text = 'Minimum Payout: {}'.format(miner_id['minimumPayout'])
+        tokens = miner_id['tokens']
+        header = html.H1('Miner ID Parameters', style={'color': 'white', 'textAlign': 'center',})
+
+        tokens_swap = [create_image_text_block(text=payout_text, image='min-payout.png')]
+        for token in tokens:
+            temp_text = '{}: {}%'.format(token['token'], token['value'])
+            img = 'ergo.png'
+            tokens_swap.append(create_image_text_block(text=temp_text, image=img))
+        
+        
+        for i, func in enumerate(tokens_swap):
+            min_bin = min(bins, key=len)
+            min_bin.append(func)
+        print('COMPLETE')
+        return bins[0], bins[1], bins[2]
+        
     @app.callback([Output('mp-stats', 'children'),],
                   [Input('mp-interval-4', 'n')],
                   [State('url', 'pathname')])
@@ -327,6 +360,7 @@ def get_layout(sharkapi):
                                dcc.Interval(id='mp-interval-3', interval=60*1000*5, n_intervals=0),
                                dcc.Interval(id='mp-interval-4', interval=60*1000*5, n_intervals=0),
                                dcc.Interval(id='mp-interval-5', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='mp-interval-7', interval=60*1000*5, n_intervals=0),
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
                                dbc.Row(id='mp-stats', justify='center',),
@@ -334,7 +368,12 @@ def get_layout(sharkapi):
                                dbc.Row(justify='center', style={'padding': '20px'}, children=[
                                             dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s1')],),
                                             dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s2')],),
-                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s3')],)]),
+                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s3')],),
+                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s4')],),
+                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s5')],),
+                                            dbc.Col(md=md, style={'padding': '7px'}, children=[dbc.Card(style=bottom_row_style, id='s6')],),
+                               
+                               ]),
                                             
                                dbc.Row(id='mp-banners', justify='center'),       
 
