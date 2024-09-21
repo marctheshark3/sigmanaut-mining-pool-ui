@@ -9,7 +9,7 @@ from utils.shark_api import ApiReader
 import pandas as pd
 from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
 import uuid
-
+import os
 from utils.get_erg_prices import PriceReader
 
 priceapi = PriceReader()
