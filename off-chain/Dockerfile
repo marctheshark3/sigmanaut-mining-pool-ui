@@ -9,7 +9,7 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install
-
+RUN npm i @fleet-sdk/core
 # Copy the rest of the application code to the working directory
 COPY . .
 
