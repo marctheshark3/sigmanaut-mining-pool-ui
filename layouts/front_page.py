@@ -86,12 +86,25 @@ def setup_front_page_callbacks(app, sharkapi):
         Output('link-container', 'children'),
         Input('generate-url-button', 'n_clicks'),
     )
+    # def generate_link(n_clicks):
+    #     id =  uuid.uuid4()
+    #     custom_part = 'sigma-NFT-minter-{}'.format(id)
+    #     custom_url = f'http://0.0.0.0:3000/{custom_part}'
+    #     return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
+
     def generate_link(n_clicks):
-        id =  uuid.uuid4()
-        custom_part = 'sigma-NFT-minter-{}'.format(id)
-        custom_url = f'http://0.0.0.0:3000/{custom_part}'
-        return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
+        id = uuid.uuid4()
+        custom_part = f'sigma-NFT-minter-{id}'
         
+        # Use environment variable or default to the production domain
+        # base_url = os.environ.get('BASE_URL', 'https://dev.ergominers.com')
+        base_url = os.environ.get('BASE_URL', 'http://188.245.66.57')
+
+        
+        
+        custom_url = f'{base_url}/miner-id-minter/{id}'
+        return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
+            
     @app.callback([Output('metric-1', 'children')],
                    [Input('fp-int-4', 'n_intervals')])
 
