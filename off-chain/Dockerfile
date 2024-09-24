@@ -24,5 +24,7 @@ EXPOSE 3000
 # Install serve to run the built app
 RUN npm install -g serve
 
+# Start the application
+CMD ["npm", "start"]
 # Start the application using serve, listening on all interfaces
 CMD ["serve", "-s", "build", "-l", "tcp://0.0.0.0:3000"]
