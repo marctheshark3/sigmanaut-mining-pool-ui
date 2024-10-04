@@ -9,22 +9,23 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install
-RUN npm install react-scripts@5.0.1 -g
-RUN npm i @fleet-sdk/core
 
 # Copy the rest of the application code to the working directory
 COPY . .
 
-# Build the React app
-RUN npm run build
+# Set the PUBLIC_URL environment variable
+ENV PUBLIC_URL="https://dev.ergominers.com/miner-id-minter"
+
+# Add verbose logging
+RUN echo "Contents of /app:"
+RUN ls -la /app
+RUN echo "Contents of /app/src:"
+RUN ls -la /app/src || echo "src directory not found"
+RUN echo "Local npm packages:"
+RUN npm list --depth=0
 
 # Expose port 3000
 EXPOSE 3000
 
-# Install serve to run the built app
-RUN npm install -g serve
-
-# Start the application
+# Start the application using npm start
 CMD ["npm", "start"]
-# Start the application using serve, listening on all interfaces
-CMD ["serve", "-s", "build", "-l", "tcp://0.0.0.0:3000"]

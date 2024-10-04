@@ -97,8 +97,8 @@ def setup_front_page_callbacks(app, sharkapi):
         custom_part = f'sigma-NFT-minter-{id}'
         
         # Use environment variable or default to the production domain
-        # base_url = os.environ.get('BASE_URL', 'https://dev.ergominers.com')
-        base_url = os.environ.get('BASE_URL', 'http://188.245.66.57')
+        base_url = os.environ.get('BASE_URL', 'http://dev.ergominers.com')
+        #base_url = os.environ.get('BASE_URL', 'http://188.245.66.57')
 
         
         
