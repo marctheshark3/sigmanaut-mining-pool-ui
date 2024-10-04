@@ -147,7 +147,7 @@ def setup_front_page_callbacks(app, sharkapi):
         data['payoutscheme'] = 'PPLNS'
         
         
-        blocks_found = len(block_data)
+        blocks_found = len(block_df)
         data['blocks'] = blocks_found
         
         md = 4
