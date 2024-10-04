@@ -64,3 +64,66 @@ def calculate_time_to_find_block(network_difficulty, network_hashrate, hashrate)
         time_to_find_block = float('inf')
     
     return round(time_to_find_block / 3600 / 24, 2)
+
+
+def calculate_pplns_participation(shares_data, block_data, n_factor):
+    """
+    Calculate the participation percentages for miners in a Pay Per Last N Shares (PPLNS) system.
+
+    This function determines the participation of each miner based on their share contributions
+    leading up to a specific block. It uses the network difficulty and a user-defined factor
+    to determine how many shares to consider.
+
+    Args:
+    shares_data (list): A list of dictionaries containing share information.
+                        Each dictionary should have 'blockheight', 'difficulty', and 'miner' keys.
+    block_data (list): A list containing a single dictionary with block information.
+                       The dictionary should have 'blockheight' and 'networkdifficulty' keys.
+    n_factor (float): A multiplier used to determine how many shares to consider relative to 
+                      the network difficulty.
+
+    Returns:
+    tuple: A tuple containing two elements:
+           1. A dictionary of miner addresses and their participation percentages.
+           2. The total number of shares considered in the calculation.
+
+    """
+    # Sort shares by blockheight in descending order
+    shares_data.sort(key=lambda x: x['blockheight'], reverse=True)
+
+    # Get block information
+    block_height = block_data[0]['blockheight']
+    network_difficulty = block_data[0]['networkdifficulty']
+    
+    # Calculate the target number of shares based on network difficulty and n_factor
+    target_shares = network_difficulty * n_factor
+
+    # Initialize variables
+    total_shares = 0
+    valid_shares = []
+    miner_shares = {}
+
+    # Collect shares until we reach or exceed the target
+    for share in shares_data:
+        # Skip shares from future blocks
+        if share['blockheight'] > block_height:
+            continue
+
+        valid_shares.append(share)
+        total_shares += share['difficulty']
+
+        # Add share difficulty to miner's total
+        miner = share['miner']
+        if miner not in miner_shares:
+            miner_shares[miner] = 0
+        miner_shares[miner] += share['difficulty']
+
+        # Check if we've reached or exceeded the target number of shares
+        if total_shares >= target_shares:
+            print(share, 'share')
+            break
+
+    # Calculate participation percentages for each miner
+    participation = {miner: shares / total_shares for miner, shares in miner_shares.items()}
+
+    return participation, total_shares
