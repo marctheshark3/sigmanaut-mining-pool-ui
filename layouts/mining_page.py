@@ -214,7 +214,7 @@ def setup_mining_page_callbacks(app, sharkapi):
                 for entry in data:
                     rows.append({
                         'worker': worker,
-                        'created': datetime.fromisoformat(entry['created'].replace('Z', '+00:00')),
+                        'created': datetime.fromisoformat(entry['timestamp'].replace('Z', '+00:00')),
                         'hashrate': entry['hashrate'] / 1e6,
                         'sharesPerSecond': entry['sharesPerSecond']
                     })
