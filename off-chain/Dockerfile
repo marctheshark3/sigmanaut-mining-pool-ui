@@ -22,7 +22,7 @@ RUN ls -la /app
 RUN echo "Contents of /app/src:"
 RUN ls -la /app/src || echo "src directory not found"
 RUN echo "Local npm packages:"
-RUN npm list --depth=0
+# RUN npm list --depth=0
 
 # Expose port 3000
 EXPOSE 3000
