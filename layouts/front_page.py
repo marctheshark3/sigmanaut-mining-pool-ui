@@ -470,7 +470,7 @@ def get_layout(sharkapi):
                                     #### How it works - Reward Token Swap
                                     1. Mint Miner ID NFT - Choose the ratio of tokens you would like to have as well as minimum payout
                                     2. Once minted you will see your parameters in your mining dashboard
-                                    3. When your minimum payout is reached, price data is checked on spectrum to calculate how much of the token(s) you recieve based on the given tokens ratio in the miner ID. 
+                                    3. When your minimum payout is reached, price data is checked on ErgoDex to calculate how much of the token(s) you recieve based on the given tokens ratio in the miner ID. 
 
                                     #### Changing your miner ID 
                                     1. If you want to change your miner ID it is recommended to burn your current ID but is not necessary. Our system will check for the latest miner ID. 

@@ -47,7 +47,13 @@ def setup_mining_page_callbacks(app, sharkapi):
         find_tokens = ReadTokens()
         token = find_tokens.get_latest_miner_id(miner)
         if token == None:
-            return bins
+            payout_text = 'Min Payout: 0.5 ERG'
+            min_payout = create_image_text_block(text=payout_text, image='min-payout.png')
+            ad_1_text = 'Consider minting a MINER ID'
+            ad_1 = create_image_text_block(text=ad_1_text, image='min-payout.png')
+            ad_2_text = 'Swap to ERG Native Tokens'
+            ad_2 = create_image_text_block(text=ad_2_text, image='min-payout.png')
+            return [min_payout, ad_1, ad_2]
         miner_id = find_tokens.get_token_description(token['tokenId'])
         print(miner_id)
         
@@ -223,8 +229,6 @@ def setup_mining_page_callbacks(app, sharkapi):
             df = pd.DataFrame(rows)
 
             df.sort_index(inplace=True)
-            # if not df:
-            #     df = pd.DataFrame(columns=['created', 'hashrate', 'worker'])
             try:
                 miner_performance_chart = px.line(df, 
                       x='created', 
