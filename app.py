@@ -1,4 +1,3 @@
-import os
 from dash import Dash, html, dcc, Input, Output, State
 from layouts import front_page, mining_page
 from urllib.parse import quote, unquote
@@ -8,27 +7,13 @@ from layouts.front_page import setup_front_page_callbacks
 from layouts.mining_page import setup_mining_page_callbacks
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
-from flask_session import Session
-import logging
+from flask_session import Session 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('app.log')
-    ]
-)
-logger = logging.getLogger(__name__)
-
-# Flask server setup
 server = Flask(__name__)
-server.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your_super_secret_key')
+server.config['SECRET_KEY'] = 'your_super_secret_key'
 server.config['SESSION_TYPE'] = 'filesystem'
 Session(server)
 
-# Login manager setup
 login_manager = LoginManager()
 login_manager.init_app(server)
 
@@ -39,27 +24,23 @@ class User(UserMixin):
 def load_user(user_id):
     user = User()
     user.id = user_id
-    return user
 
-# Dash app setup
+data_manager = DataManager('../conf')
+data_manager.update_data()
+# data_manager.start_update_loop(update_interval=5 * 60)  # Update every 5 minutes
+
+reader = ApiReader(data_manager)
+
 app = Dash(__name__, url_base_pathname='/', server=server, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
-server = app.server
-
+server = app.server 
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     html.Div(id='page-content')
 ])
 
-# DataManager and ApiReader setup
-data_manager = DataManager('../conf')
-#data_manager.update_data()
-data_manager.start_update_loop(update_interval=5 * 60)  # Update every 5 minutes
-reader = ApiReader(data_manager)
-
 @app.callback(Output('page-content', 'children'),
               [Input('url', 'pathname')])
 def display_page(pathname):
-    logger.info(f"Displaying page for pathname: {pathname}")
     if pathname and pathname != "/":
         mining_address = unquote(pathname.lstrip('/'))
         return mining_page.get_layout(reader)
@@ -74,20 +55,11 @@ def display_page(pathname):
 def navigate_to_main(n_clicks, value):
     if n_clicks and value:
         safe_value = quote(value)
-        logger.info(f"Navigating to mining page for address: {safe_value}")
         return f'/{safe_value}'
     return '/'
 
-# Setup callbacks
 setup_front_page_callbacks(app, reader)
 setup_mining_page_callbacks(app, reader)
 
 if __name__ == '__main__':
-    try:
-        logger.info("Starting the Dash server")
-        app.run_server(debug=True, host='0.0.0.0', port=8050)
-    except Exception as e:
-        logger.error(f"An error occurred while running the server: {str(e)}", exc_info=True)
-    finally:
-        logger.info("Stopping the update loop")
-        data_manager.stop_update_loop()
+    app.run_server(debug=True, host='0.0.0.0', port=8050)
