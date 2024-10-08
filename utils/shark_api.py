@@ -122,3 +122,7 @@ class ApiReader:
     def get_all_miners(self, limit=100, offset=0):
         url = f'{self.data_manager.api}/sigscore/miners?limit={limit}&offset={offset}'
         return self.data_manager.get_api_data(url)
+
+    def get_miner_swap_payments(self, address):
+        url = f'{self.data_manager.api}/miningcore/swap_payments/{address}'
+        return self.data_manager.get_api_data(url)
