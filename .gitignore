@@ -1,4 +1,5 @@
 # Ignore Jupyter Notebook checkpoint files
+.log
 .ipynb_checkpoints/
 *flask_session
 *_files/

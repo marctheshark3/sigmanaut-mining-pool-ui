@@ -8,8 +8,10 @@ default_values:
     url: 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
     token_ls: 'https://api.ergo.aap.cornell.edu/api/v1/tokens'
     base_api: 'http://15.204.211.130:4000/api/pools/ErgoSigmanauts'
-    api: 'http://37.27.198.175:8000'
+    # api: 'http://37.27.198.175:8000'
     # api: 'http://188.245.66.57:8000'
+    api: 'http://5.78.102.130:8000'
+    # api: 'http://localhost:8000'
     db_name: 'localhost'
     stats_cols: [
         'fee NUMERIC',  # Numeric type for precision
