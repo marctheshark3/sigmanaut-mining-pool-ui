@@ -126,3 +126,4 @@ class ApiReader:
     def get_miner_swap_payments(self, address):
         url = f'{self.data_manager.api}/miningcore/swap_payments/{address}'
         return self.data_manager.get_api_data(url)
+
