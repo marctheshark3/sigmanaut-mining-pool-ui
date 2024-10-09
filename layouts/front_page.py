@@ -489,13 +489,13 @@ def get_layout(sharkapi):
                                        - Follow the same process as before to mint a new Miner ID with updated parameters.
                                     
                                     ### Development Fee
-                                        - A one-time fee of 3 ERG is charged for minting each Miner ID NFT.
-                                        - This fee supports ongoing development and maintenance of the platform.
+                                    - A one-time fee of 3 ERG is charged for minting each Miner ID NFT.
+                                    - This fee supports ongoing development and maintenance of the platform.
                                     
                                     #### Important Note 
-                                        - With your first payment from the mining pool, you'll receive a special receipt token.
-                                        - This receipt token automatically waives the 3 ERG fee for all future Miner ID mints.
-                                        - You can update your preferences by minting new Miner IDs at any time without incurring additional costs.''')
+                                    - With your first payment from the mining pool, you'll receive a special receipt token.
+                                    - This receipt token automatically waives the 3 ERG fee for all future Miner ID mints.
+                                    - You can update your preferences by minting new Miner IDs at any time without incurring additional costs.''')
                                     
                                 ]),]),
                                
