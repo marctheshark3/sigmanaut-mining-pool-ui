@@ -43,19 +43,22 @@ class DataManager:
         logger.info("--------- UPDATING CORE DATA ---------")
         
         self.data['total_hash_stats'] = self.get_total_hash_stats()
-        logger.info("(1/5) Gathered Total Hash Stats")
+        logger.info("(1/6) Gathered Total Hash Stats")
         
         self.data['payment_stats'] = self.get_payment_stats()
-        logger.info("(2/5) Gathered Payments Stats")
+        logger.info("(2/6) Gathered Payments Stats")
         
         self.data['pool_stats'] = self.get_pool_stats()
-        logger.info("(3/5) Gathered Pool Stats")
+        logger.info("(3/6) Gathered Pool Stats")
         
         self.data['block_stats'] = self.get_block_stats()
-        logger.info("(4/5) Gathered Block Stats")
+        logger.info("(4/6) Gathered Block Stats")
         
         self.data['live_miner_data'] = self.get_live_miner_data()
-        logger.info("(5/5) Gathered Live Miner Stats")
+        logger.info("(5/6) Gathered Live Miner Stats")
+
+        self.data['shares'] = self.get_shares()
+        logger.info("(6/6) Gathered Live Miner Stats")
         
         logger.info("--------- UPDATING  COMPLETE --------- \n")
 

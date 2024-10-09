@@ -92,8 +92,8 @@ def calculate_pplns_participation(shares_data, block_data, n_factor):
     shares_data.sort(key=lambda x: x['blockheight'], reverse=True)
 
     # Get block information
-    block_height = block_data[0]['blockheight']
-    network_difficulty = block_data[0]['networkdifficulty']
+    block_height = block_data['blockheight']
+    network_difficulty = block_data['networkdifficulty']
     
     # Calculate the target number of shares based on network difficulty and n_factor
     target_shares = network_difficulty * n_factor

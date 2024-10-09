@@ -14,7 +14,7 @@ from flask_session import Session
 from utils.find_miner_id import ReadTokens
 from utils.shark_api import ApiReader
 from utils.get_erg_prices import PriceReader
-from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
+from utils.calculate import calculate_mining_effort, calculate_time_to_find_block, calculate_pplns_participation
 from datetime import datetime
 # sharkapi = ApiReader(config_path="../conf")
 priceapi = PriceReader()
@@ -151,7 +151,7 @@ def setup_mining_page_callbacks(app, sharkapi):
         miner_data = sharkapi.get_miner_stats(wallet)
 
         total_paid = miner_data['total_paid']
-        miner_data['pendingshares'] = 'TBD'
+        miner_data['paid_today'] = round(miner_data['paid_today'], 2)
         miner_data['price [$]'] = round(priceapi.get()[1], 3)
         miner_data['schema'] = 'PPLNS'
         try:
@@ -161,8 +161,8 @@ def setup_mining_page_callbacks(app, sharkapi):
         miner_data['total_paid'] = round(miner_data['total_paid'], 3)
 
         payment_images ={
-            'pendingshares': 'min-payout.png',
-             'balance': 'triangle.png',
+            'balance': 'triangle.png',
+            'paid_today': 'ergo.png',
              'total_paid': 'ergo.png',
              'last_payment': 'coins.png',
              'price [$]': 'ergo.png',
@@ -184,12 +184,28 @@ def setup_mining_page_callbacks(app, sharkapi):
         miner = unquote(pathname.lstrip('/')) 
 
         miner_data = sharkapi.get_miner_stats(miner)
+        pool_data = sharkapi.get_pool_stats()
 
-        miner_data['Participation [%]'] = -1
+        
+        shares_data = sharkapi.get_shares()
+        n_factor = 0.5  # For example, 2 times the network difficulty
+        # block_data = {'blockheight': network_height,
+        #               'networkdifficulty': network_diff}
+        participation, total_shares = calculate_pplns_participation(shares_data, pool_data, n_factor)
+        try:
+            my_participation = round(participation[miner] * 100, 3)
+            my_shares = round(my_participation * total_shares / 100, 2)
+        except Exception:
+            print('EXCEPTION: {}'.format(e))
+            my_participation = 0
+            my_shares = 0
+
+        miner_data['Participation [%]'] = my_participation
+        miner_data['Pending Shares'] = my_shares
         miner_data['tx_link'] = miner_data['last_payment']['tx_link']
         miner_data['paid_today'] = round(miner_data['paid_today'], 2)
         images ={'Participation [%]': 'smileys.png',
-                         'paid_today': 'ergo.png',
+                 'Pending Shares': 'min-payout.png',
                          'tx_link': 'ergo.png',
                         }
         
@@ -297,6 +313,7 @@ def setup_mining_page_callbacks(app, sharkapi):
         if table == 'workers':
             workers_data = sharkapi.get_miner_stats(wallet)
             pool_data = sharkapi.get_pool_stats()
+            
             df = pd.DataFrame(workers_data['workers'])
 
             try:
