@@ -2,12 +2,14 @@ from dash import Dash, html, dcc, Input, Output, State
 from layouts import front_page, mining_page
 from urllib.parse import quote, unquote
 import dash_bootstrap_components as dbc
-from utils.shark_api import DataManager, ApiReader
+from utils.shark_api import DataManager, ApiReader, setup_data_manager_update
 from layouts.front_page import setup_front_page_callbacks
 from layouts.mining_page import setup_mining_page_callbacks
 from flask_login import LoginManager, UserMixin, login_user
 from flask import Flask, request, session, redirect, url_for
 from flask_session import Session 
+import time
+import logging
 
 server = Flask(__name__)
 server.config['SECRET_KEY'] = 'your_super_secret_key'
@@ -27,8 +29,7 @@ def load_user(user_id):
 
 data_manager = DataManager('../conf')
 data_manager.update_data()
-# data_manager.start_update_loop(update_interval=5 * 60)  # Update every 5 minutes
-
+# data_manager.start_update_loop(update_interval=60)  # Update every 5 minutes
 reader = ApiReader(data_manager)
 
 app = Dash(__name__, url_base_pathname='/', server=server, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
@@ -37,6 +38,7 @@ app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     html.Div(id='page-content')
 ])
+setup_data_manager_update(app, data_manager, interval=3 * 60000)  # Update every 60 seconds
 
 @app.callback(Output('page-content', 'children'),
               [Input('url', 'pathname')])

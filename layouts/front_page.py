@@ -460,24 +460,42 @@ def get_layout(sharkapi):
                                             style_header=table_style,
                                             style_data=table_style,),
 
-                               # html.H1('MINER ID', style={'color': large_text_color, 'textAlign': 'center',}),
-                               html.H1('Mint Miner Config NFT', style={'textAlign': 'center',}),
+                               html.H1('Miner ID', style={'textAlign': 'center',}),
                                html.Div(id='generate-url-button'),
                                html.Div(id='link-container'),
                                dbc.Col(style={'padding': '10px'}, children=[
                                 dbc.Card(style=bottom_row_style, children=[
                                     dcc.Markdown(''' 
-                                    #### How it works - Reward Token Swap
-                                    1. Mint Miner ID NFT - Choose the ratio of tokens you would like to have as well as minimum payout
-                                    2. Once minted you will see your parameters in your mining dashboard
-                                    3. When your minimum payout is reached, price data is checked on ErgoDex to calculate how much of the token(s) you recieve based on the given tokens ratio in the miner ID. 
+                                    #### How Reward Token Swap Works
 
-                                    #### Changing your miner ID 
-                                    1. If you want to change your miner ID it is recommended to burn your current ID but is not necessary. Our system will check for the latest miner ID. 
-                                    2. Mint the NFT as you have done so before.
+                                    1. **Mint Your Miner ID NFT**: 
+                                       - Choose your preferred ratio of tokens for rewards.
+                                       - Set your minimum payout threshold.
                                     
-                                    ### Dev Fees
-                                    There is a 3 ERG applied to mint the Miner ID token''')
+                                    2. **View Your Mining Dashboard**:
+                                       - After minting, your chosen parameters will be displayed in your dashboard.
+                                    
+                                    3. **Receive Your Rewards**:
+                                       - When you reach your minimum payout threshold, our system checks current prices on ErgoDex.
+                                       - Your rewards are calculated and distributed based on the token ratios specified in your Miner ID.
+                                    
+                                    #### Updating Your Miner ID
+                                    
+                                    1. **Optional: Burn Current ID**:
+                                       - While not mandatory, it's recommended to burn your current Miner ID before creating a new one.
+                                       - Our system always uses the most recent Miner ID for your account.
+                                    
+                                    2. **Mint a New Miner ID**:
+                                       - Follow the same process as before to mint a new Miner ID with updated parameters.
+                                    
+                                    ### Development Fee
+                                        - A one-time fee of 3 ERG is charged for minting each Miner ID NFT.
+                                        - This fee supports ongoing development and maintenance of the platform.
+                                    
+                                    #### Important Note 
+                                        - With your first payment from the mining pool, you'll receive a special receipt token.
+                                        - This receipt token automatically waives the 3 ERG fee for all future Miner ID mints.
+                                        - You can update your preferences by minting new Miner IDs at any time without incurring additional costs.''')
                                     
                                 ]),]),
                                
