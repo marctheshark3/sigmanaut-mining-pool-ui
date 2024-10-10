@@ -38,7 +38,7 @@ app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     html.Div(id='page-content')
 ])
-setup_data_manager_update(app, data_manager, interval=3 * 60000)  # Update every 60 seconds
+setup_data_manager_update(app, data_manager, interval=5 * 60000)  # Update every 60 seconds
 
 @app.callback(Output('page-content', 'children'),
               [Input('url', 'pathname')])
