@@ -189,8 +189,7 @@ def setup_mining_page_callbacks(app, sharkapi):
         
         shares_data = sharkapi.get_shares()
         n_factor = 0.5  # For example, 2 times the network difficulty
-        # block_data = {'blockheight': network_height,
-        #               'networkdifficulty': network_diff}
+   
         participation, total_shares = calculate_pplns_participation(shares_data, pool_data, n_factor)
         try:
             my_participation = round(participation[miner] * 100, 3)
@@ -344,11 +343,48 @@ def setup_mining_page_callbacks(app, sharkapi):
             df = df.filter(['created', 'blockheight', 'effort', 'reward', 'confirmationprogress'])
             df = df.rename(columns={'created': 'Time Found', 'blockheight': 'Height',
                                     'effort': 'Effort [%]', 'confirmationprogress': 'Confirmation [%]'})
+
+        elif table == 'swap_payments':
+            title_2 = 'Payments'
+            miner_swap_data = sharkapi.get_miner_swap_payments(wallet)
             
+            df = pd.DataFrame(miner_swap_data)
+    
+            try:
+                df['timestamp'] = [stamp[:16] for stamp in df.timestamp]
+                df['amount'] = df['amount']
+                df['balance_paid'] = round(df['balance_paid'], 3)
+                df = df.filter(['timestamp', 'asset', 'amount', 'transactionid'])
+            except Exception:
+                df =  pd.DataFrame()
             
         columns = [{"name": i, "id": i} for i in df.columns]
         data = df.to_dict('records')
+        
         return data, title_2
+
+    # @app.callback(
+    #     Output('swap-data-table', 'data'),
+    #     Input('mp-interval-swap', 'n_intervals'),
+    #     State('url', 'pathname')
+    # )
+    # def update_swap_data(n, pathname):
+    #     wallet = unquote(pathname.lstrip('/'))
+    #     miner_swap_data = sharkapi.get_miner_swap_payments(wallet)
+    #     df = pd.DataFrame(miner_swap_data)
+
+        
+    #     # df['timestamp'] = pd.to_datetime(df['timestamp'])
+    #     try:
+    #         df['timestamp'] = [stamp[:16] for stamp in df.timestamp]
+    #         df['amount'] = round(df['amount'], 3)
+    #         df['balance_paid'] = round(df['balance_paid'], 3)
+    #         return df.to_dict('records')
+    #     except Exception:
+    #         return pd.DataFrame().to_dict('records')
+        
+        
+        
 
     @app.callback([
                    Output('mp-banners', 'children'),
@@ -382,6 +418,8 @@ def get_layout(sharkapi):
                                dcc.Interval(id='mp-interval-4', interval=60*1000*5, n_intervals=0),
                                dcc.Interval(id='mp-interval-5', interval=60*1000*5, n_intervals=0),
                                dcc.Interval(id='mp-interval-7', interval=60*1000*5, n_intervals=0),
+                               dcc.Interval(id='mp-interval-swap', interval=60*1000*5, n_intervals=0),
+
 
                                html.H1('ERGO Sigmanaut Mining Pool', style={'color': 'white', 'textAlign': 'center',}), 
                                dbc.Row(id='mp-stats', justify='center',),
@@ -445,7 +483,9 @@ def get_layout(sharkapi):
                                                 id='table-dropdown',
                                                 options=[
                                                     {'label': 'Your Worker Data', 'value': 'workers'},
-                                                    {'label': 'Your Block Data', 'value': 'blocks'}
+                                                    {'label': 'Your Block Data', 'value': 'blocks'},
+                                                    {'label': 'Your Payment Data', 'value': 'swap_payments'},
+                                                    
                                                 ],
                                                 value='workers',  # Default value
                                                 style={'width': '300px', 'color': 'black'}
@@ -472,6 +512,27 @@ def get_layout(sharkapi):
                                             style_data=table_style,
 
                                            ),
+
+                               # html.H2("Miner Swap Data", style={'color': 'white', 'textAlign': 'center', 'marginTop': '20px'}),
+                               # dash_table.DataTable(
+                               #     id='swap-data-table',
+                               #     columns=[
+                               #         {"name": "Timestamp", "id": "timestamp"},
+                               #         {"name": "Amount", "id": "amount"},
+                               #         {"name": "Asset", "id": "asset"},
+                               #         {"name": "TX", "id": "transactionid"},
+                               #         {"name": "Erg Reward", "id": "balance_paid"}
+                               #     ],
+                               #     style_table={'overflowX': 'auto'},
+                               #              style_cell={'height': 'auto', 'minWidth': '180px',
+                               #                          'width': '180px', 'maxWidth': '180px',
+                               #                          'whiteSpace': 'normal', 'textAlign': 'left',
+                               #                          'padding': '10px',},
+                               #              style_header=table_style,
+                               #              style_data=table_style,
+
+                               #             ),
+                                  
                            ]),], style={'backgroundColor': card_color})  # This sets the background color for the whole page
 
 # if __name__ == '__main__':

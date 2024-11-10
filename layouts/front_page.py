@@ -97,10 +97,8 @@ def setup_front_page_callbacks(app, sharkapi):
         custom_part = f'sigma-NFT-minter-{id}'
         
         # Use environment variable or default to the production domain
-        base_url = os.environ.get('BASE_URL', 'http://dev.ergominers.com')
-        #base_url = os.environ.get('BASE_URL', 'http://188.245.66.57')
-
-        
+        base_url = os.environ.get('BASE_URL', 'http://mint.ergominers.com')
+        # base_url = os.environ.get('BASE_URL', 'http://188.245.66.57:3000')
         
         custom_url = f'{base_url}/miner-id-minter/{id}'
         return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
@@ -335,7 +333,8 @@ def setup_front_page_callbacks(app, sharkapi):
                         html.Img(src='https://i.imgur.com/M84CKef.jpg', style={'height': 'auto%', 'width': 'auto'}),
                         html.Img(src='https://i.imgur.com/XvPvUgp.jpg', style={'height': 'auto%', 'width': 'auto'}),
                         html.Img(src='https://i.imgur.com/l0xluPE.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                        html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),]
+                        html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),
+            ]
 
         return [dbc.Row(id='banners', justify='center', children=banners)]
         

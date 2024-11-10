@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 logger = logging.getLogger(__name__)
-def setup_data_manager_update(app, data_manager, interval=2*60000):  # interval in milliseconds
+def setup_data_manager_update(app, data_manager, interval=60000):  # interval in milliseconds
     app.layout.children.append(dcc.Interval(id='interval-component', interval=interval, n_intervals=0))
 
     @app.callback(Output('interval-component', 'n_intervals'),
