@@ -15,7 +15,7 @@ import {
     VStack,
     Select,
     Link,
-    Text,
+   // Text,
     useToast,
 } from '@chakra-ui/react';
 import { OutputBuilder, TransactionBuilder } from "@fleet-sdk/core";
@@ -52,9 +52,9 @@ function Create() {
 
     // Define the receipt token ID and other constants
     const RECEIPT_TOKEN_ID = "ff9318934c9420f595f314eebc7188df7d8b4a7beb0fccc5b28e8ab272bb6e1b";
-    const RECEIPT_TOKEN_AMOUNT = "1"; // Amount of receipt token to send
+   // const RECEIPT_TOKEN_AMOUNT = "1"; // Amount of receipt token to send
     const FEE_AMOUNT = "3000000000"; // 3 ERG in nanoERGs
-    const FEE_ADDRESS = "9eg7v2nkypUZbdyvSKSD9kg8FNwrEdTrfC2xdXWXmEpDAFEtYEn";
+    const FEE_ADDRESS ="9fA4RypzYiYNKHkcWjo1V2AYLA5Z3ny7bgVKBTdpQKrkaR38eJU"; // MARCS "9eg7v2nkypUZbdyvSKSD9kg8FNwrEdTrfC2xdXWXmEpDAFEtYEn";
 
     useEffect(() => {
         fetch('https://raw.githubusercontent.com/marctheshark3/Mining-Reward-Tokens/main/supported-swap-tokens.csv')
