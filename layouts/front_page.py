@@ -490,16 +490,23 @@ def get_layout(sharkapi):
                                     ### Development Fee
                                     - A one-time fee of 3 ERG is charged for minting each Miner ID NFT.
                                     - This fee supports ongoing development and maintenance of the platform.
-                                    
-                                    #### Important Note 
-                                    - With your first payment from the mining pool, you'll receive a special receipt token.
-                                    - This receipt token automatically waives the 3 ERG fee for all future Miner ID mints.
-                                    - You can update your preferences by minting new Miner IDs at any time without incurring additional costs.''')
+
+                                    #### FAQs
+                                    1. Can I use any wallet?
+                                        - We only support Nautilus for the current version
+                                    2. Do I have to mint the Miner ID using the same address I use to mine ergo?
+                                        - Yes, this is the only way we can prove you want to change the given parameters.
+                                    3. What happens if I dont mint an Miner ID?
+                                        - We will set your minimum payout to be 0.01 Ergs. You will receieve Ergs as you normally do.                           
+                                    ''')
                                     
                                 ]),]),
                                
                                
-
+                                  #### Important Note 
+                                # - With your first payment from the mining pool, you'll receive a special receipt token.
+                                # - This receipt token automatically waives the 3 ERG fee for all future Miner ID mints.
+                                # - You can update your preferences by minting new Miner IDs at any time without incurring additional costs.
                                
                                # html.H1('CONNECTING TO THE POOL',
                                #         style={'color': 'white', 'textAlign': 'center', 'padding': '10px',}),
