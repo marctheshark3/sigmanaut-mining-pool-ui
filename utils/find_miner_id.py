@@ -56,7 +56,7 @@ class ReadTokens:
         return ls
 
     def get_latest_miner_id(self, wallet):
-        possible_tokens = self.find_token_name_in_wallet(wallet, 'Sigmanaut Mining Pool Miner ID - Season 0')
+        possible_tokens = self.find_token_name_in_wallet(wallet, 'Sigmanaut Mining Pool Miner ID - Season 1')
 
         my_tokens = []
         most_recent_token = None
