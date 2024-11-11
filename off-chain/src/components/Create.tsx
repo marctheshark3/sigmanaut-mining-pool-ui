@@ -169,14 +169,14 @@ function Create() {
         if (connected) {
             const address = await ergo.get_change_address();
             const height = await ergo.get_current_height();
-            const nftName = 'Sigmanaut Mining Pool Miner ID - Season 0';
+            const nftName = 'Sigmanaut Mining Pool Miner ID - Season 1';
 
             const dictionary = {
                 address: address,
                 height: height,
                 minimumPayout: minimumPayout,
                 tokens: selectedTokens,
-                season: 0,
+                season: 1,
                 type: 'Miner ID',
                 fan_club: 'QX'
             };
