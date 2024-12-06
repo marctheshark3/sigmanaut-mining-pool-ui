@@ -2,10 +2,15 @@ import dash
 from dash import html, dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
 from pandas import DataFrame
-from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style, bottom_row_style, bottom_image_style, card_color, large_text_color, small_text_color, background_color
+from utils.dash_utils import (
+    metric_row_style, image_style, create_row_card, card_style, 
+    image_card_style, bottom_row_style, bottom_image_style, 
+    card_color, large_text_color, small_text_color, background_color
+)
 import plotly.graph_objs as go
 import plotly.express as px
-from utils.shark_api import ApiReader
+from utils.api_reader import ApiReader
+from utils.data_manager import DataManager
 import pandas as pd
 from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
 import uuid
@@ -13,19 +18,29 @@ import os
 from utils.get_erg_prices import PriceReader
 
 priceapi = PriceReader()
-# sharkapi = ApiReader(config_path="../conf")
 
 debug = False
 
 button_color = large_text_color
 
 
-# refactor this into dash_utils
+def initialize_api(config_path: str) -> ApiReader:
+    """Initialize the API components with proper error handling"""
+    try:
+        data_manager = DataManager(config_path)
+        api_reader = ApiReader(data_manager)
+        return api_reader
+    except Exception as e:
+        logger.error(f"Failed to initialize API components: {e}")
+        raise
+
 def create_image_text_block(image, text, value):
     return html.Div(style=bottom_row_style, children=[
-                    html.Img(src='assets/{}'.format(image), style=bottom_image_style),
-                    html.Span(text, style={'padding': '5px', 'color': 'white'}),
-                    html.Span(value, style={'padding': '5px', 'color': large_text_color})])
+        html.Img(src='assets/{}'.format(image), style=bottom_image_style),
+        html.Span(text, style={'padding': '5px', 'color': 'white'}),
+        html.Span(value, style={'padding': '5px', 'color': large_text_color})
+    ])
+
 
 # Style for the card containers
 card_style = {
@@ -81,16 +96,11 @@ def create_row_card(image, h2_text, p_text):
         html.H2(h2_text, style={'color': large_text_color}),
         html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
 
-def setup_front_page_callbacks(app, sharkapi):
+def setup_front_page_callbacks(app, api_reader):
     @app.callback(
         Output('link-container', 'children'),
         Input('generate-url-button', 'n_clicks'),
     )
-    # def generate_link(n_clicks):
-    #     id =  uuid.uuid4()
-    #     custom_part = 'sigma-NFT-minter-{}'.format(id)
-    #     custom_url = f'http://0.0.0.0:3000/{custom_part}'
-    #     return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
 
     def generate_link(n_clicks):
         id = uuid.uuid4()
@@ -107,7 +117,7 @@ def setup_front_page_callbacks(app, sharkapi):
                    [Input('fp-int-4', 'n_intervals')])
 
     def update_first_row(n):
-        data = sharkapi.get_pool_stats()
+        data = api_reader.get_pool_stats()
         
         data['hashrate'] = round(data['poolhashrate'] / 1e9, 2)
         data['price'] = round(priceapi.get()[1], 3)
@@ -128,8 +138,8 @@ def setup_front_page_callbacks(app, sharkapi):
                    [Input('fp-int-1', 'n_intervals')])
 
     def update_metrics(n):
-        data = sharkapi.get_pool_stats()
-        block_data = sharkapi.get_block_stats()
+        data = api_reader.get_pool_stats()
+        block_data = api_reader.get_block_stats()
         block_df = pd.DataFrame(block_data)
         try:
             latest_block_time = max(block_df.created)
@@ -141,7 +151,7 @@ def setup_front_page_callbacks(app, sharkapi):
  
         data['minimumpayment'] = 0.5
         data['fee'] = 0.9
-        data['paid'] = sharkapi.get_payment_stats()
+        data['paid'] = api_reader.get_payment_stats()
         data['payoutscheme'] = 'PPLNS'
         
         
@@ -180,7 +190,7 @@ def setup_front_page_callbacks(app, sharkapi):
     def update_plots(n, value):
         
         if value == 'effort':
-            block_data = sharkapi.get_block_stats()
+            block_data = api_reader.get_block_stats()
             block_df = pd.DataFrame(block_data)
                         
             block_df['rolling_effort'] = block_df['effort'].expanding().mean()
@@ -221,7 +231,7 @@ def setup_front_page_callbacks(app, sharkapi):
             return effort_response_chart, title
             
         title = 'HASHRATE OVER TIME'
-        data = sharkapi.get_total_hash_stats()
+        data = api_reader.get_total_hash_stats()
         performance_df = pd.DataFrame(data)
         
         performance_df = performance_df.rename(columns={'timestamp': 'Time',
@@ -253,7 +263,7 @@ def setup_front_page_callbacks(app, sharkapi):
         
         if selected_data == 'blocks':
             title = 'Blocks Data'
-            data = sharkapi.get_block_stats()
+            data = api_reader.get_block_stats()
             block_df = pd.DataFrame(data)
 
             if block_df.empty:
@@ -281,8 +291,8 @@ def setup_front_page_callbacks(app, sharkapi):
             
         elif selected_data == 'miners':
 
-            pool_data = sharkapi.get_pool_stats()
-            data = sharkapi.get_live_miner_data()
+            pool_data = api_reader.get_pool_stats()
+            data = api_reader.get_live_miner_data()
             df = pd.DataFrame(data)
             df['effort'] = [calculate_mining_effort(pool_data['networkdifficulty'], pool_data['networkhashrate'],
                                          row.hashrate, row.last_block_found) for _, row in df.iterrows()]
@@ -331,14 +341,11 @@ def setup_front_page_callbacks(app, sharkapi):
         elif not flag:
             banners = [
                         html.Img(src='https://i.imgur.com/M84CKef.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                        html.Img(src='https://i.imgur.com/XvPvUgp.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                        html.Img(src='https://i.imgur.com/l0xluPE.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                        html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),
             ]
 
         return [dbc.Row(id='banners', justify='center', children=banners)]
         
-def get_layout(sharkapi):
+def get_layout(api_reader):
     return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
                            children=[
                                
