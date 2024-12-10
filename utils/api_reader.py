@@ -106,6 +106,9 @@ class ApiReader:
     def get_pool_stats(self) -> Dict:
         return self.data_manager.get_pool_stats()
 
+    def get_live_miner_data(self) -> Dict:
+        return self.data_manager.get_live_miner_data()
+
     def get_total_hash_stats(self) -> Dict[str, Any]:
         """Get total hash statistics from the historical data endpoint"""
         try:

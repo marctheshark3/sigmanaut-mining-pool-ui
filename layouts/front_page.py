@@ -103,7 +103,7 @@ def setup_front_page_callbacks(app, api_reader):
                     dbc.Card(style=bottom_row_style, children=[
                         create_image_text_block('Schema: {}'.format(data['payoutscheme']), 'triangle.png'),
                         create_image_text_block('Blocks Found: {}'.format(data['blocks']), 'ergo.png'),
-                        create_image_text_block('Pool Effort: {}'.format(round(data.get('pooleffort', 0), 3)), 'ergo.png'),
+                        create_image_text_block('Pool Effort: {}'.format(round(data.get('effort', 0), 3)), 'ergo.png'),
                     ])
                 ])
             ])
@@ -257,6 +257,9 @@ def setup_front_page_callbacks(app, api_reader):
             logger.error(f"Error in update_content: {e}")
             return [], 'Error loading data'
 
+
+DASH_INTERVAL = 1000*60*5
+
 def get_layout(api_reader):
     return html.Div([
         dbc.Container(
@@ -264,11 +267,11 @@ def get_layout(api_reader):
             style=container_style,
             children=[
                 # Intervals
-                dcc.Interval(id='fp-int-1', interval=60*1000*5, n_intervals=0),
-                dcc.Interval(id='fp-int-2', interval=60*1000*5, n_intervals=0),
-                dcc.Interval(id='fp-int-3', interval=60*1000*5, n_intervals=0),
-                dcc.Interval(id='fp-int-4', interval=60*1000*5, n_intervals=0),
-                dcc.Interval(id='fp-int-5', interval=60*1000*5, n_intervals=0),
+                dcc.Interval(id='fp-int-1', interval=DASH_INTERVAL, n_intervals=0),
+                dcc.Interval(id='fp-int-2', interval=DASH_INTERVAL, n_intervals=0),
+                dcc.Interval(id='fp-int-3', interval=DASH_INTERVAL, n_intervals=0),
+                dcc.Interval(id='fp-int-4', interval=DASH_INTERVAL, n_intervals=0),
+                dcc.Interval(id='fp-int-5', interval=DASH_INTERVAL, n_intervals=0),
 
                 html.H1(
                     'ERGO Sigmanaut Mining Pool',

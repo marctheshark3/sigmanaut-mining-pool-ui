@@ -69,22 +69,23 @@ def register_callbacks(app, sharkapi, priceapi, styles):
     def update_middle(n, pathname):
         try:
             wallet = unquote(pathname.lstrip('/'))
+            # need to parse this correctly as it is typed as optional and should be a Dict
             miner_data = sharkapi.get_miner_stats(wallet)
+            text = 'miner STATSSSSSS {}'.format(miner_data)
+            logger.info(text)
             if not miner_data:
                 return [], []
     
             price = round(priceapi.get()[1], 3)
-            
+            payments = miner_data.payments
             # Safely access nested attributes
-            last_payment_date = 'Keep Mining!'
-            if hasattr(miner_data, 'last_block_found') and isinstance(miner_data.last_block_found, dict):
-                last_payment_date = miner_data.last_block_found.get('date', 'Keep Mining!')[:10]
             
+            payments = miner_data.payments
             stats = {
-                'balance': round(getattr(miner_data, 'balance', 0), 3),
-                'paid_today': round(getattr(miner_data, 'paid_today', 0), 2),
-                'total_paid': round(getattr(miner_data, 'total_paid', 0), 3),
-                'last_payment': last_payment_date,
+                'balance': round(miner_data.balance, 3),
+                'paid_today': round(payments['paid_today'], 2),
+                'total_paid': round(payments['total_paid'], 3),
+                'last_payment': payments['last_payment']['date'][:10],
                 'price [$]': price,
                 'schema': 'PPLNS'
             }

@@ -33,6 +33,9 @@ styles = {
     'top_image_style': image_styles['top']
 }
 
+
+DASH_INTERVAL = 1000*60*5
+
 def get_layout(sharkapi):
     return html.Div([
         dbc.Container(
@@ -40,12 +43,12 @@ def get_layout(sharkapi):
             style=container_style,
             children=[
                 # Intervals
-                dcc.Interval(id='mp-interval-1', interval=30*1000),
-                dcc.Interval(id='mp-interval-2', interval=30*1000),
-                dcc.Interval(id='mp-interval-3', interval=30*1000),
-                dcc.Interval(id='mp-interval-4', interval=30*1000),
-                dcc.Interval(id='mp-interval-5', interval=30*1000),
-                dcc.Interval(id='mp-interval-7', interval=30*1000),
+                dcc.Interval(id='mp-interval-1', interval=DASH_INTERVAL),
+                dcc.Interval(id='mp-interval-2', interval=DASH_INTERVAL),
+                dcc.Interval(id='mp-interval-3', interval=DASH_INTERVAL),
+                dcc.Interval(id='mp-interval-4', interval=DASH_INTERVAL),
+                dcc.Interval(id='mp-interval-5', interval=DASH_INTERVAL),
+                dcc.Interval(id='mp-interval-7', interval=DASH_INTERVAL),
 
                 # Header
                 html.H1(
