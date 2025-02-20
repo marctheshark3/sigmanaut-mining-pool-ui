@@ -19,7 +19,7 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Changed to DEBUG for more verbose output
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -126,44 +126,30 @@ def load_user(user_id):
 
 def initialize_api():
     try:
-        # Use relative path for conf directory
-        conf_dir = 'conf'
-        logger.info(f"Using conf directory: {conf_dir}")
-        
-        logger.info("Initializing DataManager...")
-        data_manager = DataManager(conf_dir)
-        
-        logger.info("Updating data...")
+        data_manager = DataManager('../conf')
         data_manager.update_data()
-        
-        logger.info("Initializing ApiReader...")
         api_reader = ApiReader(data_manager)
-        
         logger.info("Successfully initialized API components")
         return data_manager, api_reader
     except Exception as e:
-        logger.error(f"Failed to initialize API components: {e}", exc_info=True)
+        logger.error(f"Failed to initialize API components: {e}")
         raise
 
 def create_app():
     try:
-        logger.info("Starting application initialization...")
         data_manager, api_reader = initialize_api()
-        logger.info("API initialization completed")
     except Exception as e:
-        logger.error(f"Failed to initialize application: {e}", exc_info=True)
+        logger.error(f"Failed to initialize application: {e}")
         raise
 
-    logger.info("Creating Dash application...")
     app = Dash(
         __name__,
         server=server,
         url_base_pathname='/',
         external_stylesheets=[dbc.themes.BOOTSTRAP],
         suppress_callback_exceptions=True,
-        update_title=None
+        update_title=None  # Disable the "Updating..." title during callbacks
     )
-    logger.info("Dash application created successfully")
 
     # Add routes to serve React app
     @server.route('/mint/')
@@ -222,19 +208,13 @@ def create_app():
 
     return app
 
-# Create the application instance
-try:
-    logger.info("Creating application instance...")
-    app = create_app()
-    logger.info("Application instance created successfully")
-except Exception as e:
-    logger.error(f"Failed to create application instance: {e}", exc_info=True)
-    raise
-
 if __name__ == '__main__':
     try:
-        logger.info("Starting development server...")
+        logger.info("Starting application...")
+        app = create_app()
+        server = app.server
+        logger.info("Application created successfully, starting server...")
         app.run_server(debug=True, host='0.0.0.0', port=8050)
     except Exception as e:
-        logger.error(f"Failed to start development server: {e}", exc_info=True)
+        logger.error(f"Failed to start application: {e}", exc_info=True)
         raise

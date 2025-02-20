@@ -6,19 +6,14 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./app:/app/app
-      - ./static:/app/static
-      - ./conf:/app/conf
-      - ./flask_session:/app/flask_session
+      - ./:/app
     ports:
       - "8050:8050"
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - FLASK_ENV=production
       - REDIS_URL=redis://redis:6379/0
-      - PYTHONPATH=/app
     depends_on:
       - redis
     healthcheck:
@@ -45,7 +40,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6380:6379"
+      - "6379:6379"
     deploy:
       resources:
         limits:
@@ -58,6 +53,36 @@ services:
     networks:
       - app_network
     
+  miner-id-minter:
+    build:
+      context: ./off-chain
+      dockerfile: Dockerfile
+    volumes:
+      - ./off-chain:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+    depends_on:
+      - ui
+    networks:
+      - app_network
+
   nginx:
     image: nginx:stable-alpine
     ports:
@@ -83,6 +108,7 @@ services:
           memory: 128M
     depends_on:
       - ui
+      - miner-id-minter
     restart: unless-stopped
     networks:
       - app_network

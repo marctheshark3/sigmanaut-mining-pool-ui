@@ -16,35 +16,16 @@ logger = logging.getLogger(__name__)
 class DataManager:
     def __init__(self, config_path: str):
         try:
-            # Convert absolute path to relative path if needed
-            if os.path.isabs(config_path):
-                config_path = os.path.relpath(config_path, os.getcwd())
-            
-            # Ensure the config path is relative to the current directory
-            config_path = config_path.replace('\\', '/')
-            if config_path.startswith('/'):
-                config_path = config_path[1:]
-            
-            # Adjust path for Docker container
-            if config_path == '../conf':
-                config_path = 'conf'
-            
-            logger.debug(f"Using config path: {config_path}")
-            
-            try:
-                initialize(version_base=None, config_path=config_path)
-            except ValueError:
-                GlobalHydra.instance().clear()
-                initialize(version_base=None, config_path=config_path)
-            
-            cfg = compose(config_name="config")
-            self.api = cfg.default_values.api
-            self.data = {}
-            self._initialize_caches()
-            self._initialize_redis()
-        except Exception as e:
-            logger.error(f"Failed to initialize DataManager: {e}", exc_info=True)
-            raise
+            initialize(config_path, config_path, version_base=None)
+        except ValueError:
+            GlobalHydra.instance().clear()
+            initialize(config_path, config_path, version_base=None)
+        
+        cfg = compose(config_name='conf')
+        self.api = cfg.default_values.api
+        self.data = {}
+        self._initialize_caches()
+        self._initialize_redis()
 
     def _initialize_redis(self):
         """Initialize Redis connection if available"""
