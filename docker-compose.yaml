@@ -13,7 +13,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
       - FLASK_ENV=production
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6380/0
     depends_on:
       - redis
     healthcheck:
@@ -40,7 +40,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "6380:6379"
     deploy:
       resources:
         limits:
