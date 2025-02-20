@@ -25,6 +25,10 @@ class DataManager:
             if config_path.startswith('/'):
                 config_path = config_path[1:]
             
+            # Adjust path for Docker container
+            if config_path == '../conf':
+                config_path = 'conf'
+            
             logger.debug(f"Using config path: {config_path}")
             
             try:

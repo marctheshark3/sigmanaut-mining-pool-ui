@@ -123,7 +123,7 @@ def get_layout(sharkapi):
                                     'justifyContent': 'flex-end'
                                 })
                             ]
-                        ),here
+                        ),
                         width=12
                     ),
                     justify="center"
