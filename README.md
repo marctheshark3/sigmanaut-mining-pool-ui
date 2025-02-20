@@ -8,19 +8,36 @@
 Enter you Wallet Address in the input tab when you start up the dashboard
 
 ## UI Operation
+You can run the UI in two modes: with or without nginx reverse proxy.
+
+### Basic Operation (without nginx)
+```bash
+./start.sh
 ```
-# USING LATEST DOCKER IMAGE FROM GIT
-docker compose down # Stops the UI
-docker compose pull # pulls the latest docker image
-docker compose up -d # Runs the UI
+This will start the core services (UI and Redis) and expose the UI directly on port 8050.
 
+### With Nginx Reverse Proxy
+```bash
+./start.sh --with-nginx
+```
+This will start all services including nginx, which provides additional features like SSL termination and rate limiting.
 
-# ALTERNATIVELY YOU CAN BUILD IT YOURSELF
-git pull # ensure you have latest files from git
-docker compose up --build
+### Additional Options
+- `--build`: Force rebuild of containers
+- `-h` or `--help`: Show help message
+
+Examples:
+```bash
+# Start core services and force rebuild
+./start.sh --build
+
+# Start with nginx and force rebuild
+./start.sh --with-nginx --build
 ```
 
-In a web browser you can navigate to: http://localhost:8050/
+In a web browser you can navigate to:
+- Without nginx: http://localhost:8050/
+- With nginx: http://localhost:8080/
 
 ## How to Connect to the Sigmanaut Mining Pool
 

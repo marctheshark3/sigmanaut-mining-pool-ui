@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import Papa from 'papaparse';
+import React, { useState } from 'react';
 import {
     Alert,
     AlertIcon,
@@ -11,15 +10,17 @@ import {
     NumberInputStepper,
     NumberIncrementStepper,
     NumberDecrementStepper,
-    Stack,
     VStack,
-    Select,
     Link,
-   // Text,
     useToast,
+    Box,
+    Text,
+    Flex,
+    Heading,
 } from '@chakra-ui/react';
 import { OutputBuilder, TransactionBuilder } from "@fleet-sdk/core";
 import Title from '../components/Title';
+import CryptoJS from 'crypto-js';
 
 declare global {
     interface Window {
@@ -29,22 +30,11 @@ declare global {
 declare var ergo: any;
 var connected: any;
 
-interface Token {
-    'Token Name': string;
-}
-
-interface SelectedToken {
-    token: string;
-    value: number;
-}
-
 function Create() {
     const [minimumPayout, setMinimumPayout] = useState<number>(0.01);
     const [created, setCreated] = useState<boolean>(false);
     const [tx, setTx] = useState<string>('...');
     const [error, setError] = useState<string>('');
-    const [tokens, setTokens] = useState<Token[]>([]);
-    const [selectedTokens, setSelectedTokens] = useState<SelectedToken[]>([{ token: '', value: 0 }]);
     const [hasReceiptToken, setHasReceiptToken] = useState<boolean | null>(null);
     const [isChecking, setIsChecking] = useState<boolean>(false);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -52,35 +42,27 @@ function Create() {
 
     // Define the receipt token ID and other constants
     const RECEIPT_TOKEN_ID = "ff9318934c9420f595f314eebc7188df7d8b4a7beb0fccc5b28e8ab272bb6e1b";
-   // const RECEIPT_TOKEN_AMOUNT = "1"; // Amount of receipt token to send
     const FEE_AMOUNT = "3000000000"; // 3 ERG in nanoERGs
-    const FEE_ADDRESS ="9fA4RypzYiYNKHkcWjo1V2AYLA5Z3ny7bgVKBTdpQKrkaR38eJU"; // MARCS "9eg7v2nkypUZbdyvSKSD9kg8FNwrEdTrfC2xdXWXmEpDAFEtYEn";
+    const FEE_ADDRESS ="9fA4RypzYiYNKHkcWjo1V2AYLA5Z3ny7bgVKBTdpQKrkaR38eJU";
 
-    useEffect(() => {
-        fetch('https://raw.githubusercontent.com/marctheshark3/Mining-Reward-Tokens/main/supported-swap-tokens.csv')
-            .then(response => response.text())
-            .then(data => {
-                Papa.parse<Token>(data, {
-                    header: true,
-                    complete: (results) => {
-                        setTokens(results.data);
-                    },
-                });
-            });
-    }, []);
+    // Add collection ID constant
+    const COLLECTION_ID = "10ba19fae939a8c185eddb239d85f4dc8a77564cb6167578d8019f24696446fc"; // Sigma Bytes Collection ID
 
     const handleMinimumPayoutChange = (valueAsString: string, valueAsNumber: number) => {
         setMinimumPayout(valueAsNumber);
     };
 
-    const handleTokenChange = (index: number, field: keyof SelectedToken, value: string | number) => {
-        const newSelectedTokens = [...selectedTokens];
-        newSelectedTokens[index][field] = value as never;
-        setSelectedTokens(newSelectedTokens);
+    // Function to encrypt the payout value
+    const encryptPayout = (payout: number): string => {
+        const secretKey = 'your-secret-key'; // In production, use a secure key management system
+        return CryptoJS.AES.encrypt(payout.toString(), secretKey).toString();
     };
 
-    const handleAddToken = () => {
-        setSelectedTokens([...selectedTokens, { token: '', value: 0 }]);
+    // Function to decrypt the payout value (for authorized parties)
+    const decryptPayout = (encryptedPayout: string): number => {
+        const secretKey = 'your-secret-key';
+        const decrypted = CryptoJS.AES.decrypt(encryptedPayout, secretKey);
+        return parseFloat(decrypted.toString(CryptoJS.enc.Utf8));
     };
 
     const checkWalletForReceiptToken = async () => {
@@ -124,24 +106,17 @@ function Create() {
     };
 
     const handleSubmit = async () => {
-        const totalValue = selectedTokens.reduce((sum, token) => sum + token.value, 0);
-        if (totalValue !== 100) {
-            setError('The sum of all token values must add up to 100.');
+        if (hasReceiptToken === null) {
+            setError('Please check your wallet for the voucher token first.');
             return;
-        } else {
-            setError('');
-            if (hasReceiptToken === null) {
-                setError('Please check your wallet for the voucher token first.');
-                return;
-            }
-            try {
-                setIsSubmitting(true);
-                await create_token(minimumPayout, selectedTokens);
-            } catch (error) {
-                handleTransactionError(error);
-            } finally {
-                setIsSubmitting(false);
-            }
+        }
+        try {
+            setIsSubmitting(true);
+            await create_token(minimumPayout);
+        } catch (error) {
+            handleTransactionError(error);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -164,21 +139,23 @@ function Create() {
         window.location.reload();
     };
 
-    async function create_token(minimumPayout: number, selectedTokens: SelectedToken[]): Promise<void> {
+    async function create_token(minimumPayout: number): Promise<void> {
         connected = await window.ergoConnector.nautilus.connect();
         if (connected) {
             const address = await ergo.get_change_address();
             const height = await ergo.get_current_height();
-            const nftName = 'Sigmanaut Mining Pool Miner ID - Season 1';
+            const nftName = 'Sigma BYTES';
 
+            const encryptedPayout = encryptPayout(minimumPayout);
+            
             const dictionary = {
                 address: address,
                 height: height,
-                minimumPayout: minimumPayout,
-                tokens: selectedTokens,
+                encryptedPayout: encryptedPayout,
                 season: 1,
-                type: 'Miner ID',
-                fan_club: 'QX'
+                type: 'Pool Config',
+                collection_id: COLLECTION_ID,
+                description: 'Sigmanauts Mining Pool Configuration Token'
             };
             const dictionaryString = JSON.stringify(dictionary);
 
@@ -194,7 +171,6 @@ function Create() {
 
             if (!hasReceiptToken) {
                 outputs.push(new OutputBuilder(FEE_AMOUNT, FEE_ADDRESS));
-     
             }
 
             const unsignedTx = new TransactionBuilder(height)
@@ -213,98 +189,151 @@ function Create() {
     }
 
     return (
-        <>
-            <Title title='Mint token' />
-            <FormControl>
-                <Stack spacing={3}>
-                    <Button onClick={checkWalletForReceiptToken} isLoading={isChecking}>
-                        Check Wallet for Voucher Token
-                    </Button>
+        <Box
+            p={6}
+            borderRadius="xl"
+            bg="rgba(13, 17, 23, 0.95)"
+            borderWidth="1px"
+            borderColor="rgba(99, 179, 237, 0.3)"
+            boxShadow="0 0 20px rgba(99, 179, 237, 0.2)"
+            maxW="600px"
+            mx="auto"
+        >
+            <VStack spacing={6} align="stretch">
+                <Heading
+                    as="h1"
+                    size="xl"
+                    textAlign="center"
+                    bgGradient="linear(to-r, #ff69b4, #4299e1)"
+                    bgClip="text"
+                    fontWeight="extrabold"
+                    letterSpacing="wider"
+                >
+                    SIGMA BYTES
+                </Heading>
+                
+                <Text
+                    textAlign="center"
+                    color="whiteAlpha.800"
+                    fontSize="md"
+                    mb={4}
+                >
+                    Sigmanauts Mining Pool Configuration NFT
+                </Text>
+
+                <Box
+                    borderRadius="lg"
+                    overflow="hidden"
+                    position="relative"
+                    bg="gray.900"
+                    p={4}
+                >
+                    <Flex justify="flex-start" align="center" mb={4}>
+                        <Text color="cyan.400" fontSize="sm">Gen: 1.0.0</Text>
+                    </Flex>
 
                     {error && (
-                        <Alert status='error' variant='solid'>
+                        <Alert status='error' variant='solid' bg="red.900" color="white">
                             <AlertIcon />
                             {error}
                         </Alert>
                     )}
 
                     {hasReceiptToken !== null && !error && (
-                        <Alert status={hasReceiptToken ? 'success' : 'info'} variant='solid'>
+                        <Alert
+                            status={hasReceiptToken ? 'success' : 'info'}
+                            variant='solid'
+                            bg={hasReceiptToken ? "green.900" : "blue.900"}
+                            color="white"
+                        >
                             <AlertIcon />
                             {hasReceiptToken 
-                                ? "You have the voucher token. No fee will be charged." 
-                                : `You don't have the voucher token. A fee of ${Number(FEE_AMOUNT) / 1000000000} ERG will be charged.`}
+                                ? "Voucher token verified - No fee required" 
+                                : `Required fee: ${Number(FEE_AMOUNT) / 1000000000} ERG`}
                         </Alert>
                     )}
 
-                    <FormLabel>Minimum Payout</FormLabel>
-                    <NumberInput min={0} value={minimumPayout} onChange={handleMinimumPayoutChange} precision={2} step={0.01}>
-                        <NumberInputField />
-                        <NumberInputStepper>
-                            <NumberIncrementStepper />
-                            <NumberDecrementStepper />
-                        </NumberInputStepper>
-                    </NumberInput>
+                    <FormControl mt={4}>
+                        <FormLabel color="whiteAlpha.900">Set Minimum Payout (ERG)</FormLabel>
+                        <NumberInput
+                            min={0}
+                            value={minimumPayout}
+                            onChange={handleMinimumPayoutChange}
+                            precision={2}
+                            step={0.01}
+                            bg="whiteAlpha.100"
+                            borderRadius="md"
+                        >
+                            <NumberInputField color="white" />
+                            <NumberInputStepper>
+                                <NumberIncrementStepper color="whiteAlpha.800" />
+                                <NumberDecrementStepper color="whiteAlpha.800" />
+                            </NumberInputStepper>
+                        </NumberInput>
+                    </FormControl>
 
-                    {selectedTokens.map((selectedToken, index) => (
-                        <div key={index}>
-                            <FormLabel>Select Token</FormLabel>
-                            <Select
-                                placeholder='Select token'
-                                value={selectedToken.token}
-                                onChange={(e) => handleTokenChange(index, 'token', e.target.value)}
-                            >
-                                {tokens.map((token, i) => (
-                                    <option key={i} value={token['Token Name']}>
-                                        {token['Token Name']}
-                                    </option>
-                                ))}
-                            </Select>
-                            <FormLabel>Enter Value</FormLabel>
-                            <NumberInput
-                                min={0}
-                                value={selectedToken.value}
-                                onChange={(valueAsString, valueAsNumber) => handleTokenChange(index, 'value', valueAsNumber)}
-                            >
-                                <NumberInputField />
-                                <NumberInputStepper>
-                                    <NumberIncrementStepper />
-                                    <NumberDecrementStepper />
-                                </NumberInputStepper>
-                            </NumberInput>
-                        </div>
-                    ))}
+                    <VStack spacing={4} mt={6}>
+                        <Button
+                            w="full"
+                            onClick={checkWalletForReceiptToken}
+                            isLoading={isChecking}
+                            bgGradient="linear(to-r, purple.600, blue.600)"
+                            color="white"
+                            _hover={{
+                                bgGradient: "linear(to-r, purple.700, blue.700)",
+                            }}
+                        >
+                            Verify Wallet
+                        </Button>
 
-                    <Button onClick={handleAddToken}>Add Token</Button>
-
-                    <Button
-                        colorScheme='teal'
-                        variant='outline'
-                        onClick={handleSubmit}
-                        isLoading={isSubmitting}
-                        loadingText="Submitting"
-                    >
-                        Mint Miner ID 
-                    </Button>
+                        <Button
+                            w="full"
+                            onClick={handleSubmit}
+                            isLoading={isSubmitting}
+                            loadingText="Minting..."
+                            bgGradient="linear(to-r, pink.500, purple.500)"
+                            color="white"
+                            _hover={{
+                                bgGradient: "linear(to-r, pink.600, purple.600)",
+                            }}
+                        >
+                            MINT NOW • {hasReceiptToken ? '0' : (Number(FEE_AMOUNT) / 1000000000)} ERG
+                        </Button>
+                    </VStack>
 
                     {created && (
-                        <VStack>
-                            <Alert status='success' variant='solid'>
+                        <VStack spacing={4} mt={6}>
+                            <Alert
+                                status='success'
+                                variant='solid'
+                                bg="green.900"
+                                color="white"
+                            >
                                 <AlertIcon />
-                                Token successfully created!
-                               
+                                Sigma Bytes NFT Successfully Minted!
                             </Alert>
-                            <Link href={`https://ergexplorer.com/transactions/${tx}`} isExternal>
-                                {tx}
+                            <Link
+                                href={`https://ergexplorer.com/transactions/${tx}`}
+                                isExternal
+                                color="cyan.400"
+                                _hover={{ color: "cyan.300" }}
+                            >
+                                View on Explorer
                             </Link>
-                            <Button onClick={refreshPage} colorScheme="blue">
-                                Refresh Page
-                            </Button>
                         </VStack>
                     )}
-                </Stack>
-            </FormControl>
-        </>
+                </Box>
+
+                <Text
+                    textAlign="center"
+                    color="whiteAlpha.700"
+                    fontSize="sm"
+                    mt={4}
+                >
+                    Each Sigma Bytes NFT allows configuration of minimum payout settings for the Sigmanauts Mining Pool.
+                </Text>
+            </VStack>
+        </Box>
     );
 }
 

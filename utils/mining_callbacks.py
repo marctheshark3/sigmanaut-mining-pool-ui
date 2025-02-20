@@ -9,11 +9,55 @@ from .mining_stats import (
     create_stat_row, calculate_pool_stats, calculate_miner_stats
 )
 from utils.dash_utils import top_row_style
-from .calculate import calculate_pplns_participation
+from .calculate import (
+    calculate_pplns_participation,
+    calculate_time_to_find_block,
+    calculate_mining_effort
+)
 from .find_miner_id import ReadTokens
+from utils.components import create_metric_section, create_stat_section
 import logging
 
 logger = logging.getLogger(__name__)
+
+def format_hashrate(hashrate):
+    """Helper function to format hashrate in appropriate units"""
+    if hashrate >= 1e9:
+        return f"{round(hashrate / 1e9, 2)} GH/s"
+    return f"{round(hashrate / 1e6, 2)} MH/s"
+
+def calculate_ttf(miner_hashrate, network_hashrate, network_difficulty):
+    """Calculate Time to Find based on miner's hashrate proportion"""
+    try:
+        if miner_hashrate <= 0 or network_hashrate <= 0:
+            return 0
+        
+        # Calculate miner's proportion of network hashrate
+        miner_proportion = miner_hashrate / network_hashrate
+        
+        # Expected blocks per day for the network (86400 seconds per day)
+        blocks_per_day = 86400 / (network_difficulty / network_hashrate)
+        
+        # Miner's expected blocks per day
+        miner_blocks_per_day = blocks_per_day * miner_proportion
+        
+        # TTF is reciprocal of blocks per day
+        ttf = 1 / miner_blocks_per_day if miner_blocks_per_day > 0 else 0
+        
+        return round(ttf, 2)
+    except Exception as e:
+        logger.error(f"Error calculating TTF: {e}")
+        return 0
+
+def calculate_miner_effort(miner_hashrate, pool_hashrate):
+    """Calculate miner's effort as percentage of pool hashrate"""
+    try:
+        if miner_hashrate <= 0 or pool_hashrate <= 0:
+            return 0
+        return (miner_hashrate / pool_hashrate) * 100
+    except Exception as e:
+        logger.error(f"Error calculating effort: {e}")
+        return 0
 
 def create_image_text_block(text, image, style=None):
     """Create an image text block with optional style override"""
@@ -35,277 +79,349 @@ def create_image_text_block(text, image, style=None):
 
 def register_callbacks(app, sharkapi, priceapi, styles):
     @app.callback(
-        [Output('mp-stats', 'children')],
-        [Input('mp-interval-4', 'n')],
+        [Output('metrics-section', 'children')],
+        [Input('mp-metrics-interval', 'n_intervals')],
         [State('url', 'pathname')]
     )
-    def update_front_row(n, pathname):
-        try:
-            miner = unquote(pathname.lstrip('/'))
-            pool_data = sharkapi.get_pool_stats()
-            miner_data = sharkapi.get_miner_stats(miner)
-            
-            if not miner_data:
-                return [html.Div("No miner data available")]
-
-            pool_stats = calculate_pool_stats(sharkapi)
-            miner_stats = calculate_miner_stats(sharkapi, miner, pool_data)
-            
-            stats_cards = [
-                create_stat_row("Pool Stats", pool_stats, styles['top_row_style'], styles['large_text_color']),
-                create_stat_row("Miner Stats", miner_stats, styles['top_row_style'], styles['large_text_color'])
-            ]
-            
-            return [dbc.Row(stats_cards, justify='center')]
-        except Exception as e:
-            logger.error(f"Error in update_front_row: {e}", exc_info=True)
-            return [html.Div("Error loading stats")]
-
-    @app.callback(
-        [Output('s1', 'children'), Output('s2', 'children')],
-        [Input('mp-interval-1', 'n')],
-        [State('url', 'pathname')]
-    )
-    def update_middle(n, pathname):
-        try:
-            wallet = unquote(pathname.lstrip('/'))
-            # need to parse this correctly as it is typed as optional and should be a Dict
-            miner_data = sharkapi.get_miner_stats(wallet)
-            text = 'miner STATSSSSSS {}'.format(miner_data)
-            logger.info(text)
-            if not miner_data:
-                return [], []
-    
-            price = round(priceapi.get()[1], 3)
-            payments = miner_data.payments
-            # Safely access nested attributes
-            
-            payments = miner_data.payments
-            stats = {
-                'balance': round(miner_data.balance, 3),
-                'paid_today': round(payments['paid_today'], 2),
-                'total_paid': round(payments['total_paid'], 3),
-                'last_payment': payments['last_payment']['date'][:10],
-                'price [$]': price,
-                'schema': 'PPLNS'
-            }
-            
-            images = {
-                'balance': 'triangle.png',
-                'paid_today': 'ergo.png',
-                'total_paid': 'ergo.png',
-                'last_payment': 'coins.png',
-                'price [$]': 'ergo.png',
-                'schema': 'ergo.png'
-            }
-            
-            children = [create_image_text_block(f"{k}: {v}", images[k]) for k, v in stats.items()]
-            return children[:3], children[3:]
-        except Exception as e:
-            logger.error(f"Error in update_middle: {e}", exc_info=True)
-            return [], []
-
-    @app.callback(
-        [Output('s3', 'children')],
-        [Input('mp-interval-1', 'n')],
-        [State('url', 'pathname')]
-    )
-    def update_outside(n, pathname):
+    def update_metrics(n, pathname):
         try:
             miner = unquote(pathname.lstrip('/'))
             miner_data = sharkapi.get_miner_stats(miner)
             pool_data = sharkapi.get_pool_stats()
-            
-            # Get share stats from the correct endpoint
             shares_data = sharkapi.get_shares()
             
-            participation, total_shares = calculate_pplns_participation(shares_data, pool_data, 0.5)
+            if not miner_data:
+                return [[]]  # Return empty if no data
             
-            stats = {
-                'Participation [%]': round(participation.get(miner, 0) * 100, 3),
-                'Pending Shares': round(participation.get(miner, 0) * total_shares, 2)
-            }
+            # Get worker stats for hashrate
+            worker_stats = sharkapi.sync_get_miner_workers(miner)
+            total_hashrate = 0
+            if worker_stats:
+                for worker_data in worker_stats.values():
+                    if worker_data and len(worker_data) > 0:
+                        total_hashrate += worker_data[-1].get('hashrate', 0)
             
-            images = {
-                'Participation [%]': 'smileys.png',
-                'Pending Shares': 'min-payout.png'
-            }
+            # Get network stats
+            network_hashrate = pool_data.get('networkhashrate', 0)
+            network_difficulty = pool_data.get('networkdifficulty', 0)
             
-            children = [create_image_text_block(f"{k}: {v}", images[k]) for k, v in stats.items()]
-            # logger.info(miner_data.payments['last_payment']['tx_id'])
-            if hasattr(miner_data, 'payments') and miner_data.payments.get('last_payment', {}).get('tx_id'):
-                link = 'https://ergexplorer.com/transactions#{}'.format(miner_data.payments['last_payment']['tx_id'])
-                children.append(create_payment_link(link, styles))
+            # Get miner's last block timestamp
+            blocks = sharkapi.sync_get_my_blocks(miner)
+            if blocks:
+                last_block_timestamp = blocks[0]['created']  # Most recent block's timestamp
+                logger.info(f"Using last block timestamp: {last_block_timestamp}")
+                logger.info(f"Network hashrate: {network_hashrate}, Network difficulty: {network_difficulty}, Miner hashrate: {total_hashrate}")
+            else:
+                last_block_timestamp = None
+                logger.warning("No blocks found for miner")
             
-            return [children]
+            # Calculate TTF using the function from calculate.py
+            ttf = calculate_time_to_find_block(
+                network_difficulty=network_difficulty,
+                network_hashrate=network_hashrate,
+                hashrate=total_hashrate
+            )
+            
+            # Calculate current effort using the function from calculate.py
+            if last_block_timestamp:
+                current_effort = calculate_mining_effort(
+                    network_difficulty=network_difficulty,
+                    network_hashrate=network_hashrate,
+                    hashrate=total_hashrate,
+                    last_block_timestamp=last_block_timestamp
+                )
+                logger.info(f"Calculated current effort: {current_effort}%")
+            else:
+                current_effort = 0
+            
+            # Calculate average effort from miner's blocks
+            if blocks:
+                efforts = [block.get('effort', 0) * 100 for block in blocks]  # Convert to percentage
+                avg_effort = sum(efforts) / len(efforts) if efforts else 0
+                logger.info(f"Average effort from {len(blocks)} blocks: {avg_effort}%")
+                effort_value = f"{round(avg_effort, 2)}% / {round(current_effort, 2)}%"
+            else:
+                effort_value = "No blocks found yet"
+            
+            # Create the three main metrics
+            metrics = [
+                {
+                    'image': 'boltz.png',
+                    'value': format_hashrate(total_hashrate),
+                    'label': 'Hashrate'
+                },
+                {
+                    'image': 'clock.png',
+                    'value': f"{ttf} Days",
+                    'label': 'Time to Find'
+                },
+                {
+                    'image': 'chart.png',
+                    'value': effort_value,
+                    'label': 'AVG/LIVE Effort'
+                }
+            ]
+            
+            return [[
+                html.Div(
+                    style={'display': 'flex', 'width': '100%', 'justifyContent': 'space-between'},
+                    children=[
+                        html.Div(
+                            create_metric_section(
+                                metric['image'],
+                                metric['value'],
+                                metric['label'],
+                                show_image=False  # Don't show images for main metrics
+                            ),
+                            style={'flex': '1'}
+                        ) for metric in metrics
+                    ]
+                )
+            ]]
         except Exception as e:
-            logger.error(f"Error in update_outside: {e}", exc_info=True)
+            logger.error(f"Error in update_metrics: {e}", exc_info=True)
             return [[]]
 
     @app.callback(
-        [Output('s4', 'children'), Output('s5', 'children'), Output('s6', 'children')],
-        [Input('mp-interval-7', 'n')],
+        [Output('stats-section', 'children')],
+        [Input('mp-stats-interval', 'n_intervals')],
         [State('url', 'pathname')]
     )
-    def update_miner_id(n, pathname):
+    def update_stats(n, pathname):
         try:
-            logger.info('Starting miner ID update')
             miner = unquote(pathname.lstrip('/'))
-            
+            miner_data = sharkapi.get_miner_stats(miner)
+            pool_data = sharkapi.get_pool_stats()
+            shares_data = sharkapi.get_shares()
             find_tokens = ReadTokens()
             token = find_tokens.get_latest_miner_id(miner)
             
-            if token is None:
-                # Create more compact default cards with consistent styling
-                defaults = [
-                    html.Div([
-                        html.Div(
-                            className="d-flex align-items-center",
-                            # style={
-                            #     'backgroundColor': '#27374D',
-                            #     'padding': '10px',
-                            #     'borderRadius': '8px',
-                            #     'margin': '5px',
-                            #     'minHeight': '60px'  # Minimum height to maintain consistency
-                            # },
-                            children=[
-                                html.Img(
-                                    src='assets/min-payout.png',
-                                    style={'height': '24px', 'marginRight': '8px'}
-                                ),
-                                html.Span(text, style={'color': 'white', 'fontSize': '14px'})
-                            ]
-                        )
-                    ]) for text in ['Min Payout: 0.5 ERG', 'Consider minting a MINER ID', 'Swap to ERG Native Tokens']
-                ]
-                return defaults[0], defaults[1], defaults[2]
-    
-            try:
-                miner_id = find_tokens.get_token_description(token['tokenId'])
-                logger.debug(f'Retrieved miner ID: {miner_id}')
-                
-                # Create minimal height cards
-                tokens_swap = [
-                    html.Div(
-                        className="d-flex align-items-center",
-                        style={
-                            # 'backgroundColor': '#27374D',
-                            # 'padding': '8px 12px',
-                            # 'borderRadius': '8px',
-                            # 'height': 'auto',
-                            # 'minHeight': '36px',
-                            # 'marginBottom': '2px'
-                        },
-                        children=[
-                            html.Img(
-                                src='assets/min-payout.png',
-                                style={'height': '20px', 'marginRight': '8px', 'width': 'auto'}
-                            ),
-                            html.Span(
-                                f"Minimum Payout: {miner_id['minimumPayout']}",
-                                style={'color': 'white', 'fontSize': '14px', 'whiteSpace': 'nowrap'}
-                            )
-                        ]
-                    )
-                ]
-                
-                # Add token distribution cards
-                for token_info in miner_id['tokens']:
-                    tokens_swap.append(
-                        html.Div(
-                            className="d-flex align-items-center",
-                            style={
-                                # 'backgroundColor': '#27374D',
-                                # 'padding': '8px 12px',
-                                # 'borderRadius': '8px',
-                                # 'height': 'auto',
-                                # 'minHeight': '36px',
-                                # 'marginBottom': '2px'
-                            },
-                            children=[
-                                html.Img(
-                                    src='assets/ergo.png',
-                                    style={'height': '20px', 'marginRight': '8px', 'width': 'auto'}
-                                ),
-                                html.Span(
-                                    f"{token_info['token']}: {token_info['value']}%",
-                                    style={'color': 'white', 'fontSize': '14px', 'whiteSpace': 'nowrap'}
-                                )
-                            ]
-                        )
-                    )
-                
-                # Distribute elements across bins, ensuring even distribution
-                bins = [[] for _ in range(3)]
-                for i, element in enumerate(tokens_swap):
-                    bins[i % 3].append(element)
-                
-                # Create wrapper divs for each column
-                column_wrappers = [
-                    html.Div(
-                        bin_content,
-                        # style={
-                        #     'display': 'flex',
-                        #     'flexDirection': 'column',
-                        #     'gap': '2px',  # Reduced gap between items
-                        #     'flex': '1',
-                        #     'minHeight': '45px',  # Minimum height for container
-                        #     'maxHeight': '150px'  # Maximum height to prevent excessive space
-                        # }
-                    ) if bin_content else html.Div()
-                    for bin_content in bins
-                ]
-                
-                return column_wrappers[0], column_wrappers[1], column_wrappers[2]
-                
-            except Exception as e:
-                logger.error(f'Error processing miner ID: {str(e)}', exc_info=True)
-                return [], [], []
-                
+            if not miner_data:
+                return [[]]
+
+            # Payment Stats
+            payment_stats = [
+                ('Balance', f"{round(miner_data.balance, 3)} ERG"),
+                ('Paid Today', f"{round(miner_data.payments['paid_today'], 2)} ERG"),
+                ('Total Paid', f"{round(miner_data.payments['total_paid'], 3)} ERG")
+            ]
+
+            # Pool Stats
+            price = round(priceapi.get()[1], 3)
+            pool_stats = [
+                ('Last Payment', miner_data.payments['last_payment']['date'][:10]),
+                ('Price', f"${price}"),
+                ('Schema', 'PPLNS')
+            ]
+
+            # Pool Hashrate Stats (replacing Token Distribution)
+            pool_hashrate_stats = [
+                ('Minimum Payout', '0.5 ERG'),
+                ('Pool Hashrate', format_hashrate(pool_data.get('poolhashrate', 0))),
+                ('Network Hashrate', format_hashrate(pool_data.get('networkhashrate', 0)))
+            ]
+
+            # Create the three columns
+            return [[
+                html.Div(
+                    style={'display': 'flex', 'width': '100%', 'justifyContent': 'space-between'},
+                    children=[
+                        create_stat_section(payment_stats),
+                        html.Div(style={'width': '1px', 'backgroundColor': 'rgba(255,255,255,0.1)'}),
+                        create_stat_section(pool_stats),
+                        html.Div(style={'width': '1px', 'backgroundColor': 'rgba(255,255,255,0.1)'}),
+                        create_stat_section(pool_hashrate_stats)
+                    ]
+                )
+            ]]
         except Exception as e:
-            logger.error(f'Error in update_miner_id: {str(e)}', exc_info=True)
-            return [], [], []
+            logger.error(f"Error in update_stats: {e}", exc_info=True)
+            return [[]]
 
     @app.callback(
         [Output('chart', 'figure'), Output('chart-title', 'children')],
-        [Input('chart-dropdown', 'value'), Input('mp-interval-2', 'n_intervals')],
+        [Input('mp-charts-interval', 'n_intervals'), Input('chart-dropdown', 'value')],
         [State('url', 'pathname')]
     )
-    def update_charts(chart_type, n, pathname):
+    def update_chart(n, chart_type, pathname):
         try:
-            wallet = unquote(pathname.lstrip('/'))
+            miner = unquote(pathname.lstrip('/'))
             
             if chart_type == 'workers':
-                return create_worker_chart(sharkapi, wallet)
-            elif chart_type == 'payments':
-                return create_payment_chart(sharkapi, wallet)
+                title = 'WORKER HASHRATE OVER TIME'
+                data = sharkapi.sync_get_miner_workers(miner)
+                if not data:
+                    return {}, title
                 
-            return {}, 'Select chart type'
+                # Process worker data
+                rows = []
+                for worker, entries in data.items():
+                    for entry in entries:
+                        rows.append({
+                            'Time': entry['timestamp'],
+                            'Hashrate': entry['hashrate'] / 1e6,
+                            'Worker': worker
+                        })
+                
+                df = pd.DataFrame(rows)
+                if df.empty:
+                    return {}, title
+                
+                fig = px.line(
+                    df,
+                    x='Time',
+                    y='Hashrate',
+                    color='Worker',
+                    title=title
+                )
+                
+                fig.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white'),
+                    yaxis_title='MH/s'
+                )
+                
+                return fig, title
+                
+            else:  # payments
+                title = 'PAYMENT HISTORY'
+                data = sharkapi.sync_get_miner_payment_stats(miner)
+                if not data:
+                    return {}, title
+                    
+                df = pd.DataFrame(data)
+                df = df.rename(columns={
+                    'timestamp': 'Time',
+                    'amount': 'Amount'
+                })
+                
+                fig = px.bar(
+                    df,
+                    x='Time',
+                    y='Amount',
+                    title=title
+                )
+                
+                fig.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white'),
+                    yaxis_title='ERG'
+                )
+                
+                return fig, title
+                
         except Exception as e:
-            logger.error(f"Error in update_charts: {e}", exc_info=True)
-            return {}, 'Error loading chart'
+            logger.error(f"Error in update_chart: {e}", exc_info=True)
+            return {}, "Error loading chart"
 
     @app.callback(
         [Output('table-2', 'data'), Output('table-title', 'children')],
-        [Input('table-dropdown', 'value'), Input('mp-interval-3', 'n_intervals')],
+        [Input('mp-charts-interval', 'n_intervals'), Input('table-dropdown', 'value')],
         [State('url', 'pathname')]
     )
-    def update_table(table_type, n, pathname):
+    def update_table(n, table_type, pathname):
         try:
-            wallet = unquote(pathname.lstrip('/'))
-            
-            if not table_type:
-                table_type = 'workers'
+            miner = unquote(pathname.lstrip('/'))
             
             if table_type == 'workers':
-                return create_workers_table(sharkapi, wallet)
-            elif table_type == 'blocks':
-                return create_blocks_table(sharkapi, wallet)
+                title = 'Worker Data'
+                data = sharkapi.sync_get_miner_workers(miner)
+                if not data:
+                    return [], title
                 
-            return [], 'Select data type'
+                # Process worker data
+                rows = []
+                for worker, entries in data.items():
+                    if entries:
+                        latest = entries[-1]
+                        rows.append({
+                            'Worker': worker,
+                            'Time': latest['timestamp'],
+                            'Hashrate (MH/s)': round(latest['hashrate'] / 1e6, 2)
+                        })
+                
+                df = pd.DataFrame(rows)
+                return df.to_dict('records'), title
+                
+            else:  # blocks
+                title = 'Block Data'
+                data = sharkapi.sync_get_my_blocks(miner)
+                if not data:
+                    return [], title
+                    
+                df = pd.DataFrame(data)
+                if df.empty:
+                    return [], title
+                    
+                df = df.rename(columns={
+                    'created': 'Time Found',
+                    'blockheight': 'Height',
+                    'effort': 'Effort',
+                    'reward': 'Reward (ERG)'
+                })
+                
+                df['Effort'] = df['Effort'] * 100  # Convert to percentage
+                df = df[['Time Found', 'Height', 'Effort', 'Reward (ERG)']]
+                
+                return df.to_dict('records'), title
+                
         except Exception as e:
             logger.error(f"Error in update_table: {e}", exc_info=True)
-            return [], 'Error loading table'
+            return [], "Error loading table"
+
+    # Create a new interval component for bonus eligibility updates (30 minutes)
+    app.layout.children.append(dcc.Interval(id='bonus-eligibility-interval', interval=1000*60*30))
+
+    @app.callback(
+        [Output('bonus-eligibility-section', 'children')],
+        [Input('bonus-eligibility-interval', 'n_intervals')],
+        [State('url', 'pathname')]
+    )
+    def update_bonus_eligibility(n, pathname):
+        try:
+            if not pathname or pathname == '/':
+                return [html.Div()]
+
+            # Extract wallet address from pathname
+            wallet = unquote(pathname.split('/')[-1])
+            if not wallet:
+                return [html.Div()]
+
+            # Get bonus eligibility data
+            bonus_data = sharkapi.get_bonus_eligibility(wallet)
+            if not bonus_data:
+                return [create_metric_section(
+                    'mining-reward-icon-2.png',
+                    'No Data',
+                    'Bonus Token Eligibility'
+                )]
+
+            # Create the display value
+            status = '✓ Eligible' if bonus_data['eligible'] else '✗ Not Eligible'
+            days_info = f"{bonus_data['qualifying_days']}/{bonus_data['total_days_active']} days"
+            
+            # Only add warning if not eligible and needs days
+            if not bonus_data['eligible'] and bonus_data['needs_days']:
+                days_info += ' (More days needed)'
+
+            # Combine status and days info
+            display_value = f"{status}\n{days_info}"
+
+            return [create_metric_section(
+                'mining-reward-icon-2.png',
+                display_value,
+                'Bonus Token Eligibility'
+            )]
+
+        except Exception as e:
+            logger.error(f"Error updating bonus eligibility: {e}")
+            return [create_metric_section(
+                'mining-reward-icon-2.png',
+                'Error',
+                'Bonus Token Eligibility'
+            )]
 
 def create_worker_chart(sharkapi, wallet):
     try:

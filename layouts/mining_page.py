@@ -33,8 +33,46 @@ styles = {
     'top_image_style': image_styles['top']
 }
 
-
 DASH_INTERVAL = 1000*60*5
+
+def create_metric_section(image, value, label):
+    """Create a metric section with consistent styling"""
+    return html.Div(
+        style={
+            'display': 'flex',
+            'flexDirection': 'column',
+            'alignItems': 'center',
+            'justifyContent': 'center',
+            'flex': '1',
+            'padding': '20px'
+        },
+        children=[
+            html.Img(src=f'assets/{image}', style={'height': '40px', 'width': 'auto', 'marginBottom': '10px'}),
+            html.Div(value, style={'color': large_text_color, 'fontSize': '24px', 'margin': '10px 0'}),
+            html.Div(label, style={'color': small_text_color})
+        ]
+    )
+
+def create_stat_section(stats_list):
+    """Create a stats section with consistent styling"""
+    return html.Div(
+        style={
+            'display': 'flex',
+            'flexDirection': 'column',
+            'justifyContent': 'center',
+            'flex': '1',
+            'padding': '20px'
+        },
+        children=[
+            html.Div(
+                style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': '10px'},
+                children=[
+                    html.Span(text, style={'color': 'white'}),
+                    html.Span(value, style={'color': large_text_color, 'marginLeft': '10px'})
+                ]
+            ) for text, value in stats_list
+        ]
+    )
 
 def get_layout(sharkapi):
     return html.Div([
@@ -42,13 +80,10 @@ def get_layout(sharkapi):
             fluid=True,
             style=container_style,
             children=[
-                # Intervals
-                dcc.Interval(id='mp-interval-1', interval=DASH_INTERVAL),
-                dcc.Interval(id='mp-interval-2', interval=DASH_INTERVAL),
-                dcc.Interval(id='mp-interval-3', interval=DASH_INTERVAL),
-                dcc.Interval(id='mp-interval-4', interval=DASH_INTERVAL),
-                dcc.Interval(id='mp-interval-5', interval=DASH_INTERVAL),
-                dcc.Interval(id='mp-interval-7', interval=DASH_INTERVAL),
+                # Intervals - Consolidated to match front page
+                dcc.Interval(id='mp-metrics-interval', interval=DASH_INTERVAL),
+                dcc.Interval(id='mp-stats-interval', interval=DASH_INTERVAL),
+                dcc.Interval(id='mp-charts-interval', interval=DASH_INTERVAL),
 
                 # Header
                 html.H1(
@@ -63,38 +98,62 @@ def get_layout(sharkapi):
                     }
                 ),
                 
-                # Stats section
-                html.Div(id='mp-stats', style={'margin': '20px 0'}),
-
-                # Payment and Mining Stats with conditional card heights
+                # Main Metrics Row
                 dbc.Row(
-                    justify='center',
-                    style={'padding': '10px 0'},
-                    children=[
-                        dbc.Col(
-                            md=4,
-                            style={'padding': '5px'},
+                    dbc.Col(
+                        dbc.Card(
+                            style={
+                                'backgroundColor': card_color,
+                                'border': 'none',
+                                'borderRadius': '8px',
+                                'display': 'flex',
+                                'flexDirection': 'row',
+                                'padding': '20px',
+                                'marginBottom': '20px'
+                            },
                             children=[
-                                dbc.Card(
-                                    style={
-                                        'backgroundColor': card_color,
-                                        'padding': '8px',
-                                        'margin': '2px',
-                                        'borderRadius': '8px',
-                                        'height': '50px' if i > 3 else '180px',
-                                        'display': 'flex',
-                                        'flexDirection': 'column',
-                                        'justifyContent': 'center'
-                                    },
-                                    id=f's{i}'
-                                )
+                                html.Div(id='metrics-section', style={
+                                    'display': 'flex',
+                                    'width': '70%',
+                                    'justifyContent': 'space-between'
+                                }),
+                                html.Div(id='bonus-eligibility-section', style={
+                                    'display': 'flex',
+                                    'width': '30%',
+                                    'justifyContent': 'flex-end'
+                                })
                             ]
-                        ) for i in range(1, 7)
-                    ]
+                        ),here
+                        width=12
+                    ),
+                    justify="center"
                 ),
 
-                # Banners
-                dbc.Row(id='mp-banners', justify='center', style={'margin': '20px 0'}),
+                # Detailed Stats Row
+                dbc.Row(
+                    dbc.Col(
+                        dbc.Card(
+                            style={
+                                'backgroundColor': card_color,
+                                'border': 'none',
+                                'borderRadius': '8px',
+                                'display': 'flex',
+                                'flexDirection': 'row',
+                                'padding': '20px',
+                                'marginBottom': '20px'
+                            },
+                            children=[
+                                html.Div(id='stats-section', style={
+                                    'display': 'flex',
+                                    'width': '100%',
+                                    'justifyContent': 'space-between'
+                                })
+                            ]
+                        ),
+                        width=12
+                    ),
+                    justify="center"
+                ),
 
                 # Charts Section
                 html.Div([

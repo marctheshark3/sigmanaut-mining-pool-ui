@@ -1,6 +1,7 @@
 from dash import html, dash_table, dcc
 import dash_bootstrap_components as dbc
 from typing import Dict
+from datetime import datetime
 
 # Colors
 card_color = '#27374D'
@@ -8,11 +9,73 @@ background_color = '#526D82'
 large_text_color = '#9DB2BF'
 small_text_color = '#DDE6ED'
 
+# Card Styles
+top_card_style = {
+    'backgroundColor': card_color,
+    'color': small_text_color,
+    'height': '225px',  # Fixed height for all cards
+    'padding': '30px',
+    'borderRadius': '8px',
+    'textAlign': 'center',
+    'display': 'flex',
+    'flexDirection': 'column',
+    'alignItems': 'center',
+    'justifyContent': 'center',
+    'margin': '0',  # Remove margin since we're using column padding
+    'border': 'none'
+}
 
 top_image_style = {
-    'height': '150px',
-    'width': '150px',
-                   'justifyContent': 'center',}
+    'width': '60px',
+    'height': '60px',
+    'marginBottom': '15px',
+    'filter': 'brightness(0) invert(1)'  # Make icons white
+}
+
+bottom_row_style = {
+    'backgroundColor': card_color,
+    'color': small_text_color,
+    'padding': '20px',
+    'borderRadius': '8px',
+    'height': '100%',
+    'display': 'flex',
+    'flexDirection': 'column',
+    'justifyContent': 'space-between'
+}
+
+container_style = {
+    'backgroundColor': background_color,
+    'padding': '25px',
+    'maxWidth': '1200px',
+    'margin': '0 auto',
+    'fontFamily': 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+    'color': '#FFFFFF'
+}
+
+# Table Styles
+table_style = {
+    'backgroundColor': card_color,
+    'color': large_text_color,
+    'fontWeight': 'bold',
+    'textAlign': 'center',
+    'border': '1px solid black',
+    'padding': '15px'
+}
+
+# First row text styles
+first_row_styles = {
+    'value': {
+        'color': large_text_color,
+        'fontSize': '24px',
+        'fontWeight': 'bold',
+        'marginTop': '10px',
+        'marginBottom': '5px'
+    },
+    'label': {
+        'color': small_text_color,
+        'fontSize': '14px',
+    }
+}
 
 # Card Styles
 card_styles = {
@@ -35,45 +98,6 @@ card_styles = {
     }
 }
 
-# Table Styles
-table_style = {
-    'backgroundColor': card_color,
-    'color': large_text_color,
-    'fontWeight': 'bold',
-    'textAlign': 'center',
-    'border': '1px solid black',
-    'padding': '15px',
-    'letterSpacing': '0.02em',
-    'lineHeight': '1.4'
-}
-
-top_card_style = {
-    'backgroundColor': card_color,
-    'padding': '15px',
-    'height': 'auto',  # Fixed height for first row cards
-    # 'display': 'flex',
-    # 'flexDirection': 'column',
-    'alignItems': 'center',
-    # 'justifyContent': 'space-between',
-    # 'borderRadius': '8px',
-}
-
-# First row text styles
-first_row_styles = {
-    'value': {
-        'color': '#ff5e18',
-        'fontSize': '24px',
-        'fontWeight': 'bold',
-        'marginTop': '10px',
-        'marginBottom': '5px'
-    },
-    'label': {
-        'color': small_text_color,
-        'fontSize': '14px',
-    }
-}
-
-
 # Row Styles
 top_row_style = {
     'backgroundColor': card_color,
@@ -82,19 +106,6 @@ top_row_style = {
     'padding': '20px',
     'height': 'auto',
     'justifyContent': 'flex-start',
-}
-
-# Bottom card styles
-bottom_row_style = {
-    'backgroundColor': card_color,
-    'color': 'white',
-    # 'padding': '12px 15px',  # Reduced padding
-    # 'display': 'flex',
-    'alignItems': 'flex-start',
-    'justifyContent': 'left',
-    'fontSize': '14px',
-    'borderRadius': '6px',
-    'margin': '5px 0',      # Added small margin between rows
 }
 
 image_styles = {
@@ -117,17 +128,6 @@ top_row_style = {
     'padding': '20px',
     # 'height': 'auto',
     # 'justifyContent': 'flex-start',
-}
-
-# Container Style
-container_style = {
-    'backgroundColor': background_color,
-    'padding': '25px',
-    'justifyContent': 'center',
-    'fontFamily': 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-    'color': '#FFFFFF',
-    'maxWidth': '1200px',
-    'margin': '0 auto',
 }
 
 def create_stat_row(title: str, metrics: Dict[str, str], style, large_text_color) -> dbc.Col:
@@ -200,3 +200,29 @@ def create_image_text_block(text, image, style=None):
             )
         ]
     )
+
+def get_days_ago(timestamp: str) -> str:
+    """Convert timestamp to 'X days ago' format"""
+    if not timestamp:
+        return "Never"
+    
+    try:
+        # Parse the timestamp
+        dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        now = datetime.now(dt.tzinfo)
+        
+        # Calculate the difference
+        diff = now - dt
+        days = diff.days
+        
+        if days == 0:
+            hours = diff.seconds // 3600
+            if hours == 0:
+                return "Today"
+            return f"{hours} hours ago"
+        elif days == 1:
+            return "Yesterday"
+        else:
+            return f"{days} days ago"
+    except Exception:
+        return "Unknown"

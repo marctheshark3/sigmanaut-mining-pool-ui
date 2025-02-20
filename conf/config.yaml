@@ -1,0 +1,9 @@
+defaults:
+  - default_values
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  job:
+    chdir: true 

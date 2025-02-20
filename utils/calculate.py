@@ -22,7 +22,9 @@ def calculate_mining_effort(network_difficulty, network_hashrate, hashrate, last
     # Parse the last block timestamp
     try:
         last_block_time = datetime.fromisoformat(last_block_timestamp.replace('Z', '+00:00'))
-    except (TypeError, ValueError, AttributeError):
+        logger.info(f"Parsed timestamp: {last_block_time}")
+    except (TypeError, ValueError, AttributeError) as e:
+        logger.error(f"Error parsing timestamp: {e}")
         return 0
         
     # Get the current time in UTC
@@ -30,6 +32,7 @@ def calculate_mining_effort(network_difficulty, network_hashrate, hashrate, last
     
     # Calculate the time difference in seconds
     time_since_last_block = (now - last_block_time).total_seconds()
+    logger.info(f"Time since last block: {time_since_last_block} seconds")
     
     # Hashes to find a block at current difficulty
     hashes_to_find_block = network_difficulty  # This is a simplification
@@ -42,6 +45,14 @@ def calculate_mining_effort(network_difficulty, network_hashrate, hashrate, last
     
     # Effort is the pool's share of hashes divided by the number of hashes to find a block
     effort = pool_share_of_hashes / hashes_to_find_block * 100
+    
+    logger.info(f"Calculation details:")
+    logger.info(f"- Network difficulty: {network_difficulty}")
+    logger.info(f"- Network hashrate: {network_hashrate}")
+    logger.info(f"- Miner hashrate: {hashrate}")
+    logger.info(f"- Total network hashes: {total_network_hashes}")
+    logger.info(f"- Miner's share of hashes: {pool_share_of_hashes}")
+    logger.info(f"- Calculated effort: {effort}%")
     
     return round(effort, 2)
 
