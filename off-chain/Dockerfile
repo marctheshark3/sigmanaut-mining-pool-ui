@@ -5,6 +5,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+
+# Set PUBLIC_URL for the build
+ARG PUBLIC_URL=/miner-id-minter
+ENV PUBLIC_URL=${PUBLIC_URL}
+ENV REACT_APP_PUBLIC_URL=${PUBLIC_URL}
+
 RUN npm run build
 
 # Production stage with Python/Flask
@@ -19,6 +25,9 @@ RUN pip install -r requirements.txt
 # Copy the built React app and Flask server
 COPY --from=builder /app/build ./build
 COPY app.py .
+
+# Set environment variables for runtime
+ENV PUBLIC_URL=/miner-id-minter
 
 EXPOSE 3000
 

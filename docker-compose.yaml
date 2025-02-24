@@ -68,11 +68,14 @@ services:
     build:
       context: ./off-chain
       dockerfile: Dockerfile
+      args:
+        - PUBLIC_URL=/miner-id-minter
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - PUBLIC_URL=/miner-id-minter
+      - REACT_APP_PUBLIC_URL=/miner-id-minter
       - REACT_APP_BASE_URL=${BASE_URL:-http://localhost}
       - FLASK_ENV=production
       - ALLOWED_ORIGINS=*
