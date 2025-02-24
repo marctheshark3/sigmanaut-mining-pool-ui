@@ -449,7 +449,7 @@ def get_layout(api_reader):
                                     'border': 'none',
                                     'borderRadius': '8px'
                                 },
-                                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+                                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
                             ),
                             style={
                                 "backgroundColor": "#1a2234",
