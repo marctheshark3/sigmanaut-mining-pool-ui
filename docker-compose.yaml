@@ -114,8 +114,13 @@ services:
       - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
       - ENABLE_HTTPS=${ENABLE_HTTPS:-false}
     command: >
-      /bin/sh -c "envsubst '$$DOMAIN_NAME $$ENABLE_HTTPS' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf 
-      && nginx -g 'daemon off;'"
+      /bin/sh -c "
+      if [ \"$$ENABLE_HTTPS\" != \"true\" ]; then
+        sed -i 's/listen 443/listen 443 ssl/g' /etc/nginx/nginx.conf.template;
+        sed -i 's/# HTTPS server/# HTTPS server - disabled in non-HTTPS mode/g' /etc/nginx/nginx.conf.template;
+      fi &&
+      envsubst '$$DOMAIN_NAME $$ENABLE_HTTPS' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf &&
+      nginx -g 'daemon off;'"
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
