@@ -68,11 +68,13 @@ services:
       context: ./off-chain
       dockerfile: Dockerfile
     volumes:
-      - ./off-chain:/app
+      - ./off-chain:/app:ro
+      - /app/node_modules
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - PUBLIC_URL=/miner-id-minter
     command: >
       /bin/sh -c "
       cd /app &&
