@@ -86,8 +86,8 @@ def setup_front_page_callbacks(app, api_reader):
         if not n_clicks:
             return []
         id = uuid.uuid4()
-        base_url = os.environ.get('BASE_URL', 'http://localhost')
-        custom_url = f'{base_url}/miner-id-minter/{id}'
+        base_host = os.environ.get('BASE_HOST', 'http://localhost')
+        custom_url = f'{base_host}:3000/miner-id-minter/{id}'
         return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
 
     @app.callback(
@@ -107,9 +107,10 @@ def setup_front_page_callbacks(app, api_reader):
         if button_id == 'mint-sigma-bytes-button' and mint_clicks:
             # Generate a new UUID when the button is clicked
             id = uuid.uuid4()
-            base_url = os.environ.get('BASE_URL', 'http://localhost')
-            custom_url = f'{base_url}/miner-id-minter/{id}'
-            return not is_open, custom_url
+            # Use port 3000 for the minting service
+            base_host = os.environ.get('BASE_HOST', 'http://localhost')
+            minting_service_url = f'{base_host}:3000/miner-id-minter/{id}'
+            return not is_open, minting_service_url
         elif button_id == 'close-mint-modal' and close_clicks:
             return False, dash.no_update
             
@@ -441,7 +442,7 @@ def get_layout(api_reader):
                         dbc.ModalBody(
                             html.Iframe(
                                 id='minter-iframe',
-                                src=f"{os.environ.get('BASE_URL', 'http://localhost')}/miner-id-minter",
+                                src=f"{os.environ.get('BASE_HOST', 'http://localhost')}:3000/miner-id-minter",
                                 style={
                                     'width': '100%',
                                     'height': '600px',
