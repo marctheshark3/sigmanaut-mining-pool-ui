@@ -16,6 +16,7 @@ services:
       - FLASK_ENV=production
       - REDIS_URL=redis://redis:6379/0
       - PYTHONUNBUFFERED=1  # Enable real-time logging
+      - BASE_URL=${BASE_URL:-http://localhost}
     depends_on:
       redis:
         condition: service_healthy

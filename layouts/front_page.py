@@ -86,7 +86,7 @@ def setup_front_page_callbacks(app, api_reader):
         if not n_clicks:
             return []
         id = uuid.uuid4()
-        base_url = os.environ.get('BASE_URL', 'http://mint.ergominers.com')
+        base_url = os.environ.get('BASE_URL', 'http://localhost')
         custom_url = f'{base_url}/miner-id-minter/{id}'
         return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
 
@@ -426,16 +426,13 @@ def get_layout(api_reader):
                         ),
                         dbc.ModalBody(
                             html.Iframe(
-                                src="http://localhost:3000/miner-id-minter",
+                                src=f"{os.environ.get('BASE_URL', 'http://localhost')}/miner-id-minter",
                                 style={
-                                    "width": "100%",
-                                    "height": "600px",
-                                    "border": "none",
-                                    "borderRadius": "8px",
-                                    "backgroundColor": "#1a2234",
-                                    "color": "#fff"
-                                },
-                                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads",
+                                    'width': '100%',
+                                    'height': '600px',
+                                    'border': 'none',
+                                    'borderRadius': '8px'
+                                }
                             ),
                             style={
                                 "backgroundColor": "#1a2234",
