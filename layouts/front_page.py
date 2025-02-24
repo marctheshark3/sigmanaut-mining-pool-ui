@@ -1,5 +1,5 @@
 import dash
-from dash import html, dcc, Input, Output, State, dash_table
+from dash import html, dcc, Input, Output, State, dash_table, callback_context
 import dash_bootstrap_components as dbc
 from pandas import DataFrame
 from utils.dash_utils import (
@@ -91,15 +91,29 @@ def setup_front_page_callbacks(app, api_reader):
         return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
 
     @app.callback(
-        Output('mint-modal', 'is_open'),
+        [Output('mint-modal', 'is_open'),
+         Output('minter-iframe', 'src')],
         [Input('mint-sigma-bytes-button', 'n_clicks'),
          Input('close-mint-modal', 'n_clicks')],
         [State('mint-modal', 'is_open')]
     )
-    def toggle_mint_modal(n1, n2, is_open):
-        if n1 or n2:
-            return not is_open
-        return is_open
+    def toggle_mint_modal(mint_clicks, close_clicks, is_open):
+        ctx = callback_context
+        if not ctx.triggered:
+            return is_open, dash.no_update
+            
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        
+        if button_id == 'mint-sigma-bytes-button' and mint_clicks:
+            # Generate a new UUID when the button is clicked
+            id = uuid.uuid4()
+            base_url = os.environ.get('BASE_URL', 'http://localhost')
+            custom_url = f'{base_url}/miner-id-minter/{id}'
+            return not is_open, custom_url
+        elif button_id == 'close-mint-modal' and close_clicks:
+            return False, dash.no_update
+            
+        return is_open, dash.no_update
 
     @app.callback(
         [Output('metric-1', 'children')],
@@ -426,6 +440,7 @@ def get_layout(api_reader):
                         ),
                         dbc.ModalBody(
                             html.Iframe(
+                                id='minter-iframe',
                                 src=f"{os.environ.get('BASE_URL', 'http://localhost')}/miner-id-minter",
                                 style={
                                     'width': '100%',
