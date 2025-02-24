@@ -64,3 +64,59 @@ done
 If you find this tool helpful and wish to support its development, feel free to leave a tip! Your support is greatly appreciated and helps ensure continued improvements and updates. Thank you for considering! 
 
 ERGO ADDRESS: 9f2nrcC2NHsx96RmN52g3GVV3kXkZQPkNG8M6SVpSRqdmaxVtGv
+
+## Domain Configuration and SSL Setup
+
+The application can be configured to run either locally or with a custom domain name (e.g., ergominers.com). SSL certificates are automatically managed using Let's Encrypt.
+
+### Environment Configuration
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Domain Configuration
+DOMAIN_NAME=localhost  # Change to your domain (e.g., ergominers.com) for production
+ENABLE_HTTPS=false    # Set to true for production with SSL
+EMAIL_FOR_SSL=your-email@example.com  # Required for Let's Encrypt notifications
+```
+
+### Local Development
+
+For local development, you can use the default configuration:
+
+```bash
+DOMAIN_NAME=localhost
+ENABLE_HTTPS=false
+```
+
+### Production Deployment
+
+For production deployment with a custom domain:
+
+1. Update your `.env` file with your domain configuration:
+   ```env
+   DOMAIN_NAME=ergominers.com
+   ENABLE_HTTPS=true
+   EMAIL_FOR_SSL=your-email@example.com
+   ```
+
+2. Ensure your domain's DNS is properly configured to point to your server.
+
+3. Start the application:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Initialize SSL certificates:
+   ```bash
+   docker-compose exec nginx /scripts/init-ssl.sh
+   ```
+
+The SSL certificates will be automatically renewed every 90 days by the Certbot service.
+
+### SSL Certificate Management
+
+- Certificates are automatically obtained and renewed by Certbot
+- Renewal attempts occur every 12 hours (certificates are renewed when they're within 30 days of expiration)
+- Certificate files are stored in a Docker volume (`certbot_conf`)
+- The nginx configuration automatically uses the SSL certificates when ENABLE_HTTPS is true
