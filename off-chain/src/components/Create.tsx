@@ -20,7 +20,6 @@ import {
 } from '@chakra-ui/react';
 import { OutputBuilder, TransactionBuilder } from "@fleet-sdk/core";
 import Title from '../components/Title';
-import CryptoJS from 'crypto-js';
 
 declare global {
     interface Window {
@@ -50,19 +49,6 @@ function Create() {
 
     const handleMinimumPayoutChange = (valueAsString: string, valueAsNumber: number) => {
         setMinimumPayout(valueAsNumber);
-    };
-
-    // Function to encrypt the payout value
-    const encryptPayout = (payout: number): string => {
-        const secretKey = 'your-secret-key'; // In production, use a secure key management system
-        return CryptoJS.AES.encrypt(payout.toString(), secretKey).toString();
-    };
-
-    // Function to decrypt the payout value (for authorized parties)
-    const decryptPayout = (encryptedPayout: string): number => {
-        const secretKey = 'your-secret-key';
-        const decrypted = CryptoJS.AES.decrypt(encryptedPayout, secretKey);
-        return parseFloat(decrypted.toString(CryptoJS.enc.Utf8));
     };
 
     const checkWalletForReceiptToken = async () => {
@@ -145,13 +131,11 @@ function Create() {
             const address = await ergo.get_change_address();
             const height = await ergo.get_current_height();
             const nftName = 'Sigma BYTES';
-
-            const encryptedPayout = encryptPayout(minimumPayout);
             
             const dictionary = {
                 address: address,
                 height: height,
-                encryptedPayout: encryptedPayout,
+                minimumPayout: minimumPayout,
                 season: 1,
                 type: 'Pool Config',
                 collection_id: COLLECTION_ID,
