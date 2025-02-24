@@ -426,7 +426,7 @@ def get_layout(api_reader):
                         ),
                         dbc.ModalBody(
                             html.Iframe(
-                                src=f"{os.environ.get('BASE_URL', 'http://localhost')}/miner-id-minter",
+                                src=f"{os.environ.get('BASE_URL', 'http://localhost')}/miner-id-minter/{uuid.uuid4()}",
                                 style={
                                     'width': '100%',
                                     'height': '600px',
@@ -540,23 +540,28 @@ def get_layout(api_reader):
                 # Mint Sigma Bytes Button
                 dbc.Row([
                     dbc.Col(
-                        html.Button(
-                            'Mint Sigma Bytes 💎',
-                            id='mint-sigma-bytes-button',
-                            style={
-                                'width': '100%',
-                                'backgroundColor': '#1a365d',
-                                'border': 'none',
-                                'padding': '15px',
-                                'color': 'white',
-                                'fontSize': '18px',
-                                'borderRadius': '8px',
-                                'cursor': 'pointer',
-                                'marginBottom': '20px',
-                                'backgroundImage': 'linear-gradient(to right, #1a365d, #2a4365)',
-                                'boxShadow': '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                'transition': 'all 0.3s ease'
-                            }
+                        html.A(
+                            html.Button(
+                                'Mint Sigma Bytes 💎',
+                                id='mint-sigma-bytes-button',
+                                style={
+                                    'width': '100%',
+                                    'backgroundColor': '#1a365d',
+                                    'border': 'none',
+                                    'padding': '15px',
+                                    'color': 'white',
+                                    'fontSize': '18px',
+                                    'borderRadius': '8px',
+                                    'cursor': 'pointer',
+                                    'marginBottom': '20px',
+                                    'backgroundImage': 'linear-gradient(to right, #1a365d, #2a4365)',
+                                    'boxShadow': '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                    'transition': 'all 0.3s ease'
+                                }
+                            ),
+                            id='mint-link',
+                            href=f"{os.environ.get('BASE_URL', 'http://localhost')}/miner-id-minter/{uuid.uuid4()}",
+                            target="_blank"
                         ),
                         width=12
                     )
