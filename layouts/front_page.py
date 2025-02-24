@@ -107,9 +107,17 @@ def setup_front_page_callbacks(app, api_reader):
         if button_id == 'mint-sigma-bytes-button' and mint_clicks:
             # Generate a new UUID when the button is clicked
             id = uuid.uuid4()
-            # Use MINTING_SERVICE_URL environment variable with fallback to original ergominers URL format
-            minting_service_base = os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')
-            minting_service_url = f'{minting_service_base}/{id}'
+            # For local development, prioritize localhost URLs
+            base_url = os.environ.get('BASE_URL', 'http://localhost')
+            if 'localhost' in base_url or '127.0.0.1' in base_url:
+                # Use local minting service for local development
+                minting_service_url = f"http://localhost:3000/{id}"
+            else:
+                # Use configured minting service for production
+                minting_service_base = os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')
+                minting_service_url = f'{minting_service_base}/{id}'
+            
+            logger.info(f"Opening minting modal with URL: {minting_service_url}")
             return not is_open, minting_service_url
         elif button_id == 'close-mint-modal' and close_clicks:
             return False, dash.no_update
@@ -442,14 +450,15 @@ def get_layout(api_reader):
                         dbc.ModalBody(
                             html.Iframe(
                                 id='minter-iframe',
-                                src=f"{os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')}",
+                                # For local development, prioritize localhost URLs
+                                src=f"http://localhost:3000" if 'localhost' in os.environ.get('BASE_URL', 'http://localhost') or '127.0.0.1' in os.environ.get('BASE_URL', 'http://localhost') else f"{os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')}",
                                 style={
                                     'width': '100%',
                                     'height': '600px',
                                     'border': 'none',
                                     'borderRadius': '8px'
                                 },
-                                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+                                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-same-origin"
                             ),
                             style={
                                 "backgroundColor": "#1a2234",

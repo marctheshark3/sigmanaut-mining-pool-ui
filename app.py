@@ -218,7 +218,7 @@ def create_app():
             response.headers['Content-Security-Policy'] = (
                 "default-src * 'unsafe-inline' 'unsafe-eval'; "
                 "frame-ancestors * http://localhost:* http://127.0.0.1:*; "
-                "frame-src * http://localhost:* http://127.0.0.1:*; "
+                "frame-src * http://localhost:* http://127.0.0.1:* http://ergominers.com/ https://ergominers.com/; "
                 "img-src * data: blob: 'self'; "
                 "style-src * 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
                 "style-src-elem * 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
@@ -230,8 +230,8 @@ def create_app():
             response.headers['Content-Security-Policy'] = (
                 "default-src 'self'; "
                 "img-src 'self' data: blob:; "
-                "frame-src 'self' http://localhost:* http://127.0.0.1:*; "
-                "frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; "
+                "frame-src * 'self' http://localhost:* http://127.0.0.1:* http://ergominers.com/ https://ergominers.com/; "
+                "frame-ancestors * 'self' http://localhost:* http://127.0.0.1:* http://ergominers.com/ https://ergominers.com/; "
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.bootstrap.com; "
                 "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
                 "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
