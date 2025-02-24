@@ -6,18 +6,21 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./:/app
+      - ./conf:/app/conf:ro
+      - flask_session:/app/flask_session
     ports:
       - "8050:8050"
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
       - FLASK_ENV=production
-      - REDIS_URL=redis://redis:6380/0
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1  # Enable real-time logging
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8050/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8050/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -25,35 +28,42 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50'
-          memory: 512M
+          cpus: '1.0'
+          memory: 1G
         reservations:
           cpus: '0.25'
-          memory: 256M
+          memory: 512M
     restart: unless-stopped
     networks:
       - app_network
     
   redis:
     image: redis:alpine
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     ports:
-      - "6380:6379"
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     deploy:
       resources:
         limits:
-          cpus: '0.30'
-          memory: 256M
+          cpus: '0.50'
+          memory: 512M
         reservations:
-          cpus: '0.10'
-          memory: 128M
+          cpus: '0.20'
+          memory: 256M
     restart: unless-stopped
     networks:
       - app_network
-    
+
   miner-id-minter:
+    image: ghcr.io/marctheshark3/sigmanaut-mining-pool-minter:${TAG:-latest}
     build:
       context: ./off-chain
       dockerfile: Dockerfile
@@ -72,11 +82,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50'
-          memory: 512M
+          cpus: '1.0'
+          memory: 1G
         reservations:
           cpus: '0.25'
-          memory: 256M
+          memory: 512M
     restart: unless-stopped
     depends_on:
       - ui
@@ -120,3 +130,4 @@ networks:
 volumes:
   redis_data:
   nginx_cache:
+  flask_session:

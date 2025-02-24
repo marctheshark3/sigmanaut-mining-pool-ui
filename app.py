@@ -13,21 +13,54 @@ from dotenv import load_dotenv
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
-
-# Load environment variables
-load_dotenv()
+import redis
+import socket
+import time
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('app.log')
+    ]
 )
 logger = logging.getLogger(__name__)
+logger.info("Application startup - Logging initialized")
+
+# Load environment variables
+load_dotenv()
+logger.info("Environment variables loaded")
+
+def wait_for_redis(redis_url, max_retries=5, delay=2):
+    """Wait for Redis to become available"""
+    retries = 0
+    while retries < max_retries:
+        try:
+            redis_client = redis.from_url(redis_url)
+            redis_client.ping()
+            logger.info(f"Successfully connected to Redis at {redis_url}")
+            return True
+        except (redis.ConnectionError, socket.gaierror) as e:
+            retries += 1
+            logger.warning(f"Attempt {retries}/{max_retries} - Failed to connect to Redis: {e}")
+            if retries < max_retries:
+                time.sleep(delay)
+    return False
+
+# Initialize Redis connection for session storage
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+if not wait_for_redis(REDIS_URL):
+    logger.error(f"Could not connect to Redis at {REDIS_URL}")
+    if os.getenv('FLASK_ENV') != 'development':
+        raise RuntimeError("Redis connection failed")
 
 server = Flask(__name__)
 server.config.update({
     'SECRET_KEY': os.getenv('SECRET_KEY', os.urandom(24)),
-    'SESSION_TYPE': 'filesystem',
+    'SESSION_TYPE': 'redis',
+    'SESSION_REDIS': redis.from_url(REDIS_URL),
     'SESSION_COOKIE_SECURE': True,
     'SESSION_COOKIE_HTTPONLY': True,
     'SESSION_COOKIE_SAMESITE': 'Lax',
@@ -86,63 +119,48 @@ def dash_route_limits():
         return f
     return decorator
 
-# Register Dash-specific routes with higher limits
-@server.route('/_dash-<path:path>')
-@dash_route_limits()
-def _dash_route(path):
-    return app.server._dash_route(path)
-
-@server.route('/_reload-<path:path>')
-@dash_route_limits()
-def _reload_route(path):
-    return app.server._reload_route(path)
-
-# Apply specific rate limits to API endpoints
-@limiter.limit("500 per day")
-@limiter.limit("100 per hour")
-@server.route("/api/<path:path>")
-def api_routes(path):
-    # Your API route handling code here
-    pass
-
-# Apply higher rate limits to static files
-@limiter.limit("2000 per day")
-@limiter.limit("500 per hour")
-@server.route("/static/<path:filename>")
-def serve_app_static(filename):
-    return send_from_directory('static', filename)
-
-login_manager = LoginManager()
-login_manager.init_app(server)
-
-class User(UserMixin):
-    pass
-
-@login_manager.user_loader
-def load_user(user_id):
-    user = User()
-    user.id = user_id
-    return user
-
-def initialize_api():
-    try:
-        data_manager = DataManager('../conf')
-        data_manager.update_data()
-        api_reader = ApiReader(data_manager)
-        logger.info("Successfully initialized API components")
-        return data_manager, api_reader
-    except Exception as e:
-        logger.error(f"Failed to initialize API components: {e}")
-        raise
-
 def create_app():
+    def initialize_api():
+        try:
+            logger.info("Starting API initialization...")
+            
+            # Change working directory to ensure relative path works
+            if os.path.exists('/app'):
+                os.chdir('/app')
+                logger.info("Changed working directory to /app")
+            
+            # Set up Hydra configuration
+            config_dir = os.path.join(os.getcwd(), 'conf')
+            logger.info(f"Using config directory: {config_dir}")
+            
+            if not os.path.exists(config_dir):
+                raise RuntimeError(f"Config directory not found at {config_dir}")
+            
+            logger.info(f"Attempting to initialize DataManager...")
+            data_manager = DataManager('conf')  # Use just the directory name for Hydra
+            logger.info("DataManager initialized successfully")
+            
+            logger.info("Attempting to update data...")
+            data_manager.update_data()
+            logger.info("Data update completed successfully")
+            
+            logger.info("Initializing ApiReader...")
+            api_reader = ApiReader(data_manager)
+            logger.info("Successfully initialized API components")
+            return data_manager, api_reader
+        except Exception as e:
+            logger.error(f"Failed to initialize API components: {e}", exc_info=True)
+            raise
+
     try:
+        logger.info("Starting application creation process...")
         data_manager, api_reader = initialize_api()
+        logger.info("API initialization completed successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize application: {e}")
+        logger.error(f"Failed to initialize application: {e}", exc_info=True)
         raise
 
-    app = Dash(
+    dash_app = Dash(
         __name__,
         server=server,
         url_base_pathname='/',
@@ -150,6 +168,17 @@ def create_app():
         suppress_callback_exceptions=True,
         update_title=None  # Disable the "Updating..." title during callbacks
     )
+
+    # Register Dash-specific routes with higher limits
+    @server.route('/_dash-<path:path>')
+    @dash_route_limits()
+    def _dash_route(path):
+        return dash_app.server._dash_route(path)
+
+    @server.route('/_reload-<path:path>')
+    @dash_route_limits()
+    def _reload_route(path):
+        return dash_app.server._reload_route(path)
 
     # Add routes to serve React app
     @server.route('/mint/')
@@ -180,19 +209,19 @@ def create_app():
         response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'"
         return response
 
-    app.layout = html.Div([
+    dash_app.layout = html.Div([
         dcc.Location(id='url', refresh=False),
         html.Div(id='page-content')
     ])
 
-    @app.callback(Output('page-content', 'children'), [Input('url', 'pathname')])
+    @dash_app.callback(Output('page-content', 'children'), [Input('url', 'pathname')])
     def display_page(pathname):
         if pathname and pathname != "/":
             mining_address = unquote(pathname.lstrip('/'))
             return mining_page.get_layout(api_reader)
         return front_page.get_layout(api_reader)
 
-    @app.callback(
+    @dash_app.callback(
         Output('url', 'pathname'),
         Input('start-mining-button', 'n_clicks'),
         State('mining-address-input', 'value')
@@ -203,18 +232,25 @@ def create_app():
         return '/'
 
     # Register callbacks for both pages
-    front_page.setup_front_page_callbacks(app, api_reader)
-    mining_page.setup_mining_page_callbacks(app, api_reader)
+    front_page.setup_front_page_callbacks(dash_app, api_reader)
+    mining_page.setup_mining_page_callbacks(dash_app, api_reader)
 
-    return app
+    return dash_app
 
 if __name__ == '__main__':
     try:
         logger.info("Starting application...")
         app = create_app()
-        server = app.server
         logger.info("Application created successfully, starting server...")
         app.run_server(debug=True, host='0.0.0.0', port=8050)
     except Exception as e:
         logger.error(f"Failed to start application: {e}", exc_info=True)
+        raise
+else:
+    try:
+        logger.info("Creating application for WSGI...")
+        app = create_app()
+        application = app.server  # For gunicorn
+    except Exception as e:
+        logger.error(f"Failed to create application for WSGI: {e}", exc_info=True)
         raise

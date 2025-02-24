@@ -13,27 +13,54 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
+_hydra_initialized = False
+
 class DataManager:
     def __init__(self, config_path: str):
         try:
-            initialize(config_path, config_path, version_base=None)
-        except ValueError:
-            GlobalHydra.instance().clear()
-            initialize(config_path, config_path, version_base=None)
-        
-        cfg = compose(config_name='conf')
-        self.api = cfg.default_values.api
-        self.data = {}
-        self._initialize_caches()
-        self._initialize_redis()
+            # Change working directory if needed
+            if os.path.exists('/app'):
+                os.chdir('/app')
+                logger.info("Changed working directory to /app")
+
+            global _hydra_initialized
+            if not _hydra_initialized:
+                # Clear any existing Hydra instance
+                if GlobalHydra.instance().is_initialized():
+                    GlobalHydra.instance().clear()
+                
+                # Initialize Hydra with the correct config path
+                logger.info(f"Initializing Hydra with config path: {config_path}")
+                initialize(
+                    version_base=None,
+                    config_path=config_path,  # Use the provided config path
+                    job_name="app"
+                )
+                _hydra_initialized = True
+                logger.info("Hydra initialized successfully")
+            
+            cfg = compose(config_name="default_values")  # Use the default_values.yaml file
+            logger.info("Hydra configuration loaded successfully")
+            
+            # Access api directly from the root level of the config
+            self.api = cfg.api
+            logger.info(f"API endpoint configured: {self.api}")
+            
+            self.data = {}
+            self._initialize_caches()
+            self._initialize_redis()
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize DataManager: {e}", exc_info=True)
+            raise
 
     def _initialize_redis(self):
         """Initialize Redis connection if available"""
         try:
-            redis_url = os.getenv('REDIS_URL')
+            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6380/0')
             if redis_url:
                 self.redis = redis.from_url(redis_url)
-                logger.info("Successfully connected to Redis")
+                logger.info(f"Successfully connected to Redis at {redis_url}")
             else:
                 self.redis = None
                 logger.info("No Redis URL provided, using in-memory cache")

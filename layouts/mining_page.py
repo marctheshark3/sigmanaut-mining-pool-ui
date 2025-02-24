@@ -1,8 +1,6 @@
 # In mining_page.py
 from dash import Dash, html, dash_table, dcc
 import dash_bootstrap_components as dbc
-from flask import Flask
-from flask_session import Session
 from utils.dash_utils import (
     card_color, background_color, large_text_color, small_text_color,
     card_styles, container_style, table_style, bottom_row_style,
@@ -15,10 +13,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 debug = False
-server = Flask(__name__)
-server.config['SECRET_KEY'] = 'your_super_secret_key'
-server.config['SESSION_TYPE'] = 'filesystem'
-Session(server)
 
 styles = {
     'card_styles': card_styles,
@@ -262,35 +256,5 @@ def setup_mining_page_callbacks(app, api_reader):
     priceapi = PriceReader()
     register_callbacks(app, api_reader, priceapi, styles)
 
-def init_mining_page(server, sharkapi):
-    app = Dash(
-        __name__,
-        server=server,
-        url_base_pathname='/',
-        external_stylesheets=[dbc.themes.BOOTSTRAP]
-    )
-    
-    priceapi = PriceReader()
-    app.layout = get_layout(sharkapi)
-    register_callbacks(app, sharkapi, priceapi, styles)
-    
-    return app
-
 if __name__ == '__main__':
-    from utils.api_reader import ApiReader
-    from utils.data_manager import DataManager
-    
-    data_manager = DataManager("../conf")
-    sharkapi = ApiReader(data_manager)
-    
-    app = init_mining_page(server, sharkapi)
-    app.run_server(debug=debug)
-else:
-    # For production/wsgi
-    from utils.api_reader import ApiReader
-    from utils.data_manager import DataManager
-    
-    data_manager = DataManager("../conf")
-    sharkapi = ApiReader(data_manager)
-    
-    app = init_mining_page(server, sharkapi)
+    print("This module should not be run directly. Please run the main app.py instead.")
