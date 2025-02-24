@@ -73,6 +73,11 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+    command: >
+      /bin/sh -c "
+      cd /app &&
+      npm install &&
+      npm start"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
