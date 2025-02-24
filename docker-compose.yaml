@@ -68,12 +68,23 @@ services:
     build:
       context: ./off-chain
       dockerfile: Dockerfile
+    volumes:
+      - ./off-chain:/app:ro
+      - /app/node_modules
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - PUBLIC_URL=/miner-id-minter
       - REACT_APP_BASE_URL=${BASE_URL:-http://localhost}
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+    command: >
+      /bin/sh -c "
+      cd /app &&
+      npm install &&
+      npm run build &&
+      python app.py"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
