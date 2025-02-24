@@ -115,7 +115,11 @@ def setup_front_page_callbacks(app, api_reader):
             else:
                 # Use configured minting service for production
                 minting_service_base = os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')
-                minting_service_url = f'{minting_service_base}/{id}'
+                # Ensure we're using the correct path structure
+                if not minting_service_base.endswith('/'):
+                    minting_service_url = f'{minting_service_base}/{id}'
+                else:
+                    minting_service_url = f'{minting_service_base}{id}'
             
             logger.info(f"Opening minting modal with URL: {minting_service_url}")
             return not is_open, minting_service_url
@@ -451,14 +455,14 @@ def get_layout(api_reader):
                             html.Iframe(
                                 id='minter-iframe',
                                 # For local development, prioritize localhost URLs
-                                src=f"http://localhost:3000" if 'localhost' in os.environ.get('BASE_URL', 'http://localhost') or '127.0.0.1' in os.environ.get('BASE_URL', 'http://localhost') else f"{os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')}",
+                                src=f"http://localhost:3000" if 'localhost' in os.environ.get('BASE_URL', 'http://localhost') or '127.0.0.1' in os.environ.get('BASE_URL', 'http://localhost') else os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter'),
                                 style={
                                     'width': '100%',
                                     'height': '600px',
                                     'border': 'none',
                                     'borderRadius': '8px'
                                 },
-                                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-same-origin"
+                                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
                             ),
                             style={
                                 "backgroundColor": "#1a2234",

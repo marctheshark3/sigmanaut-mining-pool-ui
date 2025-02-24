@@ -16,6 +16,7 @@ from flask_cors import CORS
 import redis
 import socket
 import time
+from urllib.parse import urlparse
 
 # Configure logging
 logging.basicConfig(
@@ -218,7 +219,7 @@ def create_app():
             response.headers['Content-Security-Policy'] = (
                 "default-src * 'unsafe-inline' 'unsafe-eval'; "
                 "frame-ancestors * http://localhost:* http://127.0.0.1:*; "
-                "frame-src * http://localhost:* http://127.0.0.1:* http://ergominers.com/ https://ergominers.com/; "
+                f"frame-src * http://localhost:* http://127.0.0.1:*; "
                 "img-src * data: blob: 'self'; "
                 "style-src * 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
                 "style-src-elem * 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
@@ -226,16 +227,23 @@ def create_app():
                 "connect-src * ws: wss:;"
             )
         else:
+            # Get the minting service domain from the environment variable
+            minting_service_url = os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')
+            
+            # Extract the domain part (e.g., http://ergominers.com)
+            parsed_url = urlparse(minting_service_url)
+            minting_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            
             # Stricter CSP for production
             response.headers['Content-Security-Policy'] = (
-                "default-src 'self'; "
-                "img-src 'self' data: blob:; "
-                "frame-src * 'self' http://localhost:* http://127.0.0.1:* http://ergominers.com/ https://ergominers.com/; "
-                "frame-ancestors * 'self' http://localhost:* http://127.0.0.1:* http://ergominers.com/ https://ergominers.com/; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.bootstrap.com; "
-                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
-                "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
-                "connect-src 'self' ws: wss:;"
+                f"default-src 'self' {minting_domain}; "
+                f"img-src 'self' data: blob: {minting_domain}; "
+                f"frame-src * 'self' http://localhost:* http://127.0.0.1:* {minting_domain}/; "
+                f"frame-ancestors * 'self' http://localhost:* http://127.0.0.1:* {minting_domain}/; "
+                f"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.bootstrap.com {minting_domain}; "
+                f"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com {minting_domain}; "
+                f"style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com {minting_domain}; "
+                f"connect-src 'self' ws: wss: {minting_domain};"
             )
         return response
 
