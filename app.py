@@ -74,38 +74,42 @@ CORS(server, resources={r"/api/*": {"origins": os.getenv('ALLOWED_ORIGINS', '*')
 # Configure rate limits based on environment
 is_development = os.getenv('FLASK_ENV') == 'development'
 
+def is_dash_route():
+    """Check if the current request is for a Dash route"""
+    path = request.path
+    return any(path.startswith(prefix) for prefix in ['/_dash', '/_reload', '/__webpack', '/sockjs-node', '/assets'])
+
+def should_count_request(response=None):
+    """Determine if the request should count against rate limits"""
+    return not is_dash_route()
+
 # Initialize rate limiter with Redis storage
 limiter = Limiter(
     app=server,
     key_func=get_remote_address,
-    default_limits=["1000 per day", "200 per hour"] if is_development else ["500 per day", "100 per hour"],
+    default_limits=["10000 per hour", "1000 per minute"] if is_development else ["500 per day", "100 per hour"],
     storage_uri=os.getenv('REDIS_URL', "memory://"),
-    strategy="moving-window"  # Changed to moving window for better handling of burst requests
+    strategy="moving-window",  # Changed to moving window for better handling of burst requests
+    default_limits_deduct_when=should_count_request  # Use the function instead of lambda
 )
-
-def is_dash_route():
-    """Check if the current request is for a Dash route"""
-    path = request.path
-    return any(path.startswith(prefix) for prefix in ['/_dash', '/_reload', '/__webpack', '/sockjs-node'])
 
 # Exempt static files and development routes from rate limiting
 @limiter.request_filter
 def exempt_paths():
     path = request.path
     
-    # Always exempt Dash routes in development
-    if is_development and is_dash_route():
+    # Always exempt Dash routes and websocket connections
+    if is_dash_route() or request.environ.get('HTTP_UPGRADE', '').lower() == 'websocket':
         return True
     
-    # Always exempt websocket connections
-    if request.environ.get('HTTP_UPGRADE', '').lower() == 'websocket':
+    # In development, also exempt mint routes
+    if is_development and path.startswith('/mint'):
         return True
     
     # Exempt static files and health checks
     return any([
         path.startswith('/static/'),
         path.startswith('/assets/'),
-        path.startswith('/mint/'),
         path.endswith(('.js', '.css', '.png', '.jpg', '.ico', '.svg', '.woff', '.woff2', '.ttf', '.json', '.map')),
         path == '/health'
     ])
@@ -115,7 +119,7 @@ def dash_route_limits():
     """Decorator to apply very high limits to Dash routes"""
     def decorator(f):
         if is_development:
-            return limiter.limit("10000 per hour")(f)  # Much higher limit for development
+            return limiter.exempt(f)  # Completely exempt Dash routes in development
         return f
     return decorator
 
@@ -204,9 +208,35 @@ def create_app():
     def add_security_headers(response):
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        # Remove X-Frame-Options header to allow embedding
+        if 'X-Frame-Options' in response.headers:
+            del response.headers['X-Frame-Options']
         response.headers['X-XSS-Protection'] = '1; mode=block'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'"
+        
+        if is_development:
+            # More permissive CSP for development
+            response.headers['Content-Security-Policy'] = (
+                "default-src * 'unsafe-inline' 'unsafe-eval'; "
+                "frame-ancestors * http://localhost:* http://127.0.0.1:*; "
+                "frame-src * http://localhost:* http://127.0.0.1:*; "
+                "img-src * data: blob: 'self'; "
+                "style-src * 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
+                "style-src-elem * 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
+                "script-src * 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://*.bootstrap.com; "
+                "connect-src * ws: wss:;"
+            )
+        else:
+            # Stricter CSP for production
+            response.headers['Content-Security-Policy'] = (
+                "default-src 'self'; "
+                "img-src 'self' data: blob:; "
+                "frame-src 'self' http://localhost:* http://127.0.0.1:*; "
+                "frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.bootstrap.com; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
+                "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.bootstrap.com; "
+                "connect-src 'self' ws: wss:;"
+            )
         return response
 
     dash_app.layout = html.Div([

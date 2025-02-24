@@ -103,7 +103,8 @@ def setup_front_page_callbacks(app, api_reader):
 
     @app.callback(
         [Output('metric-1', 'children')],
-        [Input('fp-int-4', 'n_intervals')]
+        [Input('fp-int-4', 'n_intervals')],
+        prevent_initial_call=False
     )
     def update_first_row(n):
         try:
@@ -142,7 +143,8 @@ def setup_front_page_callbacks(app, api_reader):
 
     @app.callback(
         [Output('metric-2', 'children')],
-        [Input('fp-int-1', 'n_intervals')]
+        [Input('fp-int-1', 'n_intervals')],
+        prevent_initial_call=False
     )
     def update_metrics(n):
         try:
@@ -225,7 +227,8 @@ def setup_front_page_callbacks(app, api_reader):
 
     @app.callback(
         [Output('plot-1', 'figure'), Output('plot-title', 'children')],
-        [Input('fp-int-2', 'n_intervals'), Input('chart-dropdown', 'value')]
+        [Input('fp-int-2', 'n_intervals'), Input('chart-dropdown', 'value')],
+        prevent_initial_call=False
     )
     def update_plots(n, value):
         try:
@@ -311,7 +314,8 @@ def setup_front_page_callbacks(app, api_reader):
 
     @app.callback(
         [Output('table', 'data'), Output('dropdown-title', 'children')],
-        [Input('fp-int-3', 'n_intervals'), Input('dataset-dropdown', 'value')]
+        [Input('fp-int-3', 'n_intervals'), Input('dataset-dropdown', 'value')],
+        prevent_initial_call=False
     )
     def update_content(n, selected_data):
         try:
@@ -369,10 +373,10 @@ def setup_front_page_callbacks(app, api_reader):
             return [], 'Error loading data'
 
 
-DASH_INTERVAL_METRICS = 1000*60*30  # 30 minutes for main metrics
-DASH_INTERVAL_PLOTS = 1000*60*30    # 30 minutes for plots
-DASH_INTERVAL_TABLE = 1000*60*30    # 30 minutes for tables
-DASH_INTERVAL_STATS = 1000*60*30    # 30 minutes for detailed stats
+DASH_INTERVAL_METRICS = 1000*60*60  # 60 minutes for main metrics
+DASH_INTERVAL_PLOTS = 1000*60*60    # 60 minutes for plots
+DASH_INTERVAL_TABLE = 1000*60*60    # 60 minutes for tables
+DASH_INTERVAL_STATS = 1000*60*60    # 60 minutes for detailed stats
 
 def get_layout(api_reader):
     return html.Div([
@@ -380,25 +384,25 @@ def get_layout(api_reader):
             fluid=True,
             style=container_style,
             children=[
-                # Development mode intervals are more frequent but still reasonable
+                # Intervals now run at full hour in both dev and prod
                 dcc.Interval(
                     id='fp-int-1',
-                    interval=DASH_INTERVAL_STATS if os.getenv('FLASK_ENV') != 'development' else DASH_INTERVAL_STATS // 2,
+                    interval=DASH_INTERVAL_STATS,
                     n_intervals=0
                 ),
                 dcc.Interval(
                     id='fp-int-2',
-                    interval=DASH_INTERVAL_PLOTS if os.getenv('FLASK_ENV') != 'development' else DASH_INTERVAL_PLOTS // 2,
+                    interval=DASH_INTERVAL_PLOTS,
                     n_intervals=0
                 ),
                 dcc.Interval(
                     id='fp-int-3',
-                    interval=DASH_INTERVAL_TABLE if os.getenv('FLASK_ENV') != 'development' else DASH_INTERVAL_TABLE // 2,
+                    interval=DASH_INTERVAL_TABLE,
                     n_intervals=0
                 ),
                 dcc.Interval(
                     id='fp-int-4',
-                    interval=DASH_INTERVAL_METRICS if os.getenv('FLASK_ENV') != 'development' else DASH_INTERVAL_METRICS // 2,
+                    interval=DASH_INTERVAL_METRICS,
                     n_intervals=0
                 ),
                 # Remove unused interval
@@ -422,7 +426,7 @@ def get_layout(api_reader):
                         ),
                         dbc.ModalBody(
                             html.Iframe(
-                                src="/mint/?theme=dark",
+                                src="http://localhost:3000/miner-id-minter",
                                 style={
                                     "width": "100%",
                                     "height": "600px",
@@ -430,7 +434,8 @@ def get_layout(api_reader):
                                     "borderRadius": "8px",
                                     "backgroundColor": "#1a2234",
                                     "color": "#fff"
-                                }
+                                },
+                                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads",
                             ),
                             style={
                                 "backgroundColor": "#1a2234",
