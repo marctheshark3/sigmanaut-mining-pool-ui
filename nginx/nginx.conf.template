@@ -24,54 +24,11 @@ http {
     proxy_connect_timeout 3600;
     proxy_send_timeout 3600;
 
-    # Include rate limiting config
-    include /etc/nginx/conf.d/rate_limit.conf;
-
-    # HTTP server - redirects to HTTPS
     server {
         listen 80;
         listen [::]:80;
-        server_name ${DOMAIN_NAME};
+        server_name localhost ${DOMAIN_NAME};
 
-        # Allow certbot to authenticate domain
-        location /.well-known/acme-challenge/ {
-            root /var/www/certbot;
-        }
-
-        # Redirect all HTTP requests to HTTPS
-        location / {
-            return 301 https://$host$request_uri;
-        }
-    }
-
-    # HTTPS server
-    server {
-        listen 443 ssl http2;
-        listen [::]:443 ssl http2;
-        server_name ${DOMAIN_NAME};
-
-        # SSL configuration
-        ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
-        ssl_trusted_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/chain.pem;
-
-        # SSL settings
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_prefer_server_ciphers on;
-        ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
-        ssl_ecdh_curve secp384r1;
-        ssl_session_cache shared:SSL:10m;
-        ssl_session_tickets off;
-        ssl_stapling on;
-        ssl_stapling_verify on;
-
-        # Security headers
-        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload";
-        add_header X-Content-Type-Options nosniff;
-        add_header X-Frame-Options "SAMEORIGIN";
-        add_header X-XSS-Protection "1; mode=block";
-
-        # Root application proxy
         location / {
             proxy_pass http://ui:8050;
             proxy_http_version 1.1;

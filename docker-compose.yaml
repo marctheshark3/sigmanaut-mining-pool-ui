@@ -105,14 +105,11 @@ services:
     image: nginx:stable-alpine
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./conf/nginx.rate.conf:/etc/nginx/conf.d/rate_limit.conf:ro
       - nginx_cache:/var/cache/nginx
-      - certbot_www:/var/www/certbot:ro
-      - certbot_conf:/etc/letsencrypt:ro
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
     command: >
@@ -146,22 +143,7 @@ services:
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
       - EMAIL_FOR_SSL=${EMAIL_FOR_SSL}
-    command: >
-      certonly --webroot --webroot-path=/var/www/certbot
-      --email ${EMAIL_FOR_SSL} --agree-tos --no-eff-email
-      --force-renewal -d ${DOMAIN_NAME}
-    entrypoint: >
-      /bin/sh -c "
-      if [ ! -d /etc/letsencrypt/live/${DOMAIN_NAME} ]; then
-        certbot certonly --webroot --webroot-path=/var/www/certbot
-          --email ${EMAIL_FOR_SSL} --agree-tos --no-eff-email
-          --force-renewal -d ${DOMAIN_NAME};
-      fi;
-      trap exit TERM; 
-      while :; do
-        certbot renew --quiet;
-        sleep 12h & wait $${!};
-      done;"
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     depends_on:
       - nginx
     networks:
