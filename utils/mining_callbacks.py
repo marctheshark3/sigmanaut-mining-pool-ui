@@ -17,6 +17,7 @@ from .calculate import (
 from .find_miner_id import ReadTokens
 from utils.components import create_metric_section, create_stat_section
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,70 @@ def create_image_text_block(text, image, style=None):
             html.Span(text, style={'padding': '10px'})
         ]
     )
+
+def get_minimum_payout(miner_address):
+    """Get minimum payout from Sigma Bytes NFT or return default value"""
+    try:
+        # Collection ID from Create.tsx
+        COLLECTION_ID = "10ba19fae939a8c185eddb239d85f4dc8a77564cb6167578d8019f24696446fc"
+        
+        find_tokens = ReadTokens()
+        # Look for Sigma Bytes NFT with name 'Sigma BYTES'
+        wallet_json = json.dumps({"addresses": [miner_address]})
+        tokens = find_tokens.find_token_name_in_wallet(wallet_json, 'Sigma BYTES')
+        
+        if tokens:
+            # Get the most recent token's description
+            for token in tokens:
+                token_id = token['tokenId']
+                token_info = find_tokens.get_token_description(token_id)
+                
+                if not token_info:
+                    logger.warning(f"Could not get token info for {token_id}")
+                    continue
+                    
+                try:
+                    # Parse the description to verify token properties
+                    description = json.loads(token_info)
+                    logger.info(f"Token description: {description}")
+                    
+                    # Verify collection ID
+                    if description.get('collection_id') != COLLECTION_ID:
+                        logger.warning(f"Token {token_id} has wrong collection ID: {description.get('collection_id')}")
+                        continue
+                        
+                    # Verify token type
+                    token_type = description.get('type')
+                    if token_type != 'Pool Config':
+                        logger.warning(f"Token {token_id} has wrong type: {token_type}")
+                        continue
+                        
+                    # Verify address ownership
+                    token_address = description.get('address')
+                    if token_address != miner_address:
+                        logger.warning(f"Token {token_id} was minted for different address: {token_address}")
+                        continue
+                        
+                    # If we get here, all validations passed
+                    if 'minimumPayout' in description:
+                        min_payout = float(description['minimumPayout'])
+                        logger.info(f"Found valid Sigma Bytes NFT with minimum payout: {min_payout} ERG")
+                        return min_payout
+                    else:
+                        logger.warning(f"Token {token_id} has no minimumPayout field")
+                        
+                except json.JSONDecodeError:
+                    logger.error(f"Could not parse token description for {token_id}")
+                    continue
+                except Exception as e:
+                    logger.error(f"Error processing token {token_id}: {e}")
+                    continue
+        
+        logger.info(f"No valid Sigma Bytes NFT found for address {miner_address}, using default minimum payout")
+        return 0.5  # Default minimum payout
+    except Exception as e:
+        logger.error(f"Error getting minimum payout: {e}")
+        return 0.5  # Return default value on error
 
 def register_callbacks(app, sharkapi, priceapi, styles):
     @app.callback(
@@ -193,11 +258,12 @@ def register_callbacks(app, sharkapi, priceapi, styles):
             miner_data = sharkapi.get_miner_stats(miner)
             pool_data = sharkapi.get_pool_stats()
             shares_data = sharkapi.get_shares()
-            find_tokens = ReadTokens()
-            token = find_tokens.get_latest_miner_id(miner)
             
             if not miner_data:
                 return [[]]
+
+            # Get minimum payout from Sigma Bytes NFT or default
+            min_payout = get_minimum_payout(miner)
 
             # Payment Stats
             payment_stats = [
@@ -214,9 +280,9 @@ def register_callbacks(app, sharkapi, priceapi, styles):
                 ('Schema', 'PPLNS')
             ]
 
-            # Pool Hashrate Stats (replacing Token Distribution)
+            # Pool Hashrate Stats (with dynamic minimum payout)
             pool_hashrate_stats = [
-                ('Minimum Payout', '0.5 ERG'),
+                ('Minimum Payout', f"{min_payout} ERG"),
                 ('Pool Hashrate', format_hashrate(pool_data.get('poolhashrate', 0))),
                 ('Network Hashrate', format_hashrate(pool_data.get('networkhashrate', 0)))
             ]

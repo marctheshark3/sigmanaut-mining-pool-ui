@@ -31,6 +31,7 @@ var connected: any;
 
 function Create() {
     const [minimumPayout, setMinimumPayout] = useState<number>(0.51);
+    const [inputValue, setInputValue] = useState<string>("0.51");
     const [created, setCreated] = useState<boolean>(false);
     const [tx, setTx] = useState<string>('...');
     const [error, setError] = useState<string>('');
@@ -53,19 +54,55 @@ function Create() {
     // Add collection ID constant
     const COLLECTION_ID = "10ba19fae939a8c185eddb239d85f4dc8a77564cb6167578d8019f24696446fc"; // Sigma Bytes Collection ID
 
-    const handleMinimumPayoutChange = (valueAsString: string, valueAsNumber: number) => {
-        if (isNaN(valueAsNumber)) {
-            setPayoutError('Please enter a valid number');
+    const handleMinimumPayoutChange = (valueAsString: string) => {
+        // Allow empty input
+        if (valueAsString === '') {
+            setInputValue('');
+            setMinimumPayout(0);
+            setPayoutError('');
             return;
         }
-        
-        if (valueAsNumber < MIN_PAYOUT) {
-            setPayoutError(`Minimum payout must be at least ${MIN_PAYOUT} ERG`);
-        } else {
+
+        // Allow starting with decimal point
+        if (valueAsString === '.') {
+            setInputValue('0.');
+            setMinimumPayout(0);
             setPayoutError('');
+            return;
         }
-        
-        setMinimumPayout(valueAsNumber);
+
+        // Validate input format
+        const regex = /^\d*\.?\d{0,2}$/;
+        if (!regex.test(valueAsString)) {
+            return;
+        }
+
+        setInputValue(valueAsString);
+        const parsedValue = parseFloat(valueAsString);
+
+        if (!isNaN(parsedValue)) {
+            setMinimumPayout(parsedValue);
+            if (parsedValue < MIN_PAYOUT) {
+                setPayoutError(`Minimum payout must be at least ${MIN_PAYOUT} ERG`);
+            } else {
+                setPayoutError('');
+            }
+        }
+    };
+
+    const handleInputBlur = () => {
+        // Format the value properly on blur
+        if (inputValue === '' || inputValue === '.' || inputValue === '0.') {
+            setInputValue(MIN_PAYOUT.toString());
+            setMinimumPayout(MIN_PAYOUT);
+        } else {
+            const parsedValue = parseFloat(inputValue);
+            if (!isNaN(parsedValue)) {
+                const formattedValue = parsedValue.toFixed(2);
+                setInputValue(formattedValue);
+                setMinimumPayout(parseFloat(formattedValue));
+            }
+        }
     };
 
     // Function to handle wallet connection with better error handling
@@ -458,6 +495,7 @@ function Create() {
             return;
         }
         
+        // Final validation at submission time
         if (minimumPayout < MIN_PAYOUT) {
             setError(`Minimum payout must be at least ${MIN_PAYOUT} ERG`);
             return;
@@ -821,19 +859,38 @@ function Create() {
                     <FormControl mt={6} isInvalid={!!payoutError}>
                         <FormLabel color="whiteAlpha.900" fontSize="lg">Set Minimum Payout (ERG)</FormLabel>
                         <NumberInput
-                            min={MIN_PAYOUT}
-                            value={minimumPayout}
+                            value={inputValue}
                             onChange={handleMinimumPayoutChange}
-                            precision={4}
-                            step={0.01}
+                            min={0}
                             bg="whiteAlpha.100"
                             borderRadius="md"
                             size="lg"
+                            allowMouseWheel
+                            keepWithinRange={false}
+                            clampValueOnBlur={false}
                         >
-                            <NumberInputField color="white" fontSize="lg" height="60px" />
+                            <NumberInputField 
+                                color="white" 
+                                fontSize="lg" 
+                                height="60px"
+                                inputMode="decimal"
+                                onBlur={handleInputBlur}
+                            />
                             <NumberInputStepper>
-                                <NumberIncrementStepper color="whiteAlpha.800" />
-                                <NumberDecrementStepper color="whiteAlpha.800" />
+                                <NumberIncrementStepper 
+                                    color="whiteAlpha.800" 
+                                    onClick={() => {
+                                        const newValue = (parseFloat(inputValue) || 0) + 0.01;
+                                        handleMinimumPayoutChange(newValue.toFixed(2));
+                                    }}
+                                />
+                                <NumberDecrementStepper 
+                                    color="whiteAlpha.800" 
+                                    onClick={() => {
+                                        const newValue = Math.max(0, (parseFloat(inputValue) || 0) - 0.01);
+                                        handleMinimumPayoutChange(newValue.toFixed(2));
+                                    }}
+                                />
                             </NumberInputStepper>
                         </NumberInput>
                         {payoutError && (
