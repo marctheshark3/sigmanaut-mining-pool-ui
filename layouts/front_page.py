@@ -111,15 +111,15 @@ def setup_front_page_callbacks(app, api_reader):
             base_url = os.environ.get('BASE_URL', 'http://localhost')
             if 'localhost' in base_url or '127.0.0.1' in base_url:
                 # Use local minting service for local development
-                minting_service_url = f"http://localhost:3000/{id}"
+                minting_service_url = f"http://localhost:3000/{id}?theme=dark"
             else:
                 # Use configured minting service for production
                 minting_service_base = os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')
                 # Ensure we're using the correct path structure
                 if not minting_service_base.endswith('/'):
-                    minting_service_url = f'{minting_service_base}/{id}'
+                    minting_service_url = f'{minting_service_base}/{id}?theme=dark'
                 else:
-                    minting_service_url = f'{minting_service_base}{id}'
+                    minting_service_url = f'{minting_service_base}{id}?theme=dark'
             
             logger.info(f"Opening minting modal with URL: {minting_service_url}")
             return not is_open, minting_service_url
@@ -455,10 +455,10 @@ def get_layout(api_reader):
                             html.Iframe(
                                 id='minter-iframe',
                                 # For local development, prioritize localhost URLs
-                                src=f"http://localhost:3000" if 'localhost' in os.environ.get('BASE_URL', 'http://localhost') or '127.0.0.1' in os.environ.get('BASE_URL', 'http://localhost') else os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter'),
+                                src=f"http://localhost:3000?theme=dark" if 'localhost' in os.environ.get('BASE_URL', 'http://localhost') or '127.0.0.1' in os.environ.get('BASE_URL', 'http://localhost') else os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter') + "?theme=dark",
                                 style={
                                     'width': '100%',
-                                    'height': '600px',
+                                    'height': '820px',
                                     'border': 'none',
                                     'borderRadius': '8px'
                                 },
@@ -496,7 +496,8 @@ def get_layout(api_reader):
                     is_open=False,
                     style={
                         "maxWidth": "100%",
-                        "margin": "0",
+                        "width": "95%",
+                        "margin": "0 auto",
                         "backgroundColor": "#1a2234"
                     },
                     className="modal-dialog-centered modal-dialog-scrollable",

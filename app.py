@@ -189,6 +189,10 @@ def create_app():
     @server.route('/mint/')
     @server.route('/mint')
     def serve_react_app():
+        """Serve the React app with dark mode enabled"""
+        # Set a query parameter for dark mode that the React app can use
+        # This will be picked up by the React app's routing system
+        os.environ['REACT_APP_THEME'] = 'dark'
         return send_from_directory('off-chain/build', 'index.html')
 
     # Serve static files for React app
@@ -199,7 +203,16 @@ def create_app():
     # Serve root files from the React build directory
     @server.route('/mint/<path:filename>')
     def serve_mint_files(filename):
+        """Serve files from the React app's build directory"""
         try:
+            # Add dark mode parameter to the URL if it's not already there
+            minting_service_url = os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')
+            if '?' not in minting_service_url:
+                minting_service_url += '?theme=dark'
+            elif 'theme=dark' not in minting_service_url:
+                minting_service_url += '&theme=dark'
+                
+            parsed_url = urlparse(minting_service_url)
             return send_from_directory('off-chain/build', filename)
         except:
             return send_from_directory('off-chain/build', 'index.html')

@@ -180,13 +180,14 @@ function Create() {
             borderWidth="1px"
             borderColor="rgba(99, 179, 237, 0.3)"
             boxShadow="0 0 20px rgba(99, 179, 237, 0.2)"
-            maxW="600px"
+            maxW="100%"
+            width="100%"
             mx="auto"
         >
-            <VStack spacing={6} align="stretch">
+            <VStack spacing={8} align="stretch">
                 <Heading
                     as="h1"
-                    size="xl"
+                    size="2xl"
                     textAlign="center"
                     bgGradient="linear(to-r, #ff69b4, #4299e1)"
                     bgClip="text"
@@ -199,7 +200,7 @@ function Create() {
                 <Text
                     textAlign="center"
                     color="whiteAlpha.800"
-                    fontSize="md"
+                    fontSize="lg"
                     mb={4}
                 >
                     Sigmanauts Mining Pool Configuration NFT
@@ -210,15 +211,15 @@ function Create() {
                     overflow="hidden"
                     position="relative"
                     bg="gray.900"
-                    p={4}
+                    p={6}
                 >
                     <Flex justify="flex-start" align="center" mb={4}>
-                        <Text color="cyan.400" fontSize="sm">Gen: 1.0.0</Text>
+                        <Text color="cyan.400" fontSize="md">Gen: 1.0.0</Text>
                     </Flex>
 
                     {error && (
-                        <Alert status='error' variant='solid' bg="red.900" color="white">
-                            <AlertIcon />
+                        <Alert status='error' variant='solid' bg="red.900" color="white" fontSize="md" py={4}>
+                            <AlertIcon boxSize={5} />
                             {error}
                         </Alert>
                     )}
@@ -229,16 +230,18 @@ function Create() {
                             variant='solid'
                             bg={hasReceiptToken ? "green.900" : "blue.900"}
                             color="white"
+                            fontSize="md"
+                            py={4}
                         >
-                            <AlertIcon />
+                            <AlertIcon boxSize={5} />
                             {hasReceiptToken 
                                 ? "Voucher token verified - No fee required" 
                                 : `Required fee: ${Number(FEE_AMOUNT) / 1000000000} ERG`}
                         </Alert>
                     )}
 
-                    <FormControl mt={4}>
-                        <FormLabel color="whiteAlpha.900">Set Minimum Payout (ERG)</FormLabel>
+                    <FormControl mt={6}>
+                        <FormLabel color="whiteAlpha.900" fontSize="lg">Set Minimum Payout (ERG)</FormLabel>
                         <NumberInput
                             min={0}
                             value={minimumPayout}
@@ -247,8 +250,9 @@ function Create() {
                             step={0.01}
                             bg="whiteAlpha.100"
                             borderRadius="md"
+                            size="lg"
                         >
-                            <NumberInputField color="white" />
+                            <NumberInputField color="white" fontSize="lg" height="60px" />
                             <NumberInputStepper>
                                 <NumberIncrementStepper color="whiteAlpha.800" />
                                 <NumberDecrementStepper color="whiteAlpha.800" />
@@ -256,7 +260,7 @@ function Create() {
                         </NumberInput>
                     </FormControl>
 
-                    <VStack spacing={4} mt={6}>
+                    <VStack spacing={6} mt={8}>
                         <Button
                             w="full"
                             onClick={checkWalletForReceiptToken}
@@ -266,6 +270,9 @@ function Create() {
                             _hover={{
                                 bgGradient: "linear(to-r, purple.700, blue.700)",
                             }}
+                            size="lg"
+                            height="60px"
+                            fontSize="lg"
                         >
                             Verify Wallet
                         </Button>
@@ -280,6 +287,9 @@ function Create() {
                             _hover={{
                                 bgGradient: "linear(to-r, pink.600, purple.600)",
                             }}
+                            size="lg"
+                            height="60px"
+                            fontSize="lg"
                         >
                             MINT NOW • {hasReceiptToken ? '0' : (Number(FEE_AMOUNT) / 1000000000)} ERG
                         </Button>
@@ -292,8 +302,10 @@ function Create() {
                                 variant='solid'
                                 bg="green.900"
                                 color="white"
+                                fontSize="md"
+                                py={4}
                             >
-                                <AlertIcon />
+                                <AlertIcon boxSize={5} />
                                 Sigma Bytes NFT Successfully Minted!
                             </Alert>
                             <Link
@@ -301,6 +313,7 @@ function Create() {
                                 isExternal
                                 color="cyan.400"
                                 _hover={{ color: "cyan.300" }}
+                                fontSize="lg"
                             >
                                 View on Explorer
                             </Link>
@@ -311,7 +324,7 @@ function Create() {
                 <Text
                     textAlign="center"
                     color="whiteAlpha.700"
-                    fontSize="sm"
+                    fontSize="md"
                     mt={4}
                 >
                     Each Sigma Bytes NFT allows configuration of minimum payout settings for the Sigmanauts Mining Pool.

@@ -1,0 +1,4 @@
+2025-02-24 19:44:32,168 - __main__ - INFO - Application startup - Logging initialized
+2025-02-24 19:44:32,169 - __main__ - INFO - Environment variables loaded
+2025-02-24 19:44:32,182 - __main__ - WARNING - Attempt 1/5 - Failed to connect to Redis: Error -3 connecting to redis:6379. Temporary failure in name resolution.
+2025-02-24 19:44:34,187 - __main__ - WARNING - Attempt 2/5 - Failed to connect to Redis: Error -3 connecting to redis:6379. Temporary failure in name resolution.
