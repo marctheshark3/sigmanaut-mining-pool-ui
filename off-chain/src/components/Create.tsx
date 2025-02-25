@@ -41,6 +41,7 @@ function Create() {
     const [usingSigmaBytesAsVoucher, setUsingSigmaBytesAsVoucher] = useState<boolean>(false);
     const [voucherTokenId, setVoucherTokenId] = useState<string>('');
     const [payoutError, setPayoutError] = useState<string>('');
+    const [walletConnected, setWalletConnected] = useState<boolean>(false);
     const toast = useToast();
 
     // Define the receipt token ID and other constants
@@ -67,15 +68,14 @@ function Create() {
         setMinimumPayout(valueAsNumber);
     };
 
-    const checkWalletForReceiptToken = async () => {
-        setIsChecking(true);
-        setError('');
+    // Function to handle wallet connection with better error handling
+    const connectWallet = async (): Promise<{success: boolean, address?: string}> => {
         try {
             if (!window.ergoConnector) {
                 throw new Error("Ergo connector not found. Please make sure you have Nautilus wallet installed.");
             }
 
-            connected = await window.ergoConnector.nautilus.connect();
+            const connected = await window.ergoConnector.nautilus.connect();
             if (!connected) {
                 throw new Error("Failed to connect to the wallet. Please try again.");
             }
@@ -85,6 +85,48 @@ function Create() {
                 throw new Error("Failed to get wallet address. Please check your wallet connection.");
             }
             
+            console.log("Wallet connected successfully. Address:", address);
+            setWalletConnected(true);
+            return { success: true, address };
+        } catch (error) {
+            console.error("Wallet connection error:", error);
+            
+            // Handle specific wallet errors
+            let errorMessage = "Failed to connect to wallet. ";
+            
+            if (error instanceof Error) {
+                // Check for common wallet errors
+                if (error.message.includes("password") || error.message.includes("rejected")) {
+                    errorMessage = "Wallet authentication failed. Please check your password and try again.";
+                } else if (error.message.includes("timeout")) {
+                    errorMessage = "Wallet connection timed out. Please try again.";
+                } else {
+                    errorMessage += error.message;
+                }
+            } else {
+                errorMessage += "Unknown error occurred.";
+            }
+            
+            setError(errorMessage);
+            setWalletConnected(false);
+            return { success: false };
+        }
+    };
+
+    const checkWalletForReceiptToken = async () => {
+        setIsChecking(true);
+        setError('');
+        
+        // First ensure wallet is connected
+        const walletConnection = await connectWallet();
+        if (!walletConnection.success) {
+            setIsChecking(false);
+            return;
+        }
+        
+        const address = walletConnection.address;
+        
+        try {
             console.log("Current wallet address:", address);
             console.log("Looking for NFTs with collection ID:", COLLECTION_ID);
 
@@ -173,10 +215,17 @@ function Create() {
                                     let addressMatch = false;
                                     if (description.address === address) {
                                         addressMatch = true;
+                                        console.log("Address match found in description.address");
                                     } else if (description.userAddress === address) {
                                         addressMatch = true;
+                                        console.log("Address match found in description.userAddress");
                                     } else if (description.owner === address) {
                                         addressMatch = true;
+                                        console.log("Address match found in description.owner");
+                                    } else {
+                                        console.log("Address in NFT does not match current wallet address");
+                                        console.log(`NFT address: ${description.address}`);
+                                        console.log(`Current wallet address: ${address}`);
                                     }
                                     
                                     // Check type - it might be stored in different formats or fields
@@ -245,7 +294,7 @@ function Create() {
                 console.log("No valid Sigma Bytes NFT found that meets all criteria");
                 
                 // Fallback: Look for any Sigma Bytes NFT if strict criteria aren't met
-                console.log("Trying fallback: Looking for any Sigma Bytes NFT...");
+                console.log("Trying fallback: Looking for any Sigma Bytes NFT with address match...");
                 let fallbackNFT = null;
                 
                 for (const utxo of utxos) {
@@ -258,11 +307,43 @@ function Create() {
                                 const tokenInfo = await getTokenInfo(asset.tokenId);
                                 if (!tokenInfo) continue;
                                 
-                                // Just check if it's a Sigma Bytes NFT by name
+                                // Check if it's a Sigma Bytes NFT by name AND verify address
                                 if (tokenInfo.name === "Sigma BYTES") {
-                                    console.log(`Found Sigma Bytes NFT with fallback check: ${asset.tokenId}`);
-                                    fallbackNFT = asset.tokenId;
-                                    break;
+                                    console.log(`Found potential Sigma Bytes NFT in fallback: ${asset.tokenId}`);
+                                    
+                                    try {
+                                        // Parse the description to check the address
+                                        const description = JSON.parse(tokenInfo.description);
+                                        console.log(`Fallback token description: ${JSON.stringify(description)}`);
+                                        
+                                        // Check address in fallback too
+                                        let addressMatch = false;
+                                        if (description.address === address) {
+                                            addressMatch = true;
+                                            console.log("Fallback: Address match found in description.address");
+                                        } else if (description.userAddress === address) {
+                                            addressMatch = true;
+                                            console.log("Fallback: Address match found in description.userAddress");
+                                        } else if (description.owner === address) {
+                                            addressMatch = true;
+                                            console.log("Fallback: Address match found in description.owner");
+                                        } else {
+                                            console.log("Fallback: Address in NFT does not match current wallet address");
+                                            console.log(`NFT address: ${description.address}`);
+                                            console.log(`Current wallet address: ${address}`);
+                                            continue; // Skip this NFT if address doesn't match
+                                        }
+                                        
+                                        if (addressMatch) {
+                                            console.log("Fallback: Found Sigma Bytes NFT with matching address");
+                                            fallbackNFT = asset.tokenId;
+                                            break;
+                                        }
+                                    } catch (e) {
+                                        console.log("Fallback: Failed to parse NFT description", e);
+                                        console.log("Fallback: Raw description:", tokenInfo.description);
+                                        continue;
+                                    }
                                 }
                             } catch (e) {
                                 continue;
@@ -316,9 +397,53 @@ function Create() {
             setVoucherTokenId('');
             console.log("No valid voucher tokens or Sigma Bytes NFTs found. Fee will be required.");
             
+            // Check specifically for Sigma Bytes NFTs with mismatched addresses
+            let hasMismatchedNFT = false;
+            for (const utxo of utxos) {
+                if (utxo.assets && Array.isArray(utxo.assets)) {
+                    for (const asset of utxo.assets) {
+                        if (asset.amount !== "1") continue;
+                        
+                        try {
+                            const tokenInfo = await getTokenInfo(asset.tokenId);
+                            if (!tokenInfo || tokenInfo.name !== "Sigma BYTES") continue;
+                            
+                            try {
+                                const description = JSON.parse(tokenInfo.description);
+                                if (description.address && description.address !== address) {
+                                    hasMismatchedNFT = true;
+                                    console.log(`Found a Sigma Bytes NFT that belongs to a different address: ${description.address}`);
+                                    break;
+                                }
+                            } catch (e) {
+                                continue;
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                }
+                if (hasMismatchedNFT) break;
+            }
+            
+            if (hasMismatchedNFT) {
+                setError('You have a Sigma Bytes NFT, but it cannot be used as a voucher because it was created for a different wallet address. Sigma Bytes NFTs are tied to the original wallet they were created for.');
+            }
+            
         } catch (error) {
             console.error("Error checking wallet:", error);
-            setError(error instanceof Error ? error.message : "An unknown error occurred while checking the wallet.");
+            
+            // Provide more user-friendly error messages
+            if (error instanceof Error) {
+                if (error.message.includes("password") || error.message.includes("rejected")) {
+                    setError("Wallet authentication failed. Please check your password and try again.");
+                } else {
+                    setError(error.message);
+                }
+            } else {
+                setError("An unknown error occurred while checking the wallet.");
+            }
+            
             setHasReceiptToken(null);
             setUsingSigmaBytesAsVoucher(false);
             setVoucherTokenId('');
@@ -340,6 +465,14 @@ function Create() {
         
         try {
             setIsSubmitting(true);
+            
+            // First ensure wallet is connected
+            const walletConnection = await connectWallet();
+            if (!walletConnection.success) {
+                setIsSubmitting(false);
+                return;
+            }
+            
             await create_token(minimumPayout);
         } catch (error) {
             handleTransactionError(error);
@@ -358,6 +491,16 @@ function Create() {
                 duration: 5000,
                 isClosable: true,
             });
+        } else if (error.message && error.message.includes("password")) {
+            // Handle wallet password errors
+            toast({
+                title: "Wallet Authentication Error",
+                description: "Please check your wallet password and try again.",
+                status: "error",
+                duration: 7000,
+                isClosable: true,
+            });
+            setError("Wallet authentication failed. Please check your password and try again.");
         } else if (error.message && error.message.includes("Voucher token")) {
             // Handle voucher token specific errors
             toast({
@@ -388,193 +531,220 @@ function Create() {
     };
 
     async function create_token(minimumPayout: number): Promise<void> {
-        connected = await window.ergoConnector.nautilus.connect();
-        if (connected) {
-            try {
-                const address = await ergo.get_change_address();
-                const height = await ergo.get_current_height();
-                const nftName = 'Sigma BYTES';
-                
-                // Define the getTokenInfo function
-                const getTokenInfo = async (tokenId: string) => {
-                    try {
-                        const response = await fetch(`https://api.ergoplatform.com/api/v1/tokens/${tokenId}`);
-                        if (!response.ok) {
-                            console.log(`Failed to fetch token info for ${tokenId}: ${response.status}`);
-                            return null;
-                        }
-                        const data = await response.json();
-                        return {
-                            name: data.name || "",
-                            description: data.description || ""
-                        };
-                    } catch (error) {
-                        console.log(`Error fetching token info for ${tokenId}:`, error);
+        try {
+            const address = await ergo.get_change_address();
+            const height = await ergo.get_current_height();
+            const nftName = 'Sigma BYTES';
+            
+            // Define the getTokenInfo function
+            const getTokenInfo = async (tokenId: string) => {
+                try {
+                    const response = await fetch(`https://api.ergoplatform.com/api/v1/tokens/${tokenId}`);
+                    if (!response.ok) {
+                        console.log(`Failed to fetch token info for ${tokenId}: ${response.status}`);
                         return null;
                     }
-                };
-                
-                const dictionary = {
-                    address: address,
-                    height: height,
-                    minimumPayout: minimumPayout,
-                    season: 1,
-                    type: 'Pool Config',
-                    collection_id: COLLECTION_ID,
-                    description: 'Sigmanauts Mining Pool Configuration Token'
-                };
-                const dictionaryString = JSON.stringify(dictionary);
-
-                const outputs = [
-                    new OutputBuilder("1000000", address)
-                        .mintToken({
-                            amount: "1",
-                            name: nftName,
-                            decimals: 0,
-                            description: dictionaryString
-                        })
-                ];
-
-                if (!hasReceiptToken) {
-                    outputs.push(new OutputBuilder(FEE_AMOUNT, FEE_ADDRESS));
+                    const data = await response.json();
+                    return {
+                        name: data.name || "",
+                        description: data.description || ""
+                    };
+                } catch (error) {
+                    console.log(`Error fetching token info for ${tokenId}:`, error);
+                    return null;
                 }
+            };
+            
+            const dictionary = {
+                address: address,
+                height: height,
+                minimumPayout: minimumPayout,
+                season: 1,
+                type: 'Pool Config',
+                collection_id: COLLECTION_ID,
+                description: 'Sigmanauts Mining Pool Configuration Token'
+            };
+            const dictionaryString = JSON.stringify(dictionary);
 
-                const utxos = await ergo.get_utxos();
-                console.log("DEBUG - All UTXOs:", JSON.stringify(utxos));
-                
-                let txBuilder;
-                
-                if (hasReceiptToken) {
-                    // If user has a voucher token or Sigma Bytes NFT, burn it
-                    // Find a UTXO containing the selected token
-                    const voucherUtxo = utxos.find((utxo: any) => 
-                        utxo.assets && Array.isArray(utxo.assets) && 
-                        utxo.assets.some((asset: any) => 
-                            asset.tokenId === voucherTokenId && parseInt(asset.amount) > 0
-                        )
-                    );
-                    
-                    if (!voucherUtxo) {
-                        throw new Error(`${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "Voucher token"} not found in wallet. Please try again.`);
-                    }
-                    
-                    console.log(`DEBUG - Found ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} UTXO:`, JSON.stringify(voucherUtxo));
-                    
-                    // Find the token in the UTXO
-                    const voucherToken = voucherUtxo.assets.find((asset: any) => 
-                        asset.tokenId === voucherTokenId
-                    );
-                    
-                    if (!voucherToken) {
-                        throw new Error(`${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "Voucher token"} not found in the selected UTXO. Please try again.`);
-                    }
-                    
-                    console.log(`DEBUG - Token details: tokenId=${voucherToken.tokenId}, amount=${voucherToken.amount}`);
-                    
-                    // If using Sigma Bytes NFT, verify it again to ensure it's valid
-                    if (usingSigmaBytesAsVoucher) {
-                        try {
-                            // Use our custom function for verification
-                            const tokenInfo = await getTokenInfo(voucherTokenId);
-                            if (!tokenInfo || tokenInfo.name !== "Sigma BYTES") {
-                                throw new Error("Invalid Sigma Bytes NFT. Please try again.");
-                            }
-                            
-                            // For the second verification, we'll be more lenient and just check the name
-                            console.log("Sigma Bytes NFT verified again before burning (name check only)");
-                            
-                            // Try to parse the description but don't fail if it doesn't match exactly
-                            try {
-                                const description = JSON.parse(tokenInfo.description);
-                                console.log("NFT description for burning:", description);
-                            } catch (e) {
-                                console.log("Could not parse NFT description, but proceeding anyway");
-                            }
-                        } catch (e) {
-                            console.error("Error verifying Sigma Bytes NFT:", e);
-                            throw new Error("Failed to verify Sigma Bytes NFT: " + (e instanceof Error ? e.message : "Unknown error"));
-                        }
-                    }
-                    
-                    // Create a transaction builder that explicitly burns the token
-                    txBuilder = new TransactionBuilder(height)
-                        .from(utxos)
-                        .to(outputs)
-                        .burnTokens([{ 
-                            tokenId: voucherTokenId, 
-                            amount: "1" 
-                        }])
-                        .sendChangeTo(address)
-                        .payMinFee();
-                    
-                    console.log(`One ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} will be burned in this transaction using burnTokens method`);
-                    setVoucherBurned(true);
-                } else {
-                    // Standard transaction without burning tokens
-                    txBuilder = new TransactionBuilder(height)
-                        .from(utxos)
-                        .to(outputs)
-                        .sendChangeTo(address)
-                        .payMinFee();
-                }
-                
-                const unsignedTx = txBuilder.build().toEIP12Object();
+            const outputs = [
+                new OutputBuilder("1000000", address)
+                    .mintToken({
+                        amount: "1",
+                        name: nftName,
+                        decimals: 0,
+                        description: dictionaryString
+                    })
+            ];
 
-                // Final validation check
-                if (hasReceiptToken) {
-                    console.log(`DEBUG - Validating transaction for ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} burning`);
-                    
-                    // Check if the transaction is properly constructed for burning the token
-                    const inputTokens = unsignedTx.inputs.flatMap((input: any) => 
-                        input.assets ? input.assets.filter((asset: any) => asset.tokenId === voucherTokenId) : []
-                    );
-                    
-                    const outputTokens = unsignedTx.outputs.flatMap((output: any) => 
-                        output.assets ? output.assets.filter((asset: any) => asset.tokenId === voucherTokenId) : []
-                    );
-                    
-                    console.log("DEBUG - Input tokens:", JSON.stringify(inputTokens));
-                    console.log("DEBUG - Output tokens:", JSON.stringify(outputTokens));
-                    
-                    // Check if the transaction includes the token in its inputs
-                    if (inputTokens.length === 0) {
-                        console.log("DEBUG - No tokens found in inputs");
-                        console.log("DEBUG - All inputs:", JSON.stringify(unsignedTx.inputs));
-                        
-                        throw new Error(`${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "Voucher token"} not found in transaction inputs. Please try again.`);
-                    }
-                    
-                    // Calculate total input and output amounts
-                    const totalInputAmount = inputTokens.reduce((sum: number, token: any) => sum + parseInt(token.amount), 0);
-                    const totalOutputAmount = outputTokens.reduce((sum: number, token: any) => sum + parseInt(token.amount), 0);
-                    
-                    console.log(`DEBUG - Total input amount: ${totalInputAmount}`);
-                    console.log(`DEBUG - Total output amount: ${totalOutputAmount}`);
-                    console.log(`DEBUG - Difference (tokens being burned): ${totalInputAmount - totalOutputAmount}`);
-                    
-                    // Ensure exactly one token is being burned
-                    if (totalInputAmount <= totalOutputAmount) {
-                        console.log("DEBUG - Error condition: totalInputAmount <= totalOutputAmount");
-                        console.log(`DEBUG - Input UTXOs:`, JSON.stringify(unsignedTx.inputs));
-                        console.log(`DEBUG - Output UTXOs:`, JSON.stringify(unsignedTx.outputs));
-                        throw new Error(`No ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} is being burned. Please try again.`);
-                    }
-                    
-                    if (totalInputAmount - totalOutputAmount !== 1) {
-                        throw new Error(`Expected to burn exactly 1 ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"}, but ${totalInputAmount - totalOutputAmount} would be burned.`);
-                    }
-                    
-                    console.log(`Transaction validation successful: One ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} will be burned`);
-                }
-
-                const signedTx = await ergo.sign_tx(unsignedTx);
-                const txId = await ergo.submit_tx(signedTx);
-                setTx(txId);
-                setCreated(true);
-            } catch (error) {
-                console.error("Error in create_token:", error);
-                throw error;
+            if (!hasReceiptToken) {
+                outputs.push(new OutputBuilder(FEE_AMOUNT, FEE_ADDRESS));
             }
+
+            const utxos = await ergo.get_utxos();
+            console.log("DEBUG - All UTXOs:", JSON.stringify(utxos));
+            
+            let txBuilder;
+            
+            if (hasReceiptToken) {
+                // If user has a voucher token or Sigma Bytes NFT, burn it
+                // Find a UTXO containing the selected token
+                const voucherUtxo = utxos.find((utxo: any) => 
+                    utxo.assets && Array.isArray(utxo.assets) && 
+                    utxo.assets.some((asset: any) => 
+                        asset.tokenId === voucherTokenId && parseInt(asset.amount) > 0
+                    )
+                );
+                
+                if (!voucherUtxo) {
+                    throw new Error(`${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} not found in wallet. Please try again.`);
+                }
+                
+                console.log(`DEBUG - Found ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} UTXO:`, JSON.stringify(voucherUtxo));
+                
+                // Find the token in the UTXO
+                const voucherToken = voucherUtxo.assets.find((asset: any) => 
+                    asset.tokenId === voucherTokenId
+                );
+                
+                if (!voucherToken) {
+                    throw new Error(`${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "Voucher token"} not found in the selected UTXO. Please try again.`);
+                }
+                
+                console.log(`DEBUG - Token details: tokenId=${voucherToken.tokenId}, amount=${voucherToken.amount}`);
+                
+                // If using Sigma Bytes NFT, verify it again to ensure it's valid
+                if (usingSigmaBytesAsVoucher) {
+                    try {
+                        // Use our custom function for verification
+                        const tokenInfo = await getTokenInfo(voucherTokenId);
+                        if (!tokenInfo || tokenInfo.name !== "Sigma BYTES") {
+                            throw new Error("Invalid Sigma Bytes NFT. Please try again.");
+                        }
+                        
+                        // Try to parse the description to verify address ownership
+                        try {
+                            const description = JSON.parse(tokenInfo.description);
+                            console.log("NFT description for burning:", description);
+                            
+                            // Double check address ownership before burning
+                            let addressMatch = false;
+                            if (description.address === address) {
+                                addressMatch = true;
+                                console.log("Final verification: Address match confirmed in description.address");
+                            } else if (description.userAddress === address) {
+                                addressMatch = true;
+                                console.log("Final verification: Address match confirmed in description.userAddress");
+                            } else if (description.owner === address) {
+                                addressMatch = true;
+                                console.log("Final verification: Address match confirmed in description.owner");
+                            }
+                            
+                            if (!addressMatch) {
+                                console.log("Final verification: Address in NFT does not match current wallet address");
+                                console.log(`NFT address: ${description.address}`);
+                                console.log(`Current wallet address: ${address}`);
+                                throw new Error("This Sigma Bytes NFT can't be used as a voucher as it was not created for this wallet address.");
+                            }
+                            
+                        } catch (e) {
+                            if (e instanceof Error && e.message.includes("can't be used as a voucher")) {
+                                throw e; // Re-throw our custom error
+                            }
+                            console.log("Could not parse NFT description for address verification, proceeding with caution");
+                        }
+                        
+                        console.log("Sigma Bytes NFT verified again before burning");
+                        
+                    } catch (e) {
+                        console.error("Error verifying Sigma Bytes NFT:", e);
+                        throw new Error("Failed to verify Sigma Bytes NFT: " + (e instanceof Error ? e.message : "Unknown error"));
+                    }
+                }
+                
+                // Create a transaction builder that explicitly burns the token
+                txBuilder = new TransactionBuilder(height)
+                    .from(utxos)
+                    .to(outputs)
+                    .burnTokens([{ 
+                        tokenId: voucherTokenId, 
+                        amount: "1" 
+                    }])
+                    .sendChangeTo(address)
+                    .payMinFee();
+                
+                console.log(`One ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} will be burned in this transaction using burnTokens method`);
+                setVoucherBurned(true);
+            } else {
+                // Standard transaction without burning tokens
+                txBuilder = new TransactionBuilder(height)
+                    .from(utxos)
+                    .to(outputs)
+                    .sendChangeTo(address)
+                    .payMinFee();
+            }
+            
+            const unsignedTx = txBuilder.build().toEIP12Object();
+
+            // Final validation check
+            if (hasReceiptToken) {
+                console.log(`DEBUG - Validating transaction for ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} burning`);
+                
+                // Check if the transaction is properly constructed for burning the token
+                const inputTokens = unsignedTx.inputs.flatMap((input: any) => 
+                    input.assets ? input.assets.filter((asset: any) => asset.tokenId === voucherTokenId) : []
+                );
+                
+                const outputTokens = unsignedTx.outputs.flatMap((output: any) => 
+                    output.assets ? output.assets.filter((asset: any) => asset.tokenId === voucherTokenId) : []
+                );
+                
+                console.log("DEBUG - Input tokens:", JSON.stringify(inputTokens));
+                console.log("DEBUG - Output tokens:", JSON.stringify(outputTokens));
+                
+                // Check if the transaction includes the token in its inputs
+                if (inputTokens.length === 0) {
+                    console.log("DEBUG - No tokens found in inputs");
+                    console.log("DEBUG - All inputs:", JSON.stringify(unsignedTx.inputs));
+                    
+                    throw new Error(`${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} not found in transaction inputs. Please try again.`);
+                }
+                
+                // Calculate total input and output amounts
+                const totalInputAmount = inputTokens.reduce((sum: number, token: any) => sum + parseInt(token.amount), 0);
+                const totalOutputAmount = outputTokens.reduce((sum: number, token: any) => sum + parseInt(token.amount), 0);
+                
+                console.log(`DEBUG - Total input amount: ${totalInputAmount}`);
+                console.log(`DEBUG - Total output amount: ${totalOutputAmount}`);
+                console.log(`DEBUG - Difference (tokens being burned): ${totalInputAmount - totalOutputAmount}`);
+                
+                // Ensure exactly one token is being burned
+                if (totalInputAmount <= totalOutputAmount) {
+                    console.log("DEBUG - Error condition: totalInputAmount <= totalOutputAmount");
+                    console.log(`DEBUG - Input UTXOs:`, JSON.stringify(unsignedTx.inputs));
+                    console.log(`DEBUG - Output UTXOs:`, JSON.stringify(unsignedTx.outputs));
+                    throw new Error(`No ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} is being burned. Please try again.`);
+                }
+                
+                if (totalInputAmount - totalOutputAmount !== 1) {
+                    throw new Error(`Expected to burn exactly 1 ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"}, but ${totalInputAmount - totalOutputAmount} would be burned.`);
+                }
+                
+                console.log(`Transaction validation successful: One ${usingSigmaBytesAsVoucher ? "Sigma Bytes NFT" : "voucher token"} will be burned`);
+            }
+
+            const signedTx = await ergo.sign_tx(unsignedTx);
+            const txId = await ergo.submit_tx(signedTx);
+            setTx(txId);
+            setCreated(true);
+        } catch (error) {
+            console.error("Error in create_token:", error);
+            
+            // Check for wallet authentication errors
+            if (error instanceof Error && (error.message.includes("password") || error.message.includes("rejected"))) {
+                throw new Error("Wallet authentication failed. Please check your password and try again.");
+            }
+            
+            throw error;
         }
     }
 
@@ -687,7 +857,7 @@ function Create() {
                             height="60px"
                             fontSize="lg"
                         >
-                            Check Payment Options
+                            {walletConnected ? "Check Payment Options" : "Connect Wallet & Check Options"}
                         </Button>
 
                         <Button
@@ -703,6 +873,7 @@ function Create() {
                             size="lg"
                             height="60px"
                             fontSize="lg"
+                            isDisabled={hasReceiptToken === null}
                         >
                             MINT NOW • {hasReceiptToken 
                                 ? usingSigmaBytesAsVoucher 

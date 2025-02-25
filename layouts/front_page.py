@@ -458,7 +458,7 @@ def get_layout(api_reader):
                                 src=f"http://localhost:3000?theme=dark" if 'localhost' in os.environ.get('BASE_URL', 'http://localhost') or '127.0.0.1' in os.environ.get('BASE_URL', 'http://localhost') else os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter') + "?theme=dark",
                                 style={
                                     'width': '100%',
-                                    'height': '820px',
+                                    'height': '920px',
                                     'border': 'none',
                                     'borderRadius': '8px'
                                 },
