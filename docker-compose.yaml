@@ -63,6 +63,29 @@ services:
     networks:
       - app_network
 
+  payment-updater:
+    build:
+      context: .
+      dockerfile: Dockerfile.payment-updater
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-miningcore}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_HOST=${POSTGRES_HOST:-localhost}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.20'
+          memory: 256M
+    restart: unless-stopped
+    networks:
+      - app_network
+
   miner-id-minter:
     image: ghcr.io/marctheshark3/sigmanaut-mining-pool-minter:${TAG:-latest}
     build:
