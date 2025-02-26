@@ -1,0 +1,73 @@
+url: 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
+token_ls: 'https://api.ergo.aap.cornell.edu/api/v1/tokens'
+base_api: 'http://15.204.211.130:4000/api/pools/ErgoSigmanauts'
+api: 'http://5.78.102.130:8000'
+db_name: 'localhost'
+stats_cols:
+  - 'fee NUMERIC'  # Numeric type for precision
+  - 'paid NUMERIC'  # Numeric type for decimal values
+  - 'blocks INTEGER'  # Integer value for block counts
+  - 'last_block_found TIMESTAMP'  # Timestamp for dates
+  - 'enabled BOOLEAN'  # Boolean type for true/false
+  - 'minimumPayment NUMERIC'  # Numeric type for precision of payments
+  - 'payoutScheme VARCHAR(255)'  # String type for defined payout schemes
+  - 'connectedMiners INTEGER'  # Integer for counting connected miners
+  - 'poolHashrate NUMERIC'  # Numeric type for decimal values
+  - 'sharesPerSecond NUMERIC'  # Numeric type for decimal values
+  - 'networkType VARCHAR(50)'  # String type for network types
+  - 'networkHashrate NUMERIC'  # Numeric type for hash rates
+  - 'networkDifficulty NUMERIC'  # Numeric type for network difficulty
+  - 'lastNetworkBlockTime TIMESTAMP'  # Timestamp for block times
+  - 'blockHeight INTEGER'  # Integer for block height values
+  - 'connectedPeers INTEGER'  # Integer for counting connected peers
+  - 'rewardType VARCHAR(50)'  # String type for reward types
+  - 'poolEffort NUMERIC'  # Numeric type for pool effort
+  - 'poolTTF NUMERIC'  # Numeric type for pool time to find
+  - 'price NUMERIC'
+  - 'insert_time_stamp TIMESTAMP'  # Timestamp for the exact time data was recorded
+
+block_cols:
+  - 'poolId VARCHAR(255)'
+  - 'blockHeight INTEGER'
+  - 'networkDifficulty NUMERIC'
+  - 'status VARCHAR(255)'
+  - 'confirmationProgress INTEGER'
+  - 'effort NUMERIC'
+  - 'transactionConfirmationData VARCHAR(255)'
+  - 'reward NUMERIC'
+  - 'infoLink VARCHAR(255)'
+  - 'hash VARCHAR(255)'
+  - 'miner VARCHAR(255)'
+  - 'source VARCHAR(255)'
+  - 'time_found VARCHAR(255)'
+
+payment_headers:
+  - 'pendingShares NUMERIC'
+  - 'pendingBalance NUMERIC'
+  - 'totalPaid NUMERIC'
+  - 'todayPaid NUMERIC'
+  - 'Schema VARCHAR(50)'
+  - 'Price NUMERIC'
+  - 'lastPayment VARCHAR(50)'
+  - 'lastPaymentLink TEXT'
+  - 'participation NUMERIC'
+  - 'created_at TIMESTAMP'
+  - 'miner VARCHAR(250)'
+
+live_worker_headers:
+  - 'worker VARCHAR(250)'
+  - 'hashrate NUMERIC'
+  - 'shares_per_second NUMERIC'
+  - 'created TIMESTAMP'
+  - 'miner VARCHAR(250)'
+  - 'effort NUMERIC'
+  - 'ttf NUMERIC'
+  - 'last_block_found VARCHAR(100)'
+
+performance_headers:
+  - 'worker VARCHAR(250)'
+  - 'hashrate NUMERIC'
+  - 'shares_per_second NUMERIC'
+  - 'created TIMESTAMP'
+  - 'miner VARCHAR(250)'
+  - 'insert_time_stamp TIMESTAMP' 

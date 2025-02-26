@@ -24,7 +24,50 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>React App</title>
+    <title>Sigma Bytes</title>
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        overflow: auto;
+        font-size: 16px;
+      }
+      #root {
+        display: flex;
+        flex-direction: column;
+      }
+      
+      /* Optimize for iframe embedding */
+      @media (min-width: 500px) {
+        html, body {
+          font-size: 16px;
+        }
+      }
+      
+      @media (min-width: 768px) {
+        html, body {
+          font-size: 18px;
+        }
+      }
+      
+      /* Special style when in iframe */
+      html.in-iframe, 
+      html.in-iframe body, 
+      html.in-iframe #root {
+        min-height: 600px;
+        min-width: 500px;
+      }
+    </style>
+    <script>
+      window.onload = function() {
+        if (window !== window.parent) {
+          document.documentElement.classList.add('in-iframe');
+        }
+      };
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

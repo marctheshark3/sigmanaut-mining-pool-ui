@@ -1,5 +1,9 @@
 from datetime import datetime
 import pytz
+from typing import Dict, List, Tuple, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 def calculate_mining_effort(network_difficulty, network_hashrate, hashrate, last_block_timestamp):
     """
@@ -18,7 +22,9 @@ def calculate_mining_effort(network_difficulty, network_hashrate, hashrate, last
     # Parse the last block timestamp
     try:
         last_block_time = datetime.fromisoformat(last_block_timestamp.replace('Z', '+00:00'))
-    except (TypeError, ValueError, AttributeError):
+        logger.info(f"Parsed timestamp: {last_block_time}")
+    except (TypeError, ValueError, AttributeError) as e:
+        logger.error(f"Error parsing timestamp: {e}")
         return 0
         
     # Get the current time in UTC
@@ -26,6 +32,7 @@ def calculate_mining_effort(network_difficulty, network_hashrate, hashrate, last
     
     # Calculate the time difference in seconds
     time_since_last_block = (now - last_block_time).total_seconds()
+    logger.info(f"Time since last block: {time_since_last_block} seconds")
     
     # Hashes to find a block at current difficulty
     hashes_to_find_block = network_difficulty  # This is a simplification
@@ -38,6 +45,14 @@ def calculate_mining_effort(network_difficulty, network_hashrate, hashrate, last
     
     # Effort is the pool's share of hashes divided by the number of hashes to find a block
     effort = pool_share_of_hashes / hashes_to_find_block * 100
+    
+    logger.info(f"Calculation details:")
+    logger.info(f"- Network difficulty: {network_difficulty}")
+    logger.info(f"- Network hashrate: {network_hashrate}")
+    logger.info(f"- Miner hashrate: {hashrate}")
+    logger.info(f"- Total network hashes: {total_network_hashes}")
+    logger.info(f"- Miner's share of hashes: {pool_share_of_hashes}")
+    logger.info(f"- Calculated effort: {effort}%")
     
     return round(effort, 2)
 
@@ -66,64 +81,68 @@ def calculate_time_to_find_block(network_difficulty, network_hashrate, hashrate)
     return round(time_to_find_block / 3600 / 24, 2)
 
 
-def calculate_pplns_participation(shares_data, block_data, n_factor):
+def calculate_pplns_participation(shares_data: List[Dict[str, Any]], pool_data: Dict, n_factor: float) -> Tuple[Dict[str, float], float]:
     """
-    Calculate the participation percentages for miners in a Pay Per Last N Shares (PPLNS) system.
-
-    This function determines the participation of each miner based on their share contributions
-    leading up to a specific block. It uses the network difficulty and a user-defined factor
-    to determine how many shares to consider.
-
-    Args:
-    shares_data (list): A list of dictionaries containing share information.
-                        Each dictionary should have 'blockheight', 'difficulty', and 'miner' keys.
-    block_data (list): A list containing a single dictionary with block information.
-                       The dictionary should have 'blockheight' and 'networkdifficulty' keys.
-    n_factor (float): A multiplier used to determine how many shares to consider relative to 
-                      the network difficulty.
-
-    Returns:
-    tuple: A tuple containing two elements:
-           1. A dictionary of miner addresses and their participation percentages.
-           2. The total number of shares considered in the calculation.
-
-    """
-    # Sort shares by blockheight in descending order
-    shares_data.sort(key=lambda x: x['blockheight'], reverse=True)
-
-    # Get block information
-    block_height = block_data[0]['blockheight']
-    network_difficulty = block_data[0]['networkdifficulty']
+    Calculate the participation percentages for miners based on their current shares.
     
-    # Calculate the target number of shares based on network difficulty and n_factor
-    target_shares = network_difficulty * n_factor
+    Args:
+        shares_data (List[Dict]): List of dictionaries containing share information per miner.
+                                Each dict has 'miner', 'shares', and 'last_share' keys.
+        pool_data (Dict): Pool information containing networkdifficulty.
+        n_factor (float): Multiplier for PPLNS calculation.
+    
+    Returns:
+        Tuple[Dict[str, float], float]: A tuple containing:
+            - Dictionary of miner addresses and their participation percentages
+            - Total number of shares considered in the calculation
+    """
+    try:
+        logger.debug(f"Received shares data: {shares_data[:2]}")  # Log first two items for debugging
+        
+        if not shares_data:
+            logger.warning("Empty shares data received")
+            return {}, 0
 
-    # Initialize variables
-    total_shares = 0
-    valid_shares = []
-    miner_shares = {}
+        # Calculate total shares after validating each entry
+        total_shares = 0
+        valid_shares = []
+        
+        for miner_data in shares_data:
+            try:
+                if 'sharespersecond' in miner_data:  # Check if using old key name
+                    shares = float(miner_data['sharespersecond'])
+                    miner = miner_data['miner']
+                elif 'shares' in miner_data:
+                    shares = float(miner_data['shares'])
+                    miner = miner_data['miner']
+                else:
+                    logger.warning(f"Missing shares data in entry: {miner_data}")
+                    continue
+                    
+                valid_shares.append((miner, shares))
+                total_shares += shares
+            except (KeyError, ValueError) as e:
+                logger.warning(f"Error processing miner data: {e}, data: {miner_data}")
+                continue
 
-    # Collect shares until we reach or exceed the target
-    for share in shares_data:
-        # Skip shares from future blocks
-        if share['blockheight'] > block_height:
-            continue
+        if total_shares == 0:
+            logger.warning("No valid shares found in the calculation period")
+            return {}, 0
 
-        valid_shares.append(share)
-        total_shares += share['difficulty']
+        # Calculate participation percentage for each miner
+        participation = {
+            miner: shares / total_shares
+            for miner, shares in valid_shares
+        }
 
-        # Add share difficulty to miner's total
-        miner = share['miner']
-        if miner not in miner_shares:
-            miner_shares[miner] = 0
-        miner_shares[miner] += share['difficulty']
+        logger.info(f"PPLNS calculation completed. Total shares: {total_shares}, "
+                   f"Number of miners: {len(participation)}")
+        
+        return participation, total_shares
 
-        # Check if we've reached or exceeded the target number of shares
-        if total_shares >= target_shares:
-            print(share, 'share')
-            break
-
-    # Calculate participation percentages for each miner
-    participation = {miner: shares / total_shares for miner, shares in miner_shares.items()}
-
-    return participation, total_shares
+    except Exception as e:
+        logger.error(f"Error calculating PPLNS participation: {e}")
+        logger.error(f"Shares data type: {type(shares_data)}")
+        if shares_data:
+            logger.error(f"First share entry: {shares_data[0] if isinstance(shares_data, list) else 'Not a list'}")
+        return {}, 0
