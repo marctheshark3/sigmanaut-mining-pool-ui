@@ -1,556 +1,690 @@
 import dash
-from dash import html, dcc, Input, Output, dash_table
+from dash import html, dcc, Input, Output, State, dash_table, callback_context
 import dash_bootstrap_components as dbc
 from pandas import DataFrame
-from utils.dash_utils import metric_row_style, image_style, create_row_card, card_style, image_card_style, bottom_row_style, bottom_image_style, card_color, large_text_color, small_text_color, background_color
+from utils.dash_utils import (
+    card_color, background_color, large_text_color, small_text_color,
+    card_styles, container_style, table_style, create_image_text_block,
+    create_stat_row, bottom_row_style, image_styles, top_card_style, first_row_styles, top_image_style, get_days_ago
+)
 import plotly.graph_objs as go
 import plotly.express as px
-from utils.shark_api import ApiReader
 import pandas as pd
-from utils.calculate import calculate_mining_effort, calculate_time_to_find_block
+from typing import Dict
 import uuid
 import os
 from utils.get_erg_prices import PriceReader
+import logging
+
+logger = logging.getLogger(__name__)
 
 priceapi = PriceReader()
-# sharkapi = ApiReader(config_path="../conf")
-
-debug = False
-
 button_color = large_text_color
 
-
-# refactor this into dash_utils
-def create_image_text_block(image, text, value):
-    return html.Div(style=bottom_row_style, children=[
-                    html.Img(src='assets/{}'.format(image), style=bottom_image_style),
-                    html.Span(text, style={'padding': '5px', 'color': 'white'}),
-                    html.Span(value, style={'padding': '5px', 'color': large_text_color})])
-
-# Style for the card containers
-card_style = {
-    'backgroundColor': card_color,
-    'color': small_text_color,
-    'padding': '25px',
-    'justifyContent': 'center',
-}
-
-top_card_style = {
-    'backgroundColor': card_color,
-    'color': small_text_color,
-    'height': '225px',
-    'padding': '15px',
-    'justifyContent': 'center',
-    'textAlign': 'center',
-    'justify': 'center',    
-}
-
-top_image_style = {
-    'width': '120px',
-    'display': 'block',  # Use block display style
-    'margin-left': 'auto',  # Auto margins for horizontal centering
-    'margin-right': 'auto', 
-    'margin-top': 'auto',  # Auto margins for vertical centering (if container allows)
-    'margin-bottom': 'auto',
-    'max-width': '100%',  # Ensures the image is responsive and does not overflow its container
-    'height': 'auto',  # Keeps image aspect ratio
-    'padding': '10px'}
-
-# Style for the metric rows inside the cards
-metric_row_style = {
-    'display': 'flex',
-    'alignItems': 'center',
-    'justifyContent': 'flex-start',
-    'fontSize': '13px',
-}
-
-color_discrete_map = {
-    'Rolling Effort': 'black', 
-    'effort': 'white',      
-    'networkDifficulty': large_text_color 
-}
-
-table_style = {'backgroundColor': card_color, 'color': large_text_color,
-               'fontWeight': 'bold', 'textAlign': 'center', 'border': '1px solid black',}
-
-image_style = {'height': '24px'}
-
 def create_row_card(image, h2_text, p_text):
-    return dbc.Col(dbc.Card(style=top_card_style, children=[
-        dbc.CardImg(src=image, top=True, style=top_image_style),
-        html.H2(h2_text, style={'color': large_text_color}),
-        html.P(p_text)]), style={'marginRight': 'auto', 'marginLeft': 'auto'}, width=4,)
+    return dbc.Col(
+        dbc.Card(
+            style=top_card_style,
+            children=[
+                dbc.CardImg(src=image, top=True, style=top_image_style),
+                html.H2(h2_text, style={'color': large_text_color, 'margin': '10px 0', 'fontSize': '24px'}),
+                html.P(p_text, style={'color': small_text_color, 'margin': '0'})
+            ]
+        ),
+        width=4,
+        className="px-2"
+    )
 
-def setup_front_page_callbacks(app, sharkapi):
+def create_image_text_block(text, value):
+    return html.Div(style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '10px'}, children=[
+        html.Span(text, style={'padding': '5px', 'color': 'white'}),
+        html.Span(value, style={'padding': '5px', 'color': large_text_color})])
+
+def create_metric_section(image, value, label):
+    return html.Div(
+        style={
+            'display': 'flex',
+            'flexDirection': 'column',
+            'alignItems': 'center',
+            'justifyContent': 'center',
+            'flex': '1',
+            'padding': '20px'
+        },
+        children=[
+            html.Img(src=image, style=top_image_style),
+            html.Div(value, style={'color': large_text_color, 'fontSize': '24px', 'margin': '10px 0'}),
+            html.Div(label, style={'color': small_text_color})
+        ]
+    )
+
+def create_stat_section(stats_list):
+    return html.Div(
+        style={
+            'display': 'flex',
+            'flexDirection': 'column',
+            'justifyContent': 'center',
+            'flex': '1',
+            'padding': '20px'
+        },
+        children=[
+            html.Div(
+                style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': '10px'},
+                children=[
+                    html.Span(text, style={'color': 'white'}),
+                    html.Span(value, style={'color': large_text_color, 'marginLeft': '10px'})
+                ]
+            ) for text, value in stats_list
+        ]
+    )
+
+def setup_front_page_callbacks(app, api_reader):
     @app.callback(
         Output('link-container', 'children'),
         Input('generate-url-button', 'n_clicks'),
     )
-    # def generate_link(n_clicks):
-    #     id =  uuid.uuid4()
-    #     custom_part = 'sigma-NFT-minter-{}'.format(id)
-    #     custom_url = f'http://0.0.0.0:3000/{custom_part}'
-    #     return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
-
     def generate_link(n_clicks):
+        if not n_clicks:
+            return []
         id = uuid.uuid4()
-        custom_part = f'sigma-NFT-minter-{id}'
-        
-        # Use environment variable or default to the production domain
-        base_url = os.environ.get('BASE_URL', 'http://dev.ergominers.com')
-        #base_url = os.environ.get('BASE_URL', 'http://188.245.66.57')
-
-        
-        
-        custom_url = f'{base_url}/miner-id-minter/{id}'
+        minting_service_base = os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')
+        custom_url = f'{minting_service_base}/{id}'
         return html.A(html.Button('Mint NFT'), href=custom_url, target='_blank')
-            
-    @app.callback([Output('metric-1', 'children')],
-                   [Input('fp-int-4', 'n_intervals')])
 
+    @app.callback(
+        [Output('mint-modal', 'is_open'),
+         Output('minter-iframe', 'src')],
+        [Input('mint-sigma-bytes-button', 'n_clicks'),
+         Input('close-mint-modal', 'n_clicks')],
+        [State('mint-modal', 'is_open')]
+    )
+    def toggle_mint_modal(mint_clicks, close_clicks, is_open):
+        ctx = callback_context
+        if not ctx.triggered:
+            return is_open, dash.no_update
+            
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        
+        if button_id == 'mint-sigma-bytes-button' and mint_clicks:
+            # Generate a new UUID when the button is clicked
+            id = uuid.uuid4()
+            # For local development, prioritize localhost URLs
+            base_url = os.environ.get('BASE_URL', 'http://localhost')
+            if 'localhost' in base_url or '127.0.0.1' in base_url:
+                # Use local minting service for local development
+                minting_service_url = f"http://localhost:3000/{id}?theme=dark"
+            else:
+                # Use configured minting service for production
+                minting_service_base = os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter')
+                # Ensure we're using the correct path structure
+                if not minting_service_base.endswith('/'):
+                    minting_service_url = f'{minting_service_base}/{id}?theme=dark'
+                else:
+                    minting_service_url = f'{minting_service_base}{id}?theme=dark'
+            
+            logger.info(f"Opening minting modal with URL: {minting_service_url}")
+            return not is_open, minting_service_url
+        elif button_id == 'close-mint-modal' and close_clicks:
+            return False, dash.no_update
+            
+        return is_open, dash.no_update
+
+    @app.callback(
+        [Output('metric-1', 'children')],
+        [Input('fp-int-4', 'n_intervals')],
+        prevent_initial_call=False
+    )
     def update_first_row(n):
-        data = sharkapi.get_pool_stats()
-        
-        data['hashrate'] = round(data['poolhashrate'] / 1e9, 2)
-        data['price'] = round(priceapi.get()[1], 3)
-        ergo = data['price']
-        
-        n_miners = '{}'.format(data['connectedminers'])
-        hashrate = '{} GH/s'.format(data['hashrate'])
-
-        row_1 = dbc.Row(justify='center', align='stretch',
-                        children=[create_row_card('assets/boltz.png', hashrate, 'Pool Hashrate'),
-                                 create_row_card('assets/smileys.png', n_miners, 'Miners Online'),
-                                 create_row_card('assets/coins.png', ergo, 'Price ($)')])
-        return [row_1]
-        
-
-    @app.callback([
-                   Output('metric-2', 'children'),],
-                   [Input('fp-int-1', 'n_intervals')])
-
-    def update_metrics(n):
-        data = sharkapi.get_pool_stats()
-        block_data = sharkapi.get_block_stats()
-        block_df = pd.DataFrame(block_data)
         try:
-            latest_block_time = max(block_df.created)
-            data['pooleffort'] = calculate_mining_effort(data['networkdifficulty'], data['networkhashrate'],
-                                         data['poolhashrate'], latest_block_time)
-        except Exception:
-            data['pooleffort'] = 0
-        
- 
-        data['minimumpayment'] = 0.5
-        data['fee'] = 0.9
-        data['paid'] = sharkapi.get_payment_stats()
-        data['payoutscheme'] = 'PPLNS'
-        
-        
-        blocks_found = len(block_df)
-        data['blocks'] = blocks_found
-        
-        md = 4
-        row_2 = dbc.Row(children=[
-                    dbc.Col(md=md, style={'padding': '10px'}, children=[
-                        dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('min-payout.png', 'Minimum Payout:', data['minimumpayment']),
-                            create_image_text_block('percentage.png', 'Pool Fee:', '{}%'.format(data['fee'])),
-                            create_image_text_block('ergo.png', 'Total Paid:', '{} ERG'.format(round(data['paid'], 3))),
-                        ])
-                    ]),
-                    dbc.Col(md=md, style={'padding': '10px'}, children=[
-                        dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('bolt.png', 'Network Hashrate:', '{} TH/s'.format(round(data['networkhashrate'] / 1e12, 2))),
-                            create_image_text_block('gauge.png', 'Network Difficulty:', '{}P'.format(round(data['networkdifficulty'] / 1e15, 2))),
-                            create_image_text_block('height.png', 'Block Height:', data['blockheight']),
-                           ])
-                    ]),
+            data = api_reader.get_pool_stats()
+            data['hashrate'] = round(data.get('poolhashrate', 0) / 1e9, 2)
+            n_miners = '{}'.format(data.get('connectedminers', 0))
+            hashrate = '{} GH/s'.format(data['hashrate'])
+            price = round(priceapi.get()[1], 3)
     
-                    dbc.Col(md=md, style={'padding': '10px'}, children=[
-                        dbc.Card(style=bottom_row_style, children=[
-                            create_image_text_block('triangle.png', 'Schema:', data['payoutscheme']),
-                            create_image_text_block('ergo.png', 'Blocks Found:', data['blocks']),
-                            create_image_text_block('ergo.png', 'Current Block Effort:', round(data['pooleffort'], 3)),
-                        ])
-                    ])])
-        return [row_2]
-               
-    @app.callback([Output('plot-1', 'figure'),Output('plot-title', 'children'),],
-                   [Input('fp-int-2', 'n_intervals'), Input('chart-dropdown', 'value')])
-
-    def update_plots(n, value):
-        
-        if value == 'effort':
-            block_data = sharkapi.get_block_stats()
-            block_df = pd.DataFrame(block_data)
-                        
-            block_df['rolling_effort'] = block_df['effort'].expanding().mean()
-            block_df['effort'] = block_df['effort'] * 100
-            title = 'EFFORT AND DIFFICULTY'
-            
-            
-            block_df = block_df.rename(columns={'created': 'time_found'})
-            block_df = block_df.sort_values('time_found')
-            response_df = block_df.melt(id_vars = ['time_found'], value_vars=['rolling_effort', 'effort', 'networkdifficulty'])
-            
-            effort_response_chart = px.line(response_df[response_df['variable'] != 'networkdifficulty'], 
-                                    x='time_found', 
-                                    y='value', 
-                                    color='variable', 
-                                    markers=True)
-    
-            # Add 'networkDifficulty' on a secondary y-axis
-            effort_response_chart.add_trace(go.Scatter(x=response_df['time_found'][response_df['variable'] == 'networkdifficulty'], 
-                                                       y=response_df['value'][response_df['variable'] == 'networkdifficulty'],
-                                                       name='networkdifficulty',
-                                                       yaxis='y2',
-                                                       marker=dict(color='rgba(255,0,0,0.5)'), # Adjust color accordingly
-                                                       mode='lines+markers'))
-            
-            # Update layout with secondary y-axis
-            effort_response_chart.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                legend_title_text='Metric',
-                legend=dict(font=dict(color='#FFFFFF')),
-                titlefont=dict(color='#FFFFFF'),
-                xaxis=dict(title='Time Found', color='#FFFFFF',showgrid=False, showline=False),
-                yaxis=dict(title='Effort [%]', color='#FFFFFF', side='right'),
-                yaxis2=dict(title='Network Difficulty', color='#FFFFFF', overlaying='y'),
+            row_1 = dbc.Row(
+                dbc.Col(
+                    dbc.Card(
+                        style={
+                            'backgroundColor': card_color,
+                            'border': 'none',
+                            'borderRadius': '8px',
+                            'display': 'flex',
+                            'flexDirection': 'row',
+                            'padding': '20px',
+                            'marginBottom': '20px'
+                        },
+                        children=[
+                            create_metric_section('assets/boltz.png', hashrate, 'Pool Hashrate'),
+                            create_metric_section('assets/smileys.png', n_miners, 'Miners Online'),
+                            create_metric_section('assets/coins.png', str(price), 'Price ($)')
+                        ]
+                    ),
+                    width=12
+                ),
+                justify="center"
             )
+            return [row_1]
+        except Exception as e:
+            logger.error(f"Error in update_first_row: {e}")
+            return [html.Div("Error loading metrics")]
+
+    @app.callback(
+        [Output('metric-2', 'children')],
+        [Input('fp-int-1', 'n_intervals')],
+        prevent_initial_call=False
+    )
+    def update_metrics(n):
+        try:
+            data = api_reader.get_pool_stats()
+            block_data = api_reader.get_block_stats()
             
-            return effort_response_chart, title
+            data['minimumpayment'] = 0.5
+            data['fee'] = 0.9
+            data['paid'] = api_reader.get_payment_stats()['total_paid']
+            data['payoutscheme'] = 'PPLNS'
+            data['blocks'] = len(block_data) if block_data else 0
             
-        title = 'HASHRATE OVER TIME'
-        data = sharkapi.get_total_hash_stats()
-        performance_df = pd.DataFrame(data)
-        
-        performance_df = performance_df.rename(columns={'timestamp': 'Time',
-                                                       'total_hashrate': 'hashrate'})
-        performance_df['hashrate'] = performance_df['hashrate'] / 1e9
-
-        
-        performance_df = performance_df.sort_values(['Time'])
-
-        total_hashrate_plot={'data': [go.Scatter(x=performance_df['Time'], y=performance_df['hashrate'],
-                                    mode='lines+markers', name='Hashrate Over Time', line={'color': small_text_color})],
-                   
-                   'layout': go.Layout(xaxis =  {'showgrid': False, 'title': 'Snap Shot Time'},yaxis = {'showgrid': True, 'title': 'GH/s'},        
-                                       paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                                       margin={'l': 40, 'b': 40, 't': 50, 'r': 50}, hovermode='closest',
-                                       legend={'font': {'color': '#FFFFFF'}}, font=dict(color=small_text_color))}
-
-        return total_hashrate_plot, title
-        
-    
-    @app.callback([
-                   Output('table', 'data'),
-                   Output('dropdown-title', 'children'),
-                  ],
-                  [Input('fp-int-3', 'n_intervals'),
-                  Input('dataset-dropdown', 'value')])
-
-    def update_content(n, selected_data):   
-        
-        if selected_data == 'blocks':
-            title = 'Blocks Data'
-            data = sharkapi.get_block_stats()
-            block_df = pd.DataFrame(data)
-
-            if block_df.empty:
-                df = DataFrame()  # Empty dataframe as a fallback
-                return  [], title
-
-            block_df = block_df.filter(['created', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'miner'])
-
-            block_df['miner'] = ['{}..{}'.format(address[:3], address[-3:]) for address in block_df['miner']]
+            left_stats = [
+                ('Minimum Payout:', str(data['minimumpayment'])),
+                ('Pool Fee:', f"{data['fee']}%"),
+                ('Total Paid:', f"{round(data['paid'], 3)} ERG")
+            ]
             
-            block_df = block_df.sort_values(['created'], ascending=False)
-            block_df['effort'] = round(block_df['effort'] * 100, 2)       
-            block_df['reward'] = round(block_df['reward'], 2)
-            block_df['confirmationprogress'] = round(block_df['confirmationprogress'], 2)
-            block_df['created'] = [data[:10] for data in block_df['created']]
- 
-
-            block_df = block_df.rename(columns={'effort': 'Effort [%]', 'created': 'Time Found',
-                            'blockheight': 'Height', 'miner': 'Miner',
-                            'reward': 'ERG Reward', 'confirmationprogress': 'Confirmation'})
+            middle_stats = [
+                ('Network Hashrate:', f"{round(data.get('networkhashrate', 0) / 1e12, 2)} TH/s"),
+                ('Network Difficulty:', f"{round(data.get('networkdifficulty', 0) / 1e15, 2)}P"),
+                ('Block Height:', str(data.get('blockheight', 0)))
+            ]
             
-            df = block_df
-            df = df[:15]
+            right_stats = [
+                ('Schema:', data['payoutscheme']),
+                ('Blocks Found:', str(data['blocks'])),
+                ('Pool Effort:', str(round(data.get('effort', 0), 3)))
+            ]
+
+            # Add demurrage stats
+            try:
+                logger.info("Fetching demurrage stats...")
+                demurrage_stats = api_reader.get_demurrage_stats()
+                if not isinstance(demurrage_stats, list):
+                    logger.error("Invalid demurrage stats format")
+                    demurrage_stats = [
+                        ('Next Demurrage:', '0.000 ERG'),
+                        ('Last Demurrage:', '0.000 ERG'),
+                        ('Last Payment:', 'Error')
+                    ]
+                logger.info(f"Retrieved demurrage stats: {demurrage_stats}")
+            except Exception as e:
+                logger.error(f"Error fetching demurrage stats: {e}", exc_info=True)
+                demurrage_stats = [
+                    ('Next Demurrage:', '0.000 ERG'),
+                    ('Last Demurrage:', '0.000 ERG'),
+                    ('Last Payment:', 'Error')
+                ]
+
+            row_2 = dbc.Row(
+                dbc.Col(
+                    dbc.Card(
+                        style={
+                            'backgroundColor': card_color,
+                            'border': 'none',
+                            'borderRadius': '8px',
+                            'display': 'flex',
+                            'flexDirection': 'row',
+                            'marginBottom': '20px'
+                        },
+                        children=[
+                            create_stat_section(left_stats),
+                            html.Div(style={'width': '1px', 'backgroundColor': 'rgba(255,255,255,0.1)'}),
+                            create_stat_section(middle_stats),
+                            html.Div(style={'width': '1px', 'backgroundColor': 'rgba(255,255,255,0.1)'}),
+                            create_stat_section(right_stats),
+                            html.Div(style={'width': '1px', 'backgroundColor': 'rgba(255,255,255,0.1)'}),
+                            create_stat_section(demurrage_stats)
+                        ]
+                    ),
+                    width=12
+                ),
+                justify="center"
+            )
+            return [row_2]
+        except Exception as e:
+            logger.error(f"Error in update_metrics: {e}")
+            return [html.Div("Error loading stats")]
+
+    @app.callback(
+        [Output('plot-1', 'figure'), Output('plot-title', 'children')],
+        [Input('fp-int-2', 'n_intervals'), Input('chart-dropdown', 'value')],
+        prevent_initial_call=False
+    )
+    def update_plots(n, value):
+        try:
+            if value == 'effort':
+                block_data = api_reader.get_block_stats()
+                block_df = pd.DataFrame(block_data)
+                if not block_df.empty:
+                    block_df['rolling_effort'] = block_df['effort'].expanding().mean()
+                    block_df['effort'] = block_df['effort'] * 100
+                    title = 'EFFORT AND DIFFICULTY'
+                    
+                    block_df = block_df.rename(columns={'created': 'time_found'})
+                    block_df = block_df.sort_values('time_found')
+                    response_df = block_df.melt(id_vars=['time_found'], value_vars=['rolling_effort', 
+                                                                                    # 'effort', 'networkdifficulty'
+                                                                                   ])
+                    
+                    effort_response_chart = px.line(
+                        response_df[response_df['variable'] != 'networkdifficulty'],
+                        x='time_found', y='value', color='variable', markers=True
+                    )
+                    
+                    effort_response_chart.add_trace(
+                        go.Scatter(
+                            x=response_df['time_found'][response_df['variable'] == 'networkdifficulty'],
+                            y=response_df['value'][response_df['variable'] == 'networkdifficulty'],
+                            name='networkdifficulty', yaxis='y2',
+                            marker=dict(color='rgba(255,0,0,0.5)'),
+                            mode='lines+markers'
+                        )
+                    )
+                    
+                    effort_response_chart.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        legend_title_text='Metric',
+                        legend=dict(font=dict(color='#FFFFFF')),
+                        titlefont=dict(color='#FFFFFF'),
+                        xaxis=dict(title='Time Found', color='#FFFFFF', showgrid=False, showline=False),
+                        yaxis=dict(title='Effort [%]', color='#FFFFFF', side='right'),
+                        yaxis2=dict(title='Network Difficulty', color='#FFFFFF', overlaying='y'),
+                    )
+                    
+                    return effort_response_chart, title
+
+            title = 'HASHRATE OVER TIME'
+            data = api_reader.get_total_hash_stats()
+            performance_df = pd.DataFrame(data)
             
+            performance_df = performance_df.rename(columns={
+                'timestamp': 'Time',
+                'total_hashrate': 'hashrate'
+            })
+            performance_df['hashrate'] = performance_df['hashrate'] / 1e9
+            performance_df = performance_df.sort_values(['Time'])
             
-        elif selected_data == 'miners':
-
-            pool_data = sharkapi.get_pool_stats()
-            data = sharkapi.get_live_miner_data()
-            df = pd.DataFrame(data)
-            df['effort'] = [calculate_mining_effort(pool_data['networkdifficulty'], pool_data['networkhashrate'],
-                                         row.hashrate, row.last_block_found) for _, row in df.iterrows()]
-
-            df['Days to Find'] = [calculate_time_to_find_block(pool_data['networkdifficulty'], pool_data['networkhashrate'], row.hashrate) for _, row in df.iterrows()]
-            df = df.sort_values(['effort', 'hashrate'], ascending=False)
-            df['address'] = ['{}..{}'.format(address[:3], address[-3:]) for address in df['address']]
-            df['hashrate'] = round(df['hashrate'] / 1e6, 2)
-            df['last_block_found'] = [data[:10] if data else None for data in df['last_block_found']]
-            df = df.drop(columns=['lastStatTime', 'sharesPerSecond'])
- 
-            df = df.rename(columns={'address': 'Miner',
-                                    'hashrate': 'MH/s',
-                                    # 'sharesperSecond': 'Shares/s',
-                                    'effort': 'Current Effort [%]',
-                                    'last_block_found': 'Last Block Found'})
-
-            df = df[:15]
+            total_hashrate_plot = {
+                'data': [
+                    go.Scatter(
+                        x=performance_df['Time'],
+                        y=performance_df['hashrate'],
+                        mode='lines+markers',
+                        name='Hashrate Over Time',
+                        line={'color': small_text_color}
+                    )
+                ],
+                'layout': go.Layout(
+                    xaxis={'showgrid': False, 'title': 'Snap Shot Time'},
+                    yaxis={'showgrid': True, 'title': 'GH/s'},
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    margin={'l': 40, 'b': 40, 't': 50, 'r': 50},
+                    hovermode='closest',
+                    legend={'font': {'color': '#FFFFFF'}},
+                    font=dict(color=small_text_color)
+                )
+            }
             
-            title = 'Current Top Miners'
+            return total_hashrate_plot, title
+        except Exception as e:
+            logger.error(f"Error in update_plots: {e}")
+            return {}, "Error loading chart"
 
-        else:
-            df = DataFrame()  # Empty dataframe as a fallback
-            title = 'Please select an option'
-        
-        columns = [{"name": i, "id": i} for i in df.columns]
-        table_data = df.to_dict('records')
-        
-        return table_data, title
+    @app.callback(
+        [Output('table', 'data'), Output('dropdown-title', 'children')],
+        [Input('fp-int-3', 'n_intervals'), Input('dataset-dropdown', 'value')],
+        prevent_initial_call=False
+    )
+    def update_content(n, selected_data):
+        try:
+            if selected_data == 'blocks':
+                title = 'Blocks Data'
+                data = api_reader.get_block_stats()
+                block_df = pd.DataFrame(data)
+                
+                if block_df.empty:
+                    return [], title
+                
+                block_df = block_df.filter(['created', 'blockheight', 'confirmationprogress', 'effort', 'reward', 'miner'])
+                block_df['miner'] = ['{}..{}'.format(address[:3], address[-3:]) for address in block_df['miner']]
+                block_df = block_df.sort_values(['created'], ascending=False)
+                block_df['effort'] = round(block_df['effort'] * 100, 2)
+                block_df['reward'] = round(block_df['reward'], 2)
+                block_df['confirmationprogress'] = round(block_df['confirmationprogress'], 2)
+                block_df['created'] = [data[:10] for data in block_df['created']]
+                
+                block_df = block_df.rename(columns={
+                    'effort': 'Effort [%]',
+                    'created': 'Time Found',
+                    'blockheight': 'Height',
+                    'miner': 'Miner',
+                    'reward': 'ERG Reward',
+                    'confirmationprogress': 'Confirmation'
+                })
+                
+                return block_df[:15].to_dict('records'), title
+                
+            elif selected_data == 'miners':
+                title = 'Current Top Miners'
+                pool_data = api_reader.get_pool_stats()
+                data = api_reader.get_live_miner_data()
+                df = pd.DataFrame(data)
+                
+                if not df.empty:
+                    df['address'] = ['{}..{}'.format(address[:3], address[-3:]) for address in df['address']]
+                    df['hashrate'] = round(df['hashrate'] / 1e6, 2)
+                    df['last_block_found'] = [data[:10] if data else None for data in df['last_block_found']]
+                    df = df.drop(columns=['lastStatTime', 'sharesPerSecond'])
+                    
+                    df = df.rename(columns={
+                        'address': 'Miner',
+                        'hashrate': 'MH/s',
+                        'last_block_found': 'Last Block Found'
+                    })
+                    
+                    return df[:15].to_dict('records'), title
+                    
+            return [], 'Please select an option'
+            
+        except Exception as e:
+            logger.error(f"Error in update_content: {e}")
+            return [], 'Error loading data'
 
-    @app.callback([
-                   Output('banners', 'children'),
-                  ],
-                  [Input('fp-int-4', 'n_intervals')])
 
-    def update_banners(n): 
+DASH_INTERVAL_METRICS = 1000*60*60  # 60 minutes for main metrics
+DASH_INTERVAL_PLOTS = 1000*60*60    # 60 minutes for plots
+DASH_INTERVAL_TABLE = 1000*60*60    # 60 minutes for tables
+DASH_INTERVAL_STATS = 1000*60*60    # 60 minutes for detailed stats
 
-        confirmation_number = 100
-        flag = False
-        if confirmation_number < 50:
-            flag = True
+def get_layout(api_reader):
+    return html.Div([
+        dbc.Container(
+            fluid=True,
+            style=container_style,
+            children=[
+                # Intervals now run at full hour in both dev and prod
+                dcc.Interval(
+                    id='fp-int-1',
+                    interval=DASH_INTERVAL_STATS,
+                    n_intervals=0
+                ),
+                dcc.Interval(
+                    id='fp-int-2',
+                    interval=DASH_INTERVAL_PLOTS,
+                    n_intervals=0
+                ),
+                dcc.Interval(
+                    id='fp-int-3',
+                    interval=DASH_INTERVAL_TABLE,
+                    n_intervals=0
+                ),
+                dcc.Interval(
+                    id='fp-int-4',
+                    interval=DASH_INTERVAL_METRICS,
+                    n_intervals=0
+                ),
+                # Remove unused interval
+                # dcc.Interval(id='fp-int-5', interval=DASH_INTERVAL, n_intervals=0),
 
-        if flag:
-            banners = [html.Img(src='assets/block_found.gif', style={'height': 'auto%', 'width': 'auto'}),
-                      html.Img(src='assets/block_found.gif', style={'height': 'auto%', 'width': 'auto'})]
-        elif not flag:
-            banners = [
-                        html.Img(src='https://i.imgur.com/M84CKef.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                        html.Img(src='https://i.imgur.com/XvPvUgp.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                        html.Img(src='https://i.imgur.com/l0xluPE.jpg', style={'height': 'auto%', 'width': 'auto'}),
-                        html.Img(src='https://i.imgur.com/Sf6XAJv.jpg', style={'height': 'auto%', 'width': 'auto'}),]
+                # Add Modal for Sigma Bytes Minting
+                dbc.Modal(
+                    [
+                        dbc.ModalHeader(
+                            "SIGMA BYTES",
+                            style={
+                                "backgroundColor": "#1a2234",
+                                "color": "#fff",
+                                "borderBottom": "1px solid rgba(255,255,255,0.1)",
+                                "textAlign": "center",
+                                "width": "100%",
+                                "fontSize": "24px",
+                                "letterSpacing": "2px",
+                                "padding": "20px"
+                            }
+                        ),
+                        dbc.ModalBody(
+                            html.Iframe(
+                                id='minter-iframe',
+                                # For local development, prioritize localhost URLs
+                                src=f"http://localhost:3000?theme=dark" if 'localhost' in os.environ.get('BASE_URL', 'http://localhost') or '127.0.0.1' in os.environ.get('BASE_URL', 'http://localhost') else os.environ.get('MINTING_SERVICE_URL', 'http://ergominers.com/miner-id-minter') + "?theme=dark",
+                                style={
+                                    'width': '100%',
+                                    'height': '920px',
+                                    'border': 'none',
+                                    'borderRadius': '8px'
+                                },
+                                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+                            ),
+                            style={
+                                "backgroundColor": "#1a2234",
+                                "padding": "0",
+                                "margin": "0"
+                            }
+                        ),
+                        dbc.ModalFooter(
+                            dbc.Button(
+                                "Close",
+                                id="close-mint-modal",
+                                className="ms-auto",
+                                style={
+                                    "backgroundColor": "#4299e1",
+                                    "border": "none",
+                                    "padding": "10px 30px",
+                                    "borderRadius": "6px",
+                                    "color": "#fff",
+                                    "fontWeight": "500"
+                                }
+                            ),
+                            style={
+                                "backgroundColor": "#1a2234",
+                                "borderTop": "1px solid rgba(255,255,255,0.1)",
+                                "padding": "20px"
+                            }
+                        )
+                    ],
+                    id="mint-modal",
+                    size="xl",
+                    is_open=False,
+                    style={
+                        "maxWidth": "100%",
+                        "width": "95%",
+                        "margin": "0 auto",
+                        "backgroundColor": "#1a2234"
+                    },
+                    className="modal-dialog-centered modal-dialog-scrollable",
+                    backdrop="static"
+                ),
 
-        return [dbc.Row(id='banners', justify='center', children=banners)]
-        
-def get_layout(sharkapi):
-    return html.Div([dbc.Container(fluid=True, style={'backgroundColor': background_color, 'padding': '10px', 'justifyContent': 'center', 'fontFamily': 'sans-serif',  'color': '#FFFFFF', 'maxWidth': '960px' },
-                           children=[
-                               
-                               dcc.Interval(id='fp-int-1', interval=60*1000*5, n_intervals=0),
-                               dcc.Interval(id='fp-int-2', interval=60*1000*5, n_intervals=0),
-                               dcc.Interval(id='fp-int-3', interval=60*1000*5, n_intervals=0),
-                               dcc.Interval(id='fp-int-4', interval=60*1000*5, n_intervals=0),
-                               dcc.Interval(id='fp-int-5', interval=60*1000*5, n_intervals=0),
+                html.H1(
+                    'ERGO Sigmanaut Mining Pool',
+                    style={
+                        'color': large_text_color,
+                        'textAlign': 'center',
+                        'letterSpacing': '0.05em',
+                        'fontWeight': '500',
+                        'marginBottom': '20px'
+                    }
+                ),
 
-                               html.H1('ERGO Sigmanaut Mining Pool', style={'color': large_text_color, 'textAlign': 'center',}),                                   
-                                 # Metrics overview row
-                                 dbc.Row(id='metric-1', justify='center', style={'padding': '5px'}),
+                # First row - Large metric cards
+                dbc.Row(id='metric-1', justify='center', style={'marginBottom': '20px'}),
 
-                                # Detailed stats
-                                dbc.Row(id='metric-2', justify='center', style={'padding': '5px'}),
-                                dbc.Row(id='banners', justify='center'),      
+                # Second row - Detailed stats
+                dbc.Row(id='metric-2', justify='center', style={'marginBottom': '20px'}),
+                dbc.Row(id='banners', justify='center'),
 
-                               # Mining Address Input
-                                dbc.Row(justify='center', children=[
-                                    dbc.Col(md=8, children=[
-                                        
-                                        dcc.Input(id='mining-address-input', type='text', placeholder='Mining Address', style={
-                                            'width': '100%',
-                                            'padding': '10px',
-                                            'marginTop': '20px',
-                                            'borderRadius': '5px'
-                                        }),
-                                    ])
-                                ]),
+                # Mining Address Input and Button
+                dbc.Row([
+                    dbc.Col(
+                        md=12,
+                        children=[
+                            dcc.Input(
+                                id='mining-address-input',
+                                type='text',
+                                placeholder='Mining Address',
+                                style={
+                                    'width': '100%',
+                                    'padding': '10px',
+                                    'marginTop': '20px',
+                                    'borderRadius': '5px',
+                                    'maxWidth': '66.666%',
+                                    'display': 'block',
+                                    'margin': '20px auto'
+                                }
+                            ),
+                        ]
+                    )
+                ], justify='center', className="g-0"),
 
-                                # Start Mining Button
-                               
-                                dbc.Row(justify='center', children=[
-                                    
-                                    html.Button('Start Mining ⛏️', id='start-mining-button', style={
-                                        'marginTop': '20px',
-                                        'backgroundColor': button_color,
-                                        'border': 'none',
-                                        'padding': '10px 20px',
-                                        'color': 'white',
-                                        'fontSize': '20px',
-                                        'borderRadius': '5px',
-                                         'marginBottom': '50px',
-                                        'width': '97.5%',
-                                    })
-                                ]),
-                                                              
-                               html.Div(
-                                    [
-                                        html.Div(
-                                            html.H1(
-                                                id='plot-title',
-                                                children='Please select an option',
-                                                style={'fontSize': '24px'}
-                                            ),
-                                            style={'flex': '1'}
-                                        ),
-                                        html.Div(
-                                            dcc.Dropdown(
-                                                id='chart-dropdown',
-                                                options=[
-                                                    {'label': 'Hashrate', 'value': 'hash'},
-                                                    {'label': 'Effort', 'value': 'effort'}
-                                                ],
-                                                value='hash',  # Default value
-                                                style={'width': '300px', 'color': 'black'}
-                                            ),
-                                            style={'flex': '1'}
-                                        )
-                                    ],
-                                    style={
-                                        'display': 'flex', 
-                                        'justifyContent': 'space-between', 
-                                        'alignItems': 'center',
-                                        'padding': '10px'
-                                    }
-                                ),
-                                dcc.Graph(id='plot-1',  style={'backgroundColor': card_color}),
-                       
-                               html.Div(
-                                    [
-                                        html.Div(
-                                            html.H1(
-                                                id='dropdown-title',
-                                                children='Please select an option',
-                                                style={'fontSize': '24px'}
-                                            ),
-                                            style={'flex': '1'}
-                                        ),
-                                        html.Div(
-                                            dcc.Dropdown(
-                                                id='dataset-dropdown',
-                                                options=[
-                                                    {'label': 'Block-Stats', 'value': 'blocks'},
-                                                    {'label': 'Top-Miners', 'value': 'miners'}
-                                                ],
-                                                value='blocks',  # Default value
-                                                style={'width': '300px', 'color': 'black'}
-                                            ),
-                                            style={'flex': '1'}
-                                        )
-                                    ],
-                                    style={
-                                        'display': 'flex', 
-                                        'justifyContent': 'space-between', 
-                                        'alignItems': 'center',
-                                        'padding': '10px'
-                                    }
-                                ),
-                       
+                # Start Mining Button
+                dbc.Row([
+                    dbc.Col(
+                        html.Button(
+                            'Start Mining ⛏️',
+                            id='start-mining-button',
+                            style={
+                                'width': '100%',
+                                'backgroundColor': button_color,
+                                'border': 'none',
+                                'padding': '15px',
+                                'color': 'white',
+                                'fontSize': '18px',
+                                'borderRadius': '8px',
+                                'cursor': 'pointer',
+                                'marginBottom': '20px',
+                                'marginTop': '20px'
+                            }
+                        ),
+                        width=8
+                    )
+                ], justify='center'),
 
-                       dash_table.DataTable(id='table',
-                                            style_table={'overflowX': 'auto'},
-                                            style_cell={'height': 'auto', 'minWidth': '180px',
-                                                        'width': '180px', 'maxWidth': '180px',
-                                                        'whiteSpace': 'normal', 'textAlign': 'left',
-                                                        'padding': '10px',},
-                                            style_header=table_style,
-                                            style_data=table_style,),
+                # Mint Sigma Bytes Button
+                dbc.Row([
+                    dbc.Col(
+                        html.Button(
+                            'Mint Sigma Bytes 💎',
+                            id='mint-sigma-bytes-button',
+                            style={
+                                'width': '100%',
+                                'backgroundColor': '#1a365d',
+                                'border': 'none',
+                                'padding': '15px',
+                                'color': 'white',
+                                'fontSize': '18px',
+                                'borderRadius': '8px',
+                                'cursor': 'pointer',
+                                'marginBottom': '20px',
+                                'backgroundImage': 'linear-gradient(to right, #1a365d, #2a4365)',
+                                'boxShadow': '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                'transition': 'all 0.3s ease'
+                            }
+                        ),
+                        width=12
+                    )
+                ], className="g-0"),
 
-                               # html.H1('MINER ID', style={'color': large_text_color, 'textAlign': 'center',}),
-                               html.H1('Mint Miner Config NFT', style={'textAlign': 'center',}),
-                               html.Div(id='generate-url-button'),
-                               html.Div(id='link-container'),
-                               dbc.Col(style={'padding': '10px'}, children=[
-                                dbc.Card(style=bottom_row_style, children=[
-                                    dcc.Markdown(''' 
-                                    #### How it works - Reward Token Swap
-                                    1. Mint Miner ID NFT - Choose the ratio of tokens you would like to have as well as minimum payout
-                                    2. Once minted you will see your parameters in your mining dashboard
-                                    3. When your minimum payout is reached, price data is checked on ErgoDex to calculate how much of the token(s) you recieve based on the given tokens ratio in the miner ID. 
+                # Chart Section
+                html.Div([
+                    html.Div([
+                        html.H1(
+                            id='plot-title',
+                            children='Please select an option',
+                            style={
+                                'fontSize': '24px',
+                                'letterSpacing': '0.03em'
+                            }
+                        ),
+                        dcc.Dropdown(
+                            id='chart-dropdown',
+                            options=[
+                                {'label': 'Hashrate', 'value': 'hash'},
+                                {'label': 'Effort', 'value': 'effort'}
+                            ],
+                            value='hash',
+                            style={
+                                'width': '300px',
+                                'color': 'black',
+                                'borderRadius': '4px'
+                            }
+                        )
+                    ], style={
+                        'display': 'flex',
+                        'justifyContent': 'space-between',
+                        'alignItems': 'center',
+                        'padding': '10px'
+                    }),
+                    dcc.Graph(
+                        id='plot-1',
+                        style={
+                            'backgroundColor': card_color,
+                            'borderRadius': '8px',
+                            'padding': '20px'
+                        }
+                    )
+                ]),
 
-                                    #### Changing your miner ID 
-                                    1. If you want to change your miner ID it is recommended to burn your current ID but is not necessary. Our system will check for the latest miner ID. 
-                                    2. Mint the NFT as you have done so before.
-                                    
-                                    ### Dev Fees
-                                    There is a 3 ERG applied to mint the Miner ID token''')
-                                    
-                                ]),]),
-                               
-                               
+                # Data Selection Section
+                html.Div([
+                    html.Div([
+                        html.H1(
+                            id='dropdown-title',
+                            children='Please select an option',
+                            style={
+                                'fontSize': '24px',
+                                'letterSpacing': '0.03em'
+                            }
+                        ),
+                        dcc.Dropdown(
+                            id='dataset-dropdown',
+                            options=[
+                                {'label': 'Block-Stats', 'value': 'blocks'},
+                                {'label': 'Top-Miners', 'value': 'miners'}
+                            ],
+                            value='blocks',
+                            style={
+                                'width': '300px',
+                                'color': 'black',
+                                'borderRadius': '4px'
+                            }
+                        )
+                    ], style={
+                        'display': 'flex',
+                        'justifyContent': 'space-between',
+                        'alignItems': 'center',
+                        'padding': '10px'
+                    }),
 
-                               
-                               # html.H1('CONNECTING TO THE POOL',
-                               #         style={'color': 'white', 'textAlign': 'center', 'padding': '10px',}),
-                               # dcc.Link('Join our Telegram Group!', href='https://t.me/sig_mining',
-                               #          style={'font-family': 'Times New Roman, Times, serif',
-                               #                 'font-weight': 'bold',
-                               #                 'color': 'white', 'padding': '10px',
-                               #                 'font-size': '30px', "display": "flex", 
-                               #                 "justifyContent": "center" }),
-
-                                # Column for the markdown
-                                # html.Div(children=[
-                                    
-                                    
-                                #     dcc.Markdown('''
-
-                                #         ## Choose A Port
-                                #         Based on your hashrate and TLS specificity choose the port that is right for you. 
-
-                                #         - Port 3052 - Lower than 10GH/s - No TLS
-                                #         - Port 3053 - Higher than 10GH/s - No TLS
-                                #         - Port 3054 - Lower than 10GH/s - TLS
-                                #         - Port 3055 - Higher than 10GH/s - TLS
-
-                                #         ### Connecting to the Pool
-                                #         The pools url is 15.204.211.130
-
-                                #         So if you want TLS and under 10GH/s the port you would choose is 3054 and so on
-
-                                #         #### HIVEOS
-                                #         1. Set "Pool URL" to 15.204.211.130:3054 
-
-                                #         #### MMPOS
-                                #         1. Modify an existing or create a new pool in Management
-                                #         2. In Hostname enter the URL: 15.204.211.130
-                                #         3. Port: 3054
-
-                                #         #### Linux or Windows
-                                #         1. Edit the .sh file for the specific miner, in this case lolminer
-                                #         2. In the pool argument enter the full url with port of choice
-                                #         ```
-                                #         POOL=15.204.211.130:3054
-                                #         WALLET=<your_wallet_address>.QX-Fan-Club
-                                #         ./lolMiner --algo AUTOLYKOS2 --pool $POOL --user $WALLET $@
-                                #         while [ $? -eq 42 ]; do
-                                #         sleep 10s
-                                #         ./lolMiner --algo AUTOLYKOS2 --pool $POOL --user $WALLET $@
-                                #         done
-                                #         ```
-
-                                #         ## Updating the Dashboard from git
-                                #         ```
-                                #         docker compose pull # pulls the latest docker image
-                                #         docker compose up -d # Runs the UI
-                                #         docker compose down # Stops the UI
-                                #         ```
-
-                                #         Shout out to Vipor.Net for the dashboard inspiration! 
-                                #         ''')
-                                # ],
-                                #          style={'backgroundColor': background_color, 'color': 'white', 'padding': '20px', 'code': {'color': card_color}})
-                           
-                           ])],
-    style={'backgroundColor': card_color}  # This sets the background color for the whole page
-)
+                    dash_table.DataTable(
+                        id='table',
+                        style_table={'overflowX': 'auto'},
+                        style_cell={
+                            'height': 'auto',
+                            'minWidth': '180px',
+                            'width': '180px',
+                            'maxWidth': '180px',
+                            'whiteSpace': 'normal',
+                            'textAlign': 'left',
+                            'padding': '10px'
+                        },
+                        style_header=table_style,
+                        style_data=table_style
+                    )
+                ])
+            ]
+        )
+    ], style={'backgroundColor': card_color})
 
 if __name__ == '__main__':
     app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
     app.layout = get_layout()
-    setup_front_page_callbacks(app)
     app.run_server(debug=True)

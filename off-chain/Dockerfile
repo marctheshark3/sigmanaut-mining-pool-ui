@@ -1,31 +1,34 @@
-# Use an official Node.js runtime as a parent image
-FROM node:14
+# Build stage for React
+FROM node:14 AS builder
 
-# Set the working directory to /app
 WORKDIR /app
-
-# Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
-
-# Copy the rest of the application code to the working directory
 COPY . .
 
-# Set the PUBLIC_URL environment variable
-ENV PUBLIC_URL="https://dev.ergominers.com/miner-id-minter"
+# Set PUBLIC_URL for the build
+ARG PUBLIC_URL=/miner-id-minter
+ENV PUBLIC_URL=${PUBLIC_URL}
+ENV REACT_APP_PUBLIC_URL=${PUBLIC_URL}
 
-# Add verbose logging
-RUN echo "Contents of /app:"
-RUN ls -la /app
-RUN echo "Contents of /app/src:"
-RUN ls -la /app/src || echo "src directory not found"
-RUN echo "Local npm packages:"
-# RUN npm list --depth=0
+RUN npm run build
 
-# Expose port 3000
+# Production stage with Python/Flask
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy the built React app and Flask server
+COPY --from=builder /app/build ./build
+COPY app.py .
+
+# Set environment variables for runtime
+ENV PUBLIC_URL=/miner-id-minter
+
 EXPOSE 3000
 
-# Start the application using npm start
-CMD ["npm", "start"]
+CMD ["python", "app.py"]

@@ -1,154 +1,228 @@
-from dash import Dash, html, dash_table, dcc
+from dash import html, dash_table, dcc
 import dash_bootstrap_components as dbc
+from typing import Dict
+from datetime import datetime
 
-import pandas as pd
-import plotly.express as px
-from dash.dependencies import Input, Output
-import plotly.graph_objs as go
-
-dark_theme_table_style = {} #{'overflowX': 'auto', 'padding': '10px'}
-
-dark_theme_style_header = {'backgroundColor': '#222', 'color': '#FFFFFF', 'fontWeight': 'bold', 'textAlign': 'left'}
-
-dark_theme_style_cell = {'backgroundColor': '#333', 'color': '#FFFFFF', 'textAlign': 'left', 'padding': '10px',}
-
-
-
-container_style = {'flex': 1, 'margin': '10px', 'padding': '10px', 'border': 'none', 'borderRadius': '5px', 'background': '#1e1e1e'}
+# Colors
 card_color = '#27374D'
 background_color = '#526D82'
-large_text_color = '#9DB2BF' 
+large_text_color = '#9DB2BF'
 small_text_color = '#DDE6ED'
+
+# Card Styles
 top_card_style = {
     'backgroundColor': card_color,
     'color': small_text_color,
-    # 'margin': '10px',
-    'padding': '20px',
-    # 'justifyContent': 'center',
-    # 'height': '350px',
-    # 'textAlign': 'center',
-    # 'border': '1px solid {}'.format(small_text_color),
-    
-}
-
-card_style = {
-    'border': '1px solid {}'.format('#292929'),
-    'backgroundColor': card_color,
-    'color': 'white',
-    # 'marginBottom': '25px',
-    'padding': '15x',
-    # 'fontSize': '12px',
+    'height': '225px',  # Fixed height for all cards
+    'padding': '30px',
+    'borderRadius': '8px',
     'textAlign': 'center',
-    'justifyContent': 'center'
-}
-
-table_style = {'backgroundColor': card_color, 'color': large_text_color,
-               'fontWeight': 'bold', 'textAlign': 'center', 'border': '1px solid black',}
-metric_row_style = {
     'display': 'flex',
+    'flexDirection': 'column',
     'alignItems': 'center',
-    'justifyContent': 'flex-start',
-    'fontSize': '18px',
-    'padding': '25x',
-
+    'justifyContent': 'center',
+    'margin': '0',  # Remove margin since we're using column padding
+    'border': 'none'
 }
 
+top_image_style = {
+    'width': '60px',
+    'height': '60px',
+    'marginBottom': '15px',
+    'filter': 'brightness(0) invert(1)'  # Make icons white
+}
+
+bottom_row_style = {
+    'backgroundColor': card_color,
+    'color': small_text_color,
+    'padding': '20px',
+    'borderRadius': '8px',
+    'height': '100%',
+    'display': 'flex',
+    'flexDirection': 'column',
+    'justifyContent': 'space-between'
+}
+
+container_style = {
+    'backgroundColor': background_color,
+    'padding': '25px',
+    'maxWidth': '1200px',
+    'margin': '0 auto',
+    'fontFamily': 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+    'color': '#FFFFFF'
+}
+
+# Table Styles
+table_style = {
+    'backgroundColor': card_color,
+    'color': large_text_color,
+    'fontWeight': 'bold',
+    'textAlign': 'center',
+    'border': '1px solid black',
+    'padding': '15px'
+}
+
+# First row text styles
+first_row_styles = {
+    'value': {
+        'color': large_text_color,
+        'fontSize': '24px',
+        'fontWeight': 'bold',
+        'marginTop': '10px',
+        'marginBottom': '5px'
+    },
+    'label': {
+        'color': small_text_color,
+        'fontSize': '14px',
+    }
+}
+
+# Card Styles
+card_styles = {
+    'stat_card': {
+        'backgroundColor': card_color,
+        'padding': '15px',
+        'margin': '8px',
+        'borderRadius': '8px',
+        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)',
+    },
+    'metric_card': {
+        'backgroundColor': card_color,
+        'padding': '15px',  # Reduced padding
+        'margin': '5px',    # Reduced margin
+        'borderRadius': '8px',
+        'height': '180px',  # Fixed height for consistency
+        'display': 'flex',
+        'flexDirection': 'column',
+        'justifyContent': 'space-between'
+    }
+}
+
+# Row Styles
 top_row_style = {
     'backgroundColor': card_color,
     'color': 'white',
     'display': 'flex',
     'padding': '20px',
     'height': 'auto',
-    # 'alignItems': 'center',
     'justifyContent': 'flex-start',
-    # 'fontSize': '16px',
 }
 
-bottom_row_style = {
-    # 'border': '1px solid {}'.format('#292929'),
+image_styles = {
+    'standard': {'height': '40px'},
+    'bottom': {
+        'height': '75px',
+        'width': '75px',
+        'marginRight': '12px'
+    },
+    'top': {
+        'height': '46px',
+        'justifyContent': 'center',}
+}
+
+# Top row style
+top_row_style = {
     'backgroundColor': card_color,
     'color': 'white',
-    # 'marginBottom': '20px',
-    'padding': '20x',
-    # 'fontSize': '12px',
-    # 'textAlign': 'left',
-    'display': 'flex',
-    # 'justifyContent': 'left',
-    'alignItems': 'left',
-    'justifyContent': 'left',
-    'fontSize': '14px',
+    # 'display': 'flex',
+    'padding': '20px',
+    # 'height': 'auto',
+    # 'justifyContent': 'flex-start',
 }
-image_style = {'height': '46px', 'justifyContent': 'center',}
-bottom_image_style = {'height': '40px', 'justifyContent': 'center',}
-top_image_style = {'height': '80px', 'justifyContent': 'center',}
-image_card_style={
-    'margin': '10px','textAlign': 'center',
-    'padding': '20px',}
-# def create_row_card(h2_text, p_text, image=None):
-#     if image:
-#         children = html.Img(src=image, style=image_style)
-#     else:
-#         children = []
-#     children.append(html.H2(h2_text, style={'color': '#FFA500'}))
-#     children.append(html.P(p_text))
 
-#     return dbc.Col(dbc.Card(style=card_style, children=[children]), style={'marginRight': 'auto', 'marginLeft': 'auto'})
-
-def create_row_card(h2_text, p_text, image=None):
-    return dbc.Col(dbc.Card(style=top_card_style, children=[
-        # html.Img(src=image, style=top_image_style),
-        html.H2(h2_text, style={'color': '#ff5e18'}),
-        html.P(p_text)]),)
-
-def create_image_text_block(text, image=None, block_style=bottom_row_style, image_style=bottom_image_style):
-    if image:
-        return html.Div(style=block_style, children=[
-                        html.Img(src='assets/{}'.format(image), style=image_style),
-                        html.Span(text, style={'padding': '10px', 'width': '100%', 'height': 'auto'})])
-    else:
-        return html.Div(style=block_style, children=[
-                        html.Span(text, style={'padding': '10px', 'width': '100%', 'height': 'auto'})])
-    
-
-def create_pie_chart(df, col, value, est_reward=False):
-    if est_reward:
-        chart = go.Figure(data=[go.Pie(labels=df[col], values=df[value], textinfo='value',
-                               insidetextorientation='radial')], layout=go.Layout())
-    else:
-        chart = px.pie(df, names=col, values=value, color=col)
-    pulls = [0.1 if item else 0 for item in df['my_wallet']]
-    chart.update_traces(pull=pulls)
-    chart.update_layout(showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                        font_color='white', title_font_color='white', legend_title_font_color='white',
-                        xaxis=dict(title_font_color='white', tickfont_color='white', gridcolor='grey'),
-                        yaxis=dict(title_font_color='white', tickfont_color='white', gridcolor='grey'))
-    chart.update_layout(margin=dict(t=0, b=0, l=0, r=0),autosize=False, width=350, height=350)
-    return chart
-    
-def create_bar_chart(df, x, y, color, labels=None):
-    chart = px.bar(df, x=x, y=y, color=color, labels=labels,
-                  color_continuous_scale=px.colors.sequential.Viridis)
-    chart.update_layout(showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                        font_color='white', title_font_color='white', legend_title_font_color='white',
-                        xaxis=dict(title_font_color='white', tickfont_color='white', gridcolor='grey'),
-                        yaxis=dict(title_font_color='white', tickfont_color='white', gridcolor='grey'))
-
-    return chart
-
-def create_table_component(title, data_table_id, columns, data, max_table_width='none'):
-    # Apply max width to the table container
-    custom_table_style = {**dark_theme_table_style, 'maxWidth': max_table_width}
-
-    return html.Div([
-        html.H2(title,),
-        dash_table.DataTable(
-            id=data_table_id,
-            columns=[{"name": i, "id": i} for i in columns],
-            data=data.to_dict('records'),
-            style_data={'border': 'none'},
-            style_table=custom_table_style,
-            style_header=dark_theme_style_header,
-            style_cell=dark_theme_style_cell,
-            style_as_list_view=True, 
+def create_stat_row(title: str, metrics: Dict[str, str], style, large_text_color) -> dbc.Col:
+    """Creates a statistics row with consistent styling"""
+    return dbc.Col(
+        dbc.Card(
+            style={**card_styles['stat_card'], **style},
+            children=[
+                html.H2(
+                    title,
+                    style={
+                        'color': large_text_color,
+                        'textAlign': 'center',
+                        'marginBottom': '20px',
+                        'fontSize': '1.8em',
+                        'letterSpacing': '0.05em'
+                    }
+                ),
+                dbc.Row([
+                    dbc.Col([
+                        html.H4(
+                            key,
+                            style={
+                                'color': large_text_color,
+                                'fontSize': '1.2em',
+                                'marginBottom': '10px',
+                                'letterSpacing': '0.02em'
+                            }
+                        ),
+                        html.P(
+                            value,
+                            style={
+                                'fontSize': '1.1em',
+                                'letterSpacing': '0.02em',
+                                'marginTop': '5px'
+                            }
+                        )
+                    ]) for key, value in metrics.items()
+                ])
+            ]
         ),
-    ], style=container_style)
+        style={'marginRight': 'auto', 'marginLeft': 'auto'}
+    )
+
+def create_image_text_block(text, image, style=None):
+    """Creates an image-text block with consistent styling"""
+    return html.Div(
+        style=style or {
+            # 'display': 'flex',
+            # 'alignItems': 'flex-start',
+            'backgroundColor': card_color,
+            'color': 'white',
+            # 'padding': '15px 20px',
+            # 'margin': '10px 0',
+            # 'borderRadius': '6px',
+            'fontSize': '1.1em',
+            # 'letterSpacing': '0.02em'
+        },
+        children=[
+            html.Img(
+                src=f'assets/{image}',
+                style=image_styles['bottom']
+            ),
+            html.Span(
+                text,
+                style={
+                    'flexGrow': 1,
+                    'paddingLeft': '5px'
+                }
+            )
+        ]
+    )
+
+def get_days_ago(timestamp: str) -> str:
+    """Convert timestamp to 'X days ago' format"""
+    if not timestamp:
+        return "Never"
+    
+    try:
+        # Parse the timestamp
+        dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        now = datetime.now(dt.tzinfo)
+        
+        # Calculate the difference
+        diff = now - dt
+        days = diff.days
+        
+        if days == 0:
+            hours = diff.seconds // 3600
+            if hours == 0:
+                return "Today"
+            return f"{hours} hours ago"
+        elif days == 1:
+            return "Yesterday"
+        else:
+            return f"{days} days ago"
+    except Exception:
+        return "Unknown"

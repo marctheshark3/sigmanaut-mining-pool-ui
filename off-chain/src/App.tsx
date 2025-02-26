@@ -14,30 +14,22 @@ import {
 import { ColorModeSwitcher } from "./ColorModeSwitcher"
 
 import Create from './components/Create';
-import BurnTokens from './components/BurnTokens';
 
 export const App = () => (
   
   <ChakraProvider theme={theme}>
-    <Box textAlign="center" fontSize="xl">
-      <Grid p={3}>
-          <ColorModeSwitcher justifySelf="flex-end" />
-          <Tabs>
+    <Box textAlign="center" fontSize="xl" width="100%" height="100vh">
+      <Grid p={0} minH="100%" width="100%">
+          <ColorModeSwitcher justifySelf="flex-end" position="absolute" top={2} right={2} zIndex={10} />
+          <Tabs width="100%" variant="enclosed" height="100%">
             <TabList>
               {/* <Tab> Mint Sigmanaut Mining Pool Config NFT</Tab> */}
-                <Tab> Create Miner ID</Tab>
-                <Tab> Burn Miner ID</Tab>
-                
-        
+                <Tab fontSize="lg" py={3}> Create Miner ID</Tab>
             </TabList>
-            <TabPanels>
+            <TabPanels height="calc(100% - 50px)">
             
-              <TabPanel>
+              <TabPanel height="100%" p={3}>
                 <Create />
-              </TabPanel>
-
-                <TabPanel>
-                <BurnTokens />
               </TabPanel>
              
             </TabPanels>

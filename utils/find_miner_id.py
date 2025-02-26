@@ -1,5 +1,8 @@
 import requests
 import json 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ReadTokens:
     def __init__(self, api='https://api.ergo.aap.cornell.edu/api/v1/boxes/byAddress', token_ls_url='https://api.ergo.aap.cornell.edu/api/v1/tokens/'):
@@ -25,38 +28,75 @@ class ReadTokens:
                 data = response.json()
                 return data
             else:
-                print(f"Failed to retrieve data: Status code {response.status_code}")
+                logger.error(f"Failed to retrieve data: Status code {response.status_code}")
                 return None
     
         except requests.exceptions.RequestException as e:
             # Handle any exceptions that occur during the request
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
             return None
             
-    def get_wallet_balance(self, wallet):
-        url = 'http://213.239.193.208:9053/blockchain/balance'
-        headers = {
-            'accept': 'application/json',
-            'Content-Type': 'application/json',
-        }
-        
-        response = requests.post(url, headers=headers, data=wallet)
-        return response.json()
+    def get_wallet_balance(self, wallet_json):
+        try:
+            # Parse the wallet JSON to get the address
+            wallet_data = json.loads(wallet_json)
+            if not wallet_data.get('addresses'):
+                logger.error("No addresses found in wallet data")
+                return None
+                
+            address = wallet_data['addresses'][0]
+            
+            # Use the Ergo Explorer API to get balance and tokens
+            url = f'https://api.ergoplatform.com/api/v1/addresses/{address}/balance/confirmed'
+            
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                # Convert the response to match the expected format
+                return {
+                    'confirmed': {
+                        'tokens': data.get('tokens', [])
+                    }
+                }
+            else:
+                logger.error(f"Failed to get wallet balance: {response.status_code} - {response.text}")
+                return None
+        except Exception as e:
+            logger.error(f"Error getting wallet balance: {e}")
+            return None
 
-    
     def find_token_name_in_wallet(self, wallet, name):
-        wallet_data = self.get_wallet_balance(wallet)
+        try:
+            wallet_data = self.get_wallet_balance(wallet)
+            if not wallet_data:
+                logger.error("No wallet data received")
+                return []
+                
+            if 'error' in wallet_data:
+                logger.error(f"API error: {wallet_data['error']} - {wallet_data.get('detail', '')}")
+                return []
+                
+            if 'confirmed' not in wallet_data:
+                logger.error("No confirmed data in wallet response")
+                return []
+                
+            if 'tokens' not in wallet_data['confirmed']:
+                logger.error("No tokens data in wallet response")
+                return []
 
-        tokens = wallet_data['confirmed']['tokens']
-        ls = []
-        for token in tokens:
-            token_name = token['name']
-            if token_name == name:
-                ls.append(token)
-        return ls
+            tokens = wallet_data['confirmed']['tokens']
+            ls = []
+            for token in tokens:
+                token_name = token.get('name')
+                if token_name == name:
+                    ls.append(token)
+            return ls
+        except Exception as e:
+            logger.error(f"Error finding tokens: {e}")
+            return []
 
     def get_latest_miner_id(self, wallet):
-        possible_tokens = self.find_token_name_in_wallet(wallet, 'Sigmanaut Mining Pool Miner ID - Season 0')
+        possible_tokens = self.find_token_name_in_wallet(wallet, 'Sigmanaut Mining Pool Miner ID - Season 1')
 
         my_tokens = []
         most_recent_token = None
@@ -99,6 +139,17 @@ class ReadTokens:
     def get_token_description(self, id):
         url = '{}/{}'.format(self.token_ls, id)
         data = self.get_api_data(url)
-
-        token_description = json.loads(data['description'])
-        return token_description
+        if not data:
+            return None
+            
+        try:
+            # The description field is a JSON string that needs to be parsed
+            description_str = data.get('description')
+            if not description_str:
+                logger.error(f"No description field found in token data: {data}")
+                return None
+                
+            return json.loads(description_str)
+        except Exception as e:
+            logger.error(f"Error parsing token description: {e}")
+            return None

@@ -1,8 +1,3 @@
-user_defined:
-    # DONT WORRY ABOUT TOKEN ID FOR NOW
-    token_id: '9f087ebb5d7baf7eb8f13b742e9a9b5b1b8d78b7a7f84d1f9b9d393f4888d679'
-    wallet: '9ehJZvPDgvCNNd2zTQHxnSpcCAtb1kHbEN1VAgeoRD5DPVApYkk'
-
 # DO NOT CHANGE THIS
 default_values:
     url: 'https://api.ergo.aap.cornell.edu/api/v1/boxes/unspent/byAddress/'
@@ -11,7 +6,7 @@ default_values:
     # api: 'http://37.27.198.175:8000'
     # api: 'http://188.245.66.57:8000'
     api: 'http://5.78.102.130:8000'
-    # api: 'http://localhost:8000'
+    # api: 'http://0.0.0.0:8000'
     db_name: 'localhost'
     stats_cols: [
         'fee NUMERIC',  # Numeric type for precision
