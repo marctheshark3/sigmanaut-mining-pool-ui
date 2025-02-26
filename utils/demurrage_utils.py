@@ -30,11 +30,19 @@ def calculate_demurrage_metrics(transactions: List[Dict[str, Any]], wallet_addre
             logger.warning("No transactions provided for demurrage calculation")
             return default_metrics
             
-        # Outgoing transactions: any transaction where at least one input's address equals our wallet
-        outgoing_txs = [
-            tx for tx in transactions 
-            if any(inp.get("address") == wallet_address for inp in tx.get("inputs", []))
-        ]
+        # Outgoing transactions: transactions where we spend from our wallet AND send to other addresses
+        outgoing_txs = []
+        for tx in transactions:
+            # Check if we're spending from this wallet
+            is_spending = any(inp.get("address") == wallet_address for inp in tx.get("inputs", []))
+            if is_spending:
+                # Check if any outputs go to addresses other than our wallet
+                has_external_outputs = any(
+                    out_box.get("address") != wallet_address 
+                    for out_box in tx.get("outputs", [])
+                )
+                if has_external_outputs:
+                    outgoing_txs.append(tx)
         
         if not outgoing_txs:
             logger.info(f"No outgoing transactions found for wallet address: {wallet_address}")

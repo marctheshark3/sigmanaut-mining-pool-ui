@@ -100,38 +100,34 @@ def get_minimum_payout(miner_address):
                     continue
                     
                 try:
-                    # Parse the description to verify token properties
-                    description = json.loads(token_info)
-                    logger.info(f"Token description: {description}")
+                    # token_info is already a dictionary, no need to parse it
+                    logger.info(f"Token description: {token_info}")
                     
                     # Verify collection ID
-                    if description.get('collection_id') != COLLECTION_ID:
-                        logger.warning(f"Token {token_id} has wrong collection ID: {description.get('collection_id')}")
+                    if token_info.get('collection_id') != COLLECTION_ID:
+                        logger.warning(f"Token {token_id} has wrong collection ID: {token_info.get('collection_id')}")
                         continue
                         
                     # Verify token type
-                    token_type = description.get('type')
+                    token_type = token_info.get('type')
                     if token_type != 'Pool Config':
                         logger.warning(f"Token {token_id} has wrong type: {token_type}")
                         continue
                         
                     # Verify address ownership
-                    token_address = description.get('address')
+                    token_address = token_info.get('address')
                     if token_address != miner_address:
                         logger.warning(f"Token {token_id} was minted for different address: {token_address}")
                         continue
                         
                     # If we get here, all validations passed
-                    if 'minimumPayout' in description:
-                        min_payout = float(description['minimumPayout'])
+                    if 'minimumPayout' in token_info:
+                        min_payout = float(token_info['minimumPayout'])
                         logger.info(f"Found valid Sigma Bytes NFT with minimum payout: {min_payout} ERG")
                         return min_payout
                     else:
                         logger.warning(f"Token {token_id} has no minimumPayout field")
                         
-                except json.JSONDecodeError:
-                    logger.error(f"Could not parse token description for {token_id}")
-                    continue
                 except Exception as e:
                     logger.error(f"Error processing token {token_id}: {e}")
                     continue
