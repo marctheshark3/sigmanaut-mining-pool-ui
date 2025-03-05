@@ -8,6 +8,7 @@ import json
 from typing import Optional, Dict, List
 import time
 import requests
+import threading
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -47,38 +48,23 @@ class PaymentThresholdUpdater:
 
     def get_all_miners(self) -> List[Dict]:
         """Get all active miners from the API"""
-        miners = []
-        offset = 0
-        limit = 100
-        
-        while True:
-            try:
-                url = f"{self.api_base_url}/sigscore/miners"
-                params = {
-                    "limit": limit,
-                    "offset": offset
-                }
-                response = requests.get(url, params=params)
+        try:
+            url = "http://5.78.102.130:8000/sigscore/miners/bonus"
+            params = {
+                "limit": 100
+            }
+            response = requests.get(url, params=params)
+            
+            if response.status_code != 200:
+                logger.error(f"Failed to get miners from API: {response.status_code}")
+                return []
                 
-                if response.status_code != 200:
-                    logger.error(f"Failed to get miners from API: {response.status_code}")
-                    break
-                    
-                data = response.json()
-                if not data:  # No more miners
-                    break
-                    
-                miners.extend(data)
-                offset += limit
-                
-                if len(data) < limit:  # Last page
-                    break
-                    
-            except Exception as e:
-                logger.error(f"Error fetching miners from API: {e}")
-                break
-        
-        return miners
+            miners = response.json()
+            logger.info(f"Retrieved {len(miners)} miners from API")
+            return miners
+        except Exception as e:
+            logger.error(f"Error fetching miners: {e}")
+            return []
 
     def verify_nft_ownership(self, token_info: Dict, address: str) -> bool:
         """Verify that the NFT is valid and owned by the miner"""
@@ -210,22 +196,38 @@ class PaymentThresholdUpdater:
             self._db_connection.close()
 
 def main():
-    """Main function to run the payment threshold updater"""
-    updater = PaymentThresholdUpdater()
-    
-    while True:
-        try:
-            logger.info("Starting payment threshold update cycle")
-            updater.process_all_miners()
-            logger.info("Completed payment threshold update cycle")
+    """Run the payment threshold updater"""
+    try:
+        updater = PaymentThresholdUpdater()
+        
+        # Initial run
+        logger.info("Starting initial payment threshold update...")
+        updater.process_all_miners()
+        logger.info("Initial payment threshold update completed.")
+        
+        # Schedule the next run in 3 hours
+        def scheduled_run():
+            # Sleep for 3 hours
+            time.sleep(3 * 60 * 60)  # 3 hours in seconds
             
-            # Sleep for 12 hours (43200 seconds)
-            time.sleep(43200)
-            
-        except Exception as e:
-            logger.error(f"Error in main loop: {e}")
-            # Sleep for 5 minutes on error before retrying
-            time.sleep(300)
+            logger.info("Starting scheduled payment threshold update (after 3 hours)...")
+            try:
+                # Create a new updater instance for the scheduled run
+                scheduled_updater = PaymentThresholdUpdater()
+                scheduled_updater.process_all_miners()
+                logger.info("Scheduled payment threshold update completed.")
+            except Exception as e:
+                logger.error(f"Error in scheduled run: {e}")
+        
+        # Start the scheduled run in a separate thread
+        scheduler_thread = threading.Thread(target=scheduled_run)
+        scheduler_thread.daemon = True  # Thread will exit when main program exits
+        scheduler_thread.start()
+        
+        logger.info("Scheduled next update in 3 hours. Main thread will exit but scheduler will continue.")
+        
+    except Exception as e:
+        logger.error(f"Error running payment threshold updater: {e}")
 
 if __name__ == "__main__":
     main() 

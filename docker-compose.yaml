@@ -8,6 +8,7 @@ services:
     volumes:
       - ./conf:/app/conf:ro
       - flask_session:/app/flask_session
+      - ./logs:/app/logs
     ports:
       - "8050:8050"
     environment:
@@ -74,6 +75,8 @@ services:
       - POSTGRES_HOST=${POSTGRES_HOST:-localhost}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
       - PYTHONUNBUFFERED=1
+      - API_BASE_URL=${API_BASE_URL:-http://5.78.102.130:8000}
+      - UPDATE_INTERVAL_HOURS=${UPDATE_INTERVAL_HOURS:-3}
     deploy:
       resources:
         limits:
