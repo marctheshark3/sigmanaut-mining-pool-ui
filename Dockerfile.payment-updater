@@ -1,5 +1,10 @@
 FROM python:3.9-slim
 
+# Payment Threshold Updater Service
+# This service checks miners' NFT ownership to determine their payment thresholds
+# and updates the database accordingly. It runs continuously in the background,
+# performing updates at the interval specified by UPDATE_INTERVAL_HOURS environment variable.
+
 WORKDIR /app
 
 # Install system dependencies

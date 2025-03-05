@@ -9,6 +9,7 @@ from typing import Optional, Dict, List
 import time
 import requests
 import threading
+import signal
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -27,9 +28,11 @@ class PaymentThresholdUpdater:
         self.token_reader = ReadTokens()
         self.pool_id = 'ErgoSigmanauts'
         self.default_threshold = 0.1  # Default minimum payout if no NFT found
-        self.api_base_url = "http://5.78.102.130:8000"
+        self.api_base_url = os.getenv('API_BASE_URL', "http://5.78.102.130:8000")
         self.collection_id = "10ba19fae939a8c185eddb239d85f4dc8a77564cb6167578d8019f24696446fc"
         self._db_connection = None
+        self.update_interval_hours = int(os.getenv('UPDATE_INTERVAL_HOURS', '3'))
+        logger.info(f"Payment updater configured to run every {self.update_interval_hours} hours")
 
     @property
     def db_connection(self):
@@ -41,6 +44,7 @@ class PaymentThresholdUpdater:
     def get_db_connection(self):
         """Create and return a database connection"""
         try:
+            logger.info(f"Connecting to PostgreSQL database {self.db_params['dbname']} at {self.db_params['host']}:{self.db_params['port']}")
             return psycopg2.connect(**self.db_params)
         except Exception as e:
             logger.error(f"Failed to connect to database: {e}")
@@ -49,10 +53,11 @@ class PaymentThresholdUpdater:
     def get_all_miners(self) -> List[Dict]:
         """Get all active miners from the API"""
         try:
-            url = "http://5.78.102.130:8000/sigscore/miners/bonus"
+            url = f"{self.api_base_url}/sigscore/miners/bonus"
             params = {
                 "limit": 100
             }
+            logger.info(f"Fetching miners from API: {url}")
             response = requests.get(url, params=params)
             
             if response.status_code != 200:
@@ -138,10 +143,15 @@ class PaymentThresholdUpdater:
         try:
             with self.db_connection.cursor() as cur:
                 cur.execute(query, (new_threshold, self.pool_id, address))
+                rows_affected = cur.rowcount
                 self.db_connection.commit()
-                return True
+                if rows_affected > 0:
+                    return True
+                else:
+                    logger.warning(f"No rows updated in miner_settings table for address {address}")
+                    return False
         except Exception as e:
-            logger.error(f"Failed to update threshold for {address}: {e}")
+            logger.error(f"Failed to update threshold in miner_settings table for {address}: {e}")
             return False
 
     def get_current_threshold(self, address: str) -> Optional[float]:
@@ -158,7 +168,7 @@ class PaymentThresholdUpdater:
                 result = cur.fetchone()
                 return float(result[0]) if result else None
         except Exception as e:
-            logger.error(f"Failed to get current threshold for {address}: {e}")
+            logger.error(f"Failed to get current threshold from miner_settings table for {address}: {e}")
             return None
 
     def process_all_miners(self, miners: Optional[List[Dict]] = None):
@@ -176,7 +186,7 @@ class PaymentThresholdUpdater:
             # Get current threshold from database
             current_threshold = self.get_current_threshold(address)
             if current_threshold is None:
-                logger.warning(f"Miner {address} not found in database")
+                logger.warning(f"Miner {address} not found in miner_settings table in the database - they may be new or inactive")
                 continue
             
             # Get threshold from NFT
@@ -186,45 +196,60 @@ class PaymentThresholdUpdater:
             if nft_threshold is not None and abs(nft_threshold - current_threshold) > 0.000001:
                 logger.info(f"Updating threshold for {address}: {current_threshold} -> {nft_threshold}")
                 if self.update_miner_threshold(address, nft_threshold):
-                    logger.info(f"Successfully updated threshold for {address}")
+                    logger.info(f"Successfully updated threshold in miner_settings table for {address}")
                 else:
-                    logger.error(f"Failed to update threshold for {address}")
+                    logger.error(f"Failed to update threshold in miner_settings table for {address}")
 
     def __del__(self):
         """Close database connection on cleanup"""
         if self._db_connection is not None:
             self._db_connection.close()
 
+def handle_sigterm(signum, frame):
+    """Handle SIGTERM signal to gracefully shut down the service"""
+    logger.info("Received SIGTERM signal, shutting down gracefully...")
+    exit(0)
+
 def main():
     """Run the payment threshold updater"""
+    # Register signal handler for SIGTERM
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    
     try:
         updater = PaymentThresholdUpdater()
+        update_interval_seconds = updater.update_interval_hours * 60 * 60
         
         # Initial run
         logger.info("Starting initial payment threshold update...")
         updater.process_all_miners()
         logger.info("Initial payment threshold update completed.")
         
-        # Schedule the next run in 3 hours
-        def scheduled_run():
-            # Sleep for 3 hours
-            time.sleep(3 * 60 * 60)  # 3 hours in seconds
+        # Keep the main thread alive and run updates periodically
+        next_update_time = time.time() + update_interval_seconds
+        
+        logger.info(f"Next update scheduled in {updater.update_interval_hours} hours at {datetime.fromtimestamp(next_update_time).strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Main loop - keeps the container running
+        while True:
+            current_time = time.time()
             
-            logger.info("Starting scheduled payment threshold update (after 3 hours)...")
-            try:
-                # Create a new updater instance for the scheduled run
-                scheduled_updater = PaymentThresholdUpdater()
-                scheduled_updater.process_all_miners()
-                logger.info("Scheduled payment threshold update completed.")
-            except Exception as e:
-                logger.error(f"Error in scheduled run: {e}")
-        
-        # Start the scheduled run in a separate thread
-        scheduler_thread = threading.Thread(target=scheduled_run)
-        scheduler_thread.daemon = True  # Thread will exit when main program exits
-        scheduler_thread.start()
-        
-        logger.info("Scheduled next update in 3 hours. Main thread will exit but scheduler will continue.")
+            # If it's time for the next update
+            if current_time >= next_update_time:
+                logger.info(f"Starting scheduled payment threshold update (after {updater.update_interval_hours} hours)...")
+                try:
+                    # Create a new updater instance for each run to ensure fresh connections
+                    scheduled_updater = PaymentThresholdUpdater()
+                    scheduled_updater.process_all_miners()
+                    logger.info("Scheduled payment threshold update completed.")
+                except Exception as e:
+                    logger.error(f"Error in scheduled run: {e}")
+                finally:
+                    # Calculate next update time
+                    next_update_time = time.time() + update_interval_seconds
+                    logger.info(f"Next update scheduled in {updater.update_interval_hours} hours at {datetime.fromtimestamp(next_update_time).strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # Sleep for a minute before checking again
+            time.sleep(60)
         
     except Exception as e:
         logger.error(f"Error running payment threshold updater: {e}")

@@ -1,0 +1,17 @@
+  LIVE-Miner-ID          [m 79833d0f git push
+  db                     [m b7165762 [behind 1] new image updateS
+  db-hotfix              [m ff501c6d purge db update:
+* [32mdev                    [m d5b56d25 [ahead 1] Add environment example files for development and production settings
+  develop                [m 467ed8c4 updated ergo prices debuggin
+  django-prototype       [m 426bcf31 [ahead 1] prototype for dash
+  ergo-hack-8            [m f5858a89 pushing code stillWIP
+  hotfix                 [m 5e910c86 pushing hotfix to test
+  main                   [m 7fb26c79 [behind 103] uncommented code
+  miner-id-int           [m 5c701213 Update conf.yaml
+  new-features           [m 0bed7cfe new plot and prototype update
+  refactor               [m 982568b5 finalizing updates
+  scripts-for-block-stats[m 00bf80d5 exceptions
+  serve-hot-fix          [m 7efeae98 Update docker-compose.yaml
+  streamlit-prototype    [m 286df3fa updated estimated reward to pull from each miners share for the given effort
+  user_addr_input        [m 08d033b9 updates
+  vipor-copy-cat         [m a5365b08 [behind 8] Icon updates still wip
