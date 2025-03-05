@@ -182,18 +182,27 @@ class PaymentThresholdUpdater:
             address = miner.get('address')
             if not address:
                 continue
-                
-            # Get current threshold from database
-            current_threshold = self.get_current_threshold(address)
-            if current_threshold is None:
-                logger.warning(f"Miner {address} not found in miner_settings table in the database - they may be new or inactive")
-                continue
             
-            # Get threshold from NFT
+            # First check if the miner has an NFT with threshold information
             nft_threshold = self.get_miner_nft_threshold(address)
             
-            # Only update if they have a valid NFT and the threshold is different
-            if nft_threshold is not None and abs(nft_threshold - current_threshold) > 0.000001:
+            # If they don't have a valid NFT, skip to the next miner
+            if nft_threshold is None:
+                logger.debug(f"No valid NFT found for {address}, skipping")
+                continue
+                
+            # Now get current threshold from database (if it exists)
+            current_threshold = self.get_current_threshold(address)
+            
+            # If miner not in database or threshold is different, update it
+            if current_threshold is None:
+                logger.info(f"Miner {address} not found in database but has valid NFT. Setting threshold to {nft_threshold}")
+                if self.update_miner_threshold(address, nft_threshold):
+                    logger.info(f"Successfully added threshold in miner_settings table for {address}")
+                else:
+                    logger.error(f"Failed to add threshold in miner_settings table for {address}")
+            elif abs(nft_threshold - current_threshold) > 0.000001:
+                # Only update if threshold is different
                 logger.info(f"Updating threshold for {address}: {current_threshold} -> {nft_threshold}")
                 if self.update_miner_threshold(address, nft_threshold):
                     logger.info(f"Successfully updated threshold in miner_settings table for {address}")
