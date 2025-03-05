@@ -179,7 +179,7 @@ def setup_front_page_callbacks(app, api_reader):
             block_data = api_reader.get_block_stats()
             
             data['minimumpayment'] = 0.5
-            data['fee'] = 0.9
+            data['fee'] = 1.0
             data['paid'] = api_reader.get_payment_stats()['total_paid']
             data['payoutscheme'] = 'PPLNS'
             data['blocks'] = len(block_data) if block_data else 0
